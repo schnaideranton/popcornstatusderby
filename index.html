@@ -354,6 +354,24 @@ function defaultDesign(color) {
   };
 }
 
+// Headlight-style catalogue. `quad` = 4 lights (2 per side); rest are 1-2.
+// `viz` builds the on-car mesh; `proj` builds the matching flying projectile.
+const projMatLight = new THREE.MeshBasicMaterial({ color: 0xffffcc });
+const HL = {
+  box:           { quad: false, viz: () => new THREE.BoxGeometry(0.08, 0.17, 0.30), proj: () => new THREE.BoxGeometry(0.18, 0.36, 0.55) },
+  wide:          { quad: false, viz: () => new THREE.BoxGeometry(0.08, 0.09, 0.60), proj: () => new THREE.BoxGeometry(0.18, 0.20, 1.05) },
+  round:         { quad: false, viz: () => new THREE.SphereGeometry(0.14, 12, 8),    proj: () => new THREE.SphereGeometry(0.22, 12, 10) },
+  oval:          { quad: false,
+                   viz:  () => { const g = new THREE.SphereGeometry(0.14, 14, 10); g.scale(0.6, 0.7, 1.7); return g; },
+                   proj: () => { const g = new THREE.SphereGeometry(0.20, 14, 10); g.scale(0.6, 0.8, 2.0); return g; } },
+  split:         { quad: true,  viz: () => new THREE.BoxGeometry(0.08, 0.07, 0.18), proj: () => new THREE.BoxGeometry(0.16, 0.14, 0.32) },
+  'split-round': { quad: true,  viz: () => new THREE.SphereGeometry(0.08, 10, 8),   proj: () => new THREE.SphereGeometry(0.13, 10, 8) },
+  'split-oval':  { quad: true,
+                   viz:  () => { const g = new THREE.SphereGeometry(0.09, 12, 8); g.scale(0.7, 0.7, 1.6); return g; },
+                   proj: () => { const g = new THREE.SphereGeometry(0.13, 12, 8); g.scale(0.7, 0.8, 1.8); return g; } },
+};
+const HL_KEYS = Object.keys(HL);
+
 function rebuildCarVisual(car) {
   const g = car.group;
   while (g.children.length) {
@@ -383,34 +401,24 @@ function rebuildCarVisual(car) {
   cabin.castShadow = true;
   g.add(cabin);
 
-  // Headlights
-  const hlMat = new THREE.MeshBasicMaterial({ color: 0xffffcc });
-  let hlGeomA;
-  if (p.headlightStyle === 'wide')       hlGeomA = new THREE.BoxGeometry(0.08, 0.09, 0.6);
-  else if (p.headlightStyle === 'round') hlGeomA = new THREE.SphereGeometry(0.14, 10, 10);
-  else if (p.headlightStyle === 'split') hlGeomA = new THREE.BoxGeometry(0.08, 0.07, 0.18);
-  else                                   hlGeomA = new THREE.BoxGeometry(0.08, 0.17, 0.3);
-
+  // Headlights — driven by the HL catalogue so projectile shape always matches
+  const hlMat  = new THREE.MeshBasicMaterial({ color: 0xffffcc });
+  const hlDef  = HL[p.headlightStyle] || HL.box;
   const xFront = p.bodyLength / 2 + 0.02;
   const zSide  = p.bodyWidth / 2 - 0.25;
-  if (p.headlightStyle === 'wide') {
-    const hl = new THREE.Mesh(hlGeomA, hlMat);
-    hl.position.set(xFront, p.bodyLift, 0);
+  const placeHL = (x, y, z) => {
+    const hl = new THREE.Mesh(hlDef.viz(), hlMat);
+    hl.position.set(x, y, z);
     g.add(hl);
-  } else if (p.headlightStyle === 'split') {
+  };
+  if (p.headlightStyle === 'wide') {
+    placeHL(xFront, p.bodyLift, 0);
+  } else if (hlDef.quad) {
     [-zSide, zSide].forEach(z => {
-      [-0.12, 0.12].forEach(yo => {
-        const hl = new THREE.Mesh(hlGeomA, hlMat);
-        hl.position.set(xFront, p.bodyLift + yo, z);
-        g.add(hl);
-      });
+      [-0.12, 0.12].forEach(yo => placeHL(xFront, p.bodyLift + yo, z));
     });
   } else {
-    [-zSide, zSide].forEach(z => {
-      const hl = new THREE.Mesh(hlGeomA, hlMat);
-      hl.position.set(xFront, p.bodyLift, z);
-      g.add(hl);
-    });
+    [-zSide, zSide].forEach(z => placeHL(xFront, p.bodyLift, z));
   }
 
   // Tail lights
@@ -476,7 +484,7 @@ const TIERS = [
     bodyW:   [1.45, 1.55],
     wheelScale: 0.78,
     palette: [0x9b8b6f, 0x6e6048, 0x7a6d52, 0x8b5a3c, 0x4a4438, 0xa89a78, 0x5a5040],
-    headlights: ['round'],
+    headlights: ['round', 'oval'],
     accessories: ['none'],
   },
   // 1 — HATCH: small/cheap commuter, single colour, simple lights
@@ -487,7 +495,7 @@ const TIERS = [
     bodyW:   [1.55, 1.65],
     wheelScale: 0.88,
     palette: [0xc0392b, 0x27ae60, 0x2980b9, 0xe67e22, 0xeeeeee, 0x444444, 0xb0a890],
-    headlights: ['box', 'round'],
+    headlights: ['box', 'round', 'oval'],
     accessories: ['none', 'antenna'],
   },
   // 2 — SEDAN: standard, normal proportions
@@ -498,7 +506,7 @@ const TIERS = [
     bodyW:   [1.65, 1.75],
     wheelScale: 1.0,
     palette: [0xe63946, 0x457b9d, 0x2a9d8f, 0xe9c46a, 0xffffff, 0x222222, 0x6c5ce7],
-    headlights: ['box', 'wide'],
+    headlights: ['box', 'wide', 'oval'],
     accessories: ['none', 'antenna', 'spoiler'],
   },
   // 3 — SUV/EXEC: bigger, premium colours, wide lights, optional roof gear
@@ -509,7 +517,7 @@ const TIERS = [
     bodyW:   [1.75, 1.88],
     wheelScale: 1.14,
     palette: [0x1a1a1a, 0xeeeeee, 0x2c3e50, 0x6d4c41, 0x424f4a, 0x0a3d62, 0x3d3d3d],
-    headlights: ['split', 'wide'],
+    headlights: ['split', 'wide', 'split-round', 'oval'],
     accessories: ['roofbox', 'antenna', 'scoop', 'spoiler'],
   },
   // 4 — SUPER: low slammed wedge, vivid, double headlights, big wheels, spoiler
@@ -520,7 +528,7 @@ const TIERS = [
     bodyW:   [1.82, 1.92],
     wheelScale: 1.24,
     palette: [0xffd700, 0xff0033, 0xffffff, 0x000000, 0xff5500, 0x9b59b6, 0xff00ff, 0x00e5ff],
-    headlights: ['split'],
+    headlights: ['split', 'split-round', 'split-oval'],
     accessories: ['spoiler'],
   },
 ];
@@ -961,16 +969,9 @@ const Synth = (() => {
 // ── PROJECTILES ────────────────────────────────────────────────────────────
 const projectiles = [];
 
-// Projectile-mesh templates per headlight style. The flight axis is +X (matches
-// car forward), so the headlight's depth-axis becomes the streak direction.
-const projMatLight = new THREE.MeshBasicMaterial({ color: 0xffffcc });
 function makeProjectileMesh(style) {
-  let geom;
-  if (style === 'wide')        geom = new THREE.BoxGeometry(0.18, 0.20, 1.05);
-  else if (style === 'round')  geom = new THREE.SphereGeometry(0.22, 10, 10);
-  else if (style === 'split')  geom = new THREE.BoxGeometry(0.18, 0.16, 0.34);
-  else                         geom = new THREE.BoxGeometry(0.18, 0.36, 0.55);
-  return new THREE.Mesh(geom, projMatLight);
+  const def = HL[style] || HL.box;
+  return new THREE.Mesh(def.proj(), projMatLight);
 }
 
 // For a given car, return the local-space spawn points of every headlight.
@@ -978,24 +979,23 @@ function makeProjectileMesh(style) {
 // detach from the actual headlight.
 function headlightSpawns(car) {
   const p = car.design;
-  // Must clear the physics chassis (half-extent 1.85) plus the projectile
-  // radius (0.18), so anything ≥ 2.2 is safe. Also stays in front of the
-  // visible bumper for short jalopy bodies.
   const xFront = Math.max(p.bodyLength / 2 + 0.4, 2.4);
   const zSide  = p.bodyWidth / 2 - 0.25;
   const yBody  = p.bodyLift;
+  const style  = p.headlightStyle;
+  const def    = HL[style] || HL.box;
   const out = [];
-  if (p.headlightStyle === 'wide') {
-    out.push({ pos: [xFront, yBody, 0], style: 'wide' });
-  } else if (p.headlightStyle === 'split') {
+  if (style === 'wide') {
+    out.push({ pos: [xFront, yBody, 0], style });
+  } else if (def.quad) {
     for (const z of [-zSide, zSide]) {
       for (const yo of [-0.12, 0.12]) {
-        out.push({ pos: [xFront, yBody + yo, z], style: 'split' });
+        out.push({ pos: [xFront, yBody + yo, z], style });
       }
     }
   } else {
     for (const z of [-zSide, zSide]) {
-      out.push({ pos: [xFront, yBody, z], style: p.headlightStyle });
+      out.push({ pos: [xFront, yBody, z], style });
     }
   }
   return out;
@@ -1019,6 +1019,8 @@ function shoot(car) {
 
     const body = new CANNON.Body({ mass: 3 });
     body.addShape(new CANNON.Sphere(0.18));   // physics: simple sphere collider
+    body.collisionFilterGroup = 2;            // projectile group
+    body.collisionFilterMask  = -1 ^ 2;       // collide with everything EXCEPT other projectiles
     body.position.set(
       car.chassis.position.x + worldOff.x,
       car.chassis.position.y + worldOff.y,
