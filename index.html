@@ -960,6 +960,7 @@ const Synth = (() => {
 
 // ── PROJECTILES ────────────────────────────────────────────────────────────
 const projectiles = [];
+
 // Projectile-mesh templates per headlight style. The flight axis is +X (matches
 // car forward), so the headlight's depth-axis becomes the streak direction.
 const projMatLight = new THREE.MeshBasicMaterial({ color: 0xffffcc });
@@ -977,7 +978,10 @@ function makeProjectileMesh(style) {
 // detach from the actual headlight.
 function headlightSpawns(car) {
   const p = car.design;
-  const xFront = p.bodyLength / 2 + 0.4;          // a hair forward of bumper
+  // Must clear the physics chassis (half-extent 1.85) plus the projectile
+  // radius (0.18), so anything ≥ 2.2 is safe. Also stays in front of the
+  // visible bumper for short jalopy bodies.
+  const xFront = Math.max(p.bodyLength / 2 + 0.4, 2.4);
   const zSide  = p.bodyWidth / 2 - 0.25;
   const yBody  = p.bodyLift;
   const out = [];
@@ -1036,6 +1040,9 @@ function shoot(car) {
     const proj = { body, mesh, life: 3, dead: false, owner: car };
     body.addEventListener('collide', (e) => {
       if (proj.dead) return;
+      // Ignore brushes against the firing car itself (spawn-overlap on short
+      // jalopy bodies, or self-overtake on a long projectile).
+      if (e.body === car.chassis) return;
       let hitCar = false;
       for (const c of allCars) {
         if (e.body === c.chassis && c !== car) {
