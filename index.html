@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>SCHNAIDER RACING</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; overflow: hidden; }
+  canvas { display: block; }
+  #hud {
+    position: fixed; inset: 0; pointer-events: none;
+    font-family: 'Courier New', monospace; color: #fff;
+  }
+  #brand {
+    position: absolute; top: 24px; left: 30px;
+    font-size: 11px; letter-spacing: 6px; opacity: 0.35; text-transform: uppercase;
+  }
+  #speedometer {
+    position: absolute; bottom: 36px; right: 36px; text-align: right;
+  }
+  #spd {
+    font-size: 60px; font-weight: bold; line-height: 1;
+    text-shadow: 0 2px 24px rgba(0,0,0,0.9);
+  }
+  #unit { font-size: 11px; letter-spacing: 3px; opacity: 0.4; margin-top: 2px; }
+  #hint {
+    position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%);
+    font-size: 10px; letter-spacing: 2px; opacity: 0.25; white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div id="brand">SCHNAIDER / ARENA</div>
+  <div id="speedometer">
+    <div id="spd">0</div>
+    <div id="unit">KM/H</div>
+  </div>
+  <div id="hint">W/↑ GAS &nbsp;·&nbsp; A/D STEER &nbsp;·&nbsp; SPACE HANDBRAKE &nbsp;·&nbsp; Q SHOOT &nbsp;·&nbsp; E JUMP &nbsp;·&nbsp; V CAMERA &nbsp;·&nbsp; M MUTE &nbsp;·&nbsp; R RESET</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script type="module">
+import * as CANNON from './cannon-es.js';
+
+// ── RENDERER ───────────────────────────────────────────────────────────────
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+// ── SCENE ──────────────────────────────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x4a6891);
+scene.fog = new THREE.FogExp2(0x4a6891, 0.007);
+
+const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.1, 500);
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ── LIGHTING ───────────────────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
+const sun = new THREE.DirectionalLight(0xfff8e8, 1.1);
+sun.position.set(70, 110, 50);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -150;
+sun.shadow.camera.right = 150;
+sun.shadow.camera.top = 150;
+sun.shadow.camera.bottom = -150;
+sun.shadow.camera.near = 1;
+sun.shadow.camera.far = 350;
+scene.add(sun);
+
+// ── PHYSICS ────────────────────────────────────────────────────────────────
+const world = new CANNON.World();
+world.gravity.set(0, -22, 0);
+world.broadphase = new CANNON.SAPBroadphase(world);
+world.allowSleep = true;
+
+const matGround = new CANNON.Material('ground');
+const matWheel  = new CANNON.Material('wheel');
+const matWall   = new CANNON.Material('wall');
+const matBldg   = new CANNON.Material('bldg');
+
+world.addContactMaterial(new CANNON.ContactMaterial(matWheel, matGround, {
+  friction: 0.4, restitution: 0.1
+}));
+// Bouncy buildings vs perimeter walls — slam back when slid into wall
+world.addContactMaterial(new CANNON.ContactMaterial(matBldg, matWall, {
+  friction: 0.05, restitution: 0.85
+}));
+// Buildings vs each other — slight friction, low bounce
+world.addContactMaterial(new CANNON.ContactMaterial(matBldg, matBldg, {
+  friction: 0.3, restitution: 0.2
+}));
+
+// ── GROUND ─────────────────────────────────────────────────────────────────
+const groundBody = new CANNON.Body({ mass: 0, material: matGround });
+groundBody.addShape(new CANNON.Plane());
+groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+world.addBody(groundBody);
+
+const groundMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(400, 400),
+  new THREE.MeshLambertMaterial({ color: 0x242424 })
+);
+groundMesh.rotation.x = -Math.PI / 2;
+groundMesh.receiveShadow = true;
+scene.add(groundMesh);
+
+// Faint grid
+const grid = new THREE.GridHelper(300, 50, 0x303030, 0x303030);
+grid.position.y = 0.01;
+scene.add(grid);
+
+// ── HELPER: static box ────────────────────────────────────────────────────
+function staticBox(x, y, z, w, h, d, color, mat) {
+  const body = new CANNON.Body({ mass: 0, material: mat || null });
+  body.addShape(new CANNON.Box(new CANNON.Vec3(w / 2, h / 2, d / 2)));
+  body.position.set(x, y, z);
+  world.addBody(body);
+
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, d),
+    new THREE.MeshLambertMaterial({ color: color || 0x556677 })
+  );
+  mesh.position.set(x, y, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  return mesh;
+}
+
+// ── ARENA WALLS ────────────────────────────────────────────────────────────
+const A = 78; // arena half-size (metres)
+const WH = 5; // wall height
+staticBox(  0, WH/2,  A, A*2+4, WH, 4, 0x3a4a5c, matWall);
+staticBox(  0, WH/2, -A, A*2+4, WH, 4, 0x3a4a5c, matWall);
+staticBox(  A, WH/2,  0, 4, WH, A*2+4, 0x3a4a5c, matWall);
+staticBox( -A, WH/2,  0, 4, WH, A*2+4, 0x3a4a5c, matWall);
+
+// ── RAMPS ──────────────────────────────────────────────────────────────────
+// Standalone wedge jumps — no square buildings. 8 of them, varied size + yaw.
+// Slope ratio rise:run kept ≤ 1:4 so cars hold most of their speed going up.
+// Box bottom is sunk slightly into the ground so the leading edge isn't a wall.
+const dynBuildings = []; // kept for the existing sync loop (now empty)
+
+function makeRamp(x, z, run, rise, width, yawDeg, color) {
+  const hyp = Math.sqrt(run * run + rise * rise);
+  const angle = Math.atan2(rise, run);
+  const thick = 0.7;
+  const sink = 0.35; // how far the lower tip is buried in the ground
+
+  // Canonical: long axis +X, surface tilts so +X end goes up.
+  // Local quaternion: tilt around Z by `angle`, then yaw around Y by yawDeg.
+  const tiltQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), angle);
+  const yawQ  = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yawDeg * Math.PI / 180);
+  const q = new THREE.Quaternion().multiplyQuaternions(yawQ, tiltQ);
+
+  // Center the body so the slope's high-end is at world height ~rise
+  const body = new CANNON.Body({ mass: 0, material: matBldg });
+  body.addShape(new CANNON.Box(new CANNON.Vec3(hyp / 2, thick / 2, width / 2)));
+  body.position.set(x, rise / 2 - sink, z);
+  body.quaternion.set(q.x, q.y, q.z, q.w);
+  world.addBody(body);
+
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(hyp, thick, width),
+    new THREE.MeshLambertMaterial({ color })
+  );
+  mesh.position.copy(body.position);
+  mesh.quaternion.copy(body.quaternion);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+}
+
+// 8 ramps — varied dimensions, oriented so launch direction differs each
+// [x,    z,    run, rise, width, yawDeg, color]
+const ramps = [
+  [-50, -45,  22,  4,  10,    0, 0x667788],
+  [ 50,  45,  28,  6,  14,  180, 0x887766],
+  [-50,  45,  18,  3,   8,   90, 0x668877],
+  [ 50, -45,  32,  7,  16,  -90, 0x776688],
+  [   0,  55,  24,  5,  12,    0, 0x556677],
+  [   0, -55,  20,  3,  10,  180, 0x665544],
+  [-25,    0,  16,  3,   8,   45, 0x665577],
+  [ 25,    0,  26,  6,  14, -135, 0x877766],
+];
+ramps.forEach(([x, z, run, rise, w, yaw, c]) => makeRamp(x, z, run, rise, w, yaw, c));
+
+// ── DYNAMIC OBJECTS ────────────────────────────────────────────────────────
+const dynamics = [];
+
+function dynBox(x, z, size, color) {
+  const body = new CANNON.Body({ mass: 6 });
+  body.addShape(new CANNON.Box(new CANNON.Vec3(size/2, size/2, size/2)));
+  body.position.set(x, size/2 + 0.01, z);
+  body.linearDamping = 0.05;
+  body.angularDamping = 0.1;
+  world.addBody(body);
+
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(size, size, size),
+    new THREE.MeshLambertMaterial({ color })
+  );
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  dynamics.push({ body, mesh });
+}
+
+function dynBarrel(x, z) {
+  const body = new CANNON.Body({ mass: 10 });
+  body.addShape(new CANNON.Cylinder(0.44, 0.44, 1.1, 10));
+  body.position.set(x, 0.56, z);
+  body.linearDamping = 0.05;
+  body.angularDamping = 0.1;
+  world.addBody(body);
+
+  const mesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.44, 0.44, 1.1, 10),
+    new THREE.MeshLambertMaterial({ color: 0x993322 })
+  );
+  mesh.castShadow = true;
+  scene.add(mesh);
+  dynamics.push({ body, mesh });
+}
+
+// Box clusters at cardinal + diagonal positions
+const BC = [0xcc7733, 0xddaa55, 0x88aacc, 0xcc9944, 0xaabb88, 0x99aadd];
+const boxSpots = [
+  [38,10],[38,-10],[-38,10],[-38,-10],
+  [10,38],[-10,38],[10,-38],[-10,-38],
+  [48,28],[48,-28],[-48,28],[-48,-28],
+  [28,48],[-28,48],[28,-48],[-28,-48],
+  [38,38],[-38,38],[38,-38],[-38,-38],
+];
+boxSpots.forEach(([x,z], i) => {
+  dynBox(x,       z,       1.15, BC[i % BC.length]);
+  dynBox(x + 0.1, z + 0.1, 1.15, BC[(i+2) % BC.length]);
+  dynBox(x + 0.2, z + 0.2, 1.15, BC[(i+4) % BC.length]);
+});
+
+// Barrel pairs at corners of arena
+[[55,42],[55,-42],[-55,42],[-55,-42],
+ [42,55],[-42,55],[42,-55],[-42,-55]].forEach(([x,z]) => {
+  dynBarrel(x,     z);
+  dynBarrel(x+2.3, z);
+});
+
+// ── CAR FACTORY ────────────────────────────────────────────────────────────
+function darkenHex(hex, f) {
+  const r = Math.floor(((hex >> 16) & 255) * f);
+  const g = Math.floor(((hex >>  8) & 255) * f);
+  const b = Math.floor(( hex        & 255) * f);
+  return (r << 16) | (g << 8) | b;
+}
+
+function defaultDesign(color) {
+  return {
+    bodyColor: color,
+    bodyLength: 3.7, bodyHeight: 0.55, bodyWidth: 1.7,
+    bodyLift: 0.28,
+    cabinOffset: -0.25, cabinLength: 1.85, cabinHeight: 0.56, cabinWidth: 1.5,
+    headlightStyle: 'box',  // 'box' | 'wide' | 'round' | 'split'
+    accessory: 'none',      // 'none' | 'spoiler' | 'antenna' | 'scoop' | 'roofbox'
+  };
+}
+
+function rebuildCarVisual(car) {
+  const g = car.group;
+  while (g.children.length) {
+    const c = g.children[0];
+    g.remove(c);
+    if (c.geometry) c.geometry.dispose();
+  }
+
+  const p = car.design;
+
+  // Body
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(p.bodyLength, p.bodyHeight, p.bodyWidth),
+    new THREE.MeshLambertMaterial({ color: p.bodyColor })
+  );
+  body.position.y = p.bodyLift;
+  body.castShadow = true;
+  g.add(body);
+
+  // Cabin
+  const cabinY = p.bodyLift + p.bodyHeight / 2 + p.cabinHeight / 2;
+  const cabin = new THREE.Mesh(
+    new THREE.BoxGeometry(p.cabinLength, p.cabinHeight, p.cabinWidth),
+    new THREE.MeshLambertMaterial({ color: darkenHex(p.bodyColor, 0.55) })
+  );
+  cabin.position.set(p.cabinOffset, cabinY, 0);
+  cabin.castShadow = true;
+  g.add(cabin);
+
+  // Headlights
+  const hlMat = new THREE.MeshBasicMaterial({ color: 0xffffcc });
+  let hlGeomA;
+  if (p.headlightStyle === 'wide')       hlGeomA = new THREE.BoxGeometry(0.08, 0.09, 0.6);
+  else if (p.headlightStyle === 'round') hlGeomA = new THREE.SphereGeometry(0.14, 10, 10);
+  else if (p.headlightStyle === 'split') hlGeomA = new THREE.BoxGeometry(0.08, 0.07, 0.18);
+  else                                   hlGeomA = new THREE.BoxGeometry(0.08, 0.17, 0.3);
+
+  const xFront = p.bodyLength / 2 + 0.02;
+  const zSide  = p.bodyWidth / 2 - 0.25;
+  if (p.headlightStyle === 'wide') {
+    const hl = new THREE.Mesh(hlGeomA, hlMat);
+    hl.position.set(xFront, p.bodyLift, 0);
+    g.add(hl);
+  } else if (p.headlightStyle === 'split') {
+    [-zSide, zSide].forEach(z => {
+      [-0.12, 0.12].forEach(yo => {
+        const hl = new THREE.Mesh(hlGeomA, hlMat);
+        hl.position.set(xFront, p.bodyLift + yo, z);
+        g.add(hl);
+      });
+    });
+  } else {
+    [-zSide, zSide].forEach(z => {
+      const hl = new THREE.Mesh(hlGeomA, hlMat);
+      hl.position.set(xFront, p.bodyLift, z);
+      g.add(hl);
+    });
+  }
+
+  // Tail lights
+  const tlMat = new THREE.MeshBasicMaterial({ color: 0xff2200 });
+  const tlGeom = new THREE.BoxGeometry(0.08, 0.14, 0.25);
+  [-zSide, zSide].forEach(z => {
+    const tl = new THREE.Mesh(tlGeom, tlMat);
+    tl.position.set(-p.bodyLength / 2 - 0.02, p.bodyLift, z);
+    g.add(tl);
+  });
+
+  // Accessory
+  const roofY = cabinY + p.cabinHeight / 2;
+  if (p.accessory === 'spoiler') {
+    const sp = new THREE.Mesh(
+      new THREE.BoxGeometry(0.45, 0.08, p.bodyWidth - 0.1),
+      new THREE.MeshLambertMaterial({ color: 0x222222 })
+    );
+    sp.position.set(-p.bodyLength / 2 + 0.25, p.bodyLift + p.bodyHeight / 2 + 0.45, 0);
+    g.add(sp);
+    [-0.55, 0.55].forEach(z => {
+      const sup = new THREE.Mesh(
+        new THREE.BoxGeometry(0.06, 0.45, 0.06),
+        new THREE.MeshLambertMaterial({ color: 0x222222 })
+      );
+      sup.position.set(-p.bodyLength / 2 + 0.25, p.bodyLift + p.bodyHeight / 2 + 0.22, z);
+      g.add(sup);
+    });
+  } else if (p.accessory === 'antenna') {
+    const ant = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.025, 0.025, 0.85, 6),
+      new THREE.MeshLambertMaterial({ color: 0x111111 })
+    );
+    ant.position.set(p.cabinOffset - p.cabinLength / 2 + 0.1, roofY + 0.4, p.cabinWidth / 2 - 0.1);
+    g.add(ant);
+  } else if (p.accessory === 'scoop') {
+    const sc = new THREE.Mesh(
+      new THREE.BoxGeometry(0.55, 0.18, 0.55),
+      new THREE.MeshLambertMaterial({ color: 0x222222 })
+    );
+    sc.position.set(p.bodyLength / 2 - 0.85, p.bodyLift + p.bodyHeight / 2 + 0.09, 0);
+    g.add(sc);
+  } else if (p.accessory === 'roofbox') {
+    const rb = new THREE.Mesh(
+      new THREE.BoxGeometry(p.cabinLength * 0.7, 0.25, p.cabinWidth * 0.7),
+      new THREE.MeshLambertMaterial({ color: 0x556677 })
+    );
+    rb.position.set(p.cabinOffset, roofY + 0.13, 0);
+    g.add(rb);
+  }
+}
+
+// ── TIER SYSTEM ────────────────────────────────────────────────────────────
+// 5 tiers, 0=cheapest (rust jalopy) → 4=top (super/luxe).
+// Each tier defines an envelope: silhouette gets richer, wheels grow, lights upgrade.
+// Sibling concept of ~/komp/PROJECTS/Sketches/parametric_car_generator.html
+const TIERS = [
+  // 0 — JALOPY: tiny, dull palette, basic round headlight, no accessory, small wheels
+  {
+    name: 'jalopy',
+    bodyLen: [2.9, 3.3], bodyH: [0.40, 0.48], lift: [0.16, 0.22],
+    cabLen:  [1.4, 1.7], cabH:  [0.38, 0.48], cabOff: [-0.05, 0.10],
+    bodyW:   [1.45, 1.55],
+    wheelScale: 0.78,
+    palette: [0x9b8b6f, 0x6e6048, 0x7a6d52, 0x8b5a3c, 0x4a4438, 0xa89a78, 0x5a5040],
+    headlights: ['round'],
+    accessories: ['none'],
+  },
+  // 1 — HATCH: small/cheap commuter, single colour, simple lights
+  {
+    name: 'hatch',
+    bodyLen: [3.2, 3.6], bodyH: [0.44, 0.52], lift: [0.20, 0.26],
+    cabLen:  [1.6, 1.9], cabH:  [0.46, 0.56], cabOff: [-0.05, 0.15],
+    bodyW:   [1.55, 1.65],
+    wheelScale: 0.88,
+    palette: [0xc0392b, 0x27ae60, 0x2980b9, 0xe67e22, 0xeeeeee, 0x444444, 0xb0a890],
+    headlights: ['box', 'round'],
+    accessories: ['none', 'antenna'],
+  },
+  // 2 — SEDAN: standard, normal proportions
+  {
+    name: 'sedan',
+    bodyLen: [3.6, 4.0], bodyH: [0.48, 0.56], lift: [0.24, 0.30],
+    cabLen:  [1.8, 2.1], cabH:  [0.50, 0.60], cabOff: [-0.18, 0.05],
+    bodyW:   [1.65, 1.75],
+    wheelScale: 1.0,
+    palette: [0xe63946, 0x457b9d, 0x2a9d8f, 0xe9c46a, 0xffffff, 0x222222, 0x6c5ce7],
+    headlights: ['box', 'wide'],
+    accessories: ['none', 'antenna', 'spoiler'],
+  },
+  // 3 — SUV/EXEC: bigger, premium colours, wide lights, optional roof gear
+  {
+    name: 'suv',
+    bodyLen: [3.9, 4.3], bodyH: [0.58, 0.72], lift: [0.34, 0.44],
+    cabLen:  [2.1, 2.4], cabH:  [0.58, 0.74], cabOff: [-0.10, 0.10],
+    bodyW:   [1.75, 1.88],
+    wheelScale: 1.14,
+    palette: [0x1a1a1a, 0xeeeeee, 0x2c3e50, 0x6d4c41, 0x424f4a, 0x0a3d62, 0x3d3d3d],
+    headlights: ['split', 'wide'],
+    accessories: ['roofbox', 'antenna', 'scoop', 'spoiler'],
+  },
+  // 4 — SUPER: low slammed wedge, vivid, double headlights, big wheels, spoiler
+  {
+    name: 'super',
+    bodyLen: [4.0, 4.4], bodyH: [0.30, 0.40], lift: [0.14, 0.20],
+    cabLen:  [1.6, 1.9], cabH:  [0.30, 0.40], cabOff: [-0.20, 0.05],
+    bodyW:   [1.82, 1.92],
+    wheelScale: 1.24,
+    palette: [0xffd700, 0xff0033, 0xffffff, 0x000000, 0xff5500, 0x9b59b6, 0xff00ff, 0x00e5ff],
+    headlights: ['split'],
+    accessories: ['spoiler'],
+  },
+];
+
+function rng(r) { return r[0] + Math.random() * (r[1] - r[0]); }
+
+// car.level — unbounded integer, min 1. Visual archetype plateaus at TIERS[4].
+function applyTier(car, level) {
+  car.level = Math.max(1, level | 0);
+  const visualTier = Math.min(car.level - 1, TIERS.length - 1);
+  const t = TIERS[visualTier];
+  const p = car.design;
+  p.bodyLength   = rng(t.bodyLen);
+  p.bodyHeight   = rng(t.bodyH);
+  p.bodyLift     = rng(t.lift);
+  p.cabinLength  = rng(t.cabLen);
+  p.cabinHeight  = rng(t.cabH);
+  p.cabinOffset  = rng(t.cabOff);
+  p.bodyWidth    = rng(t.bodyW);
+  p.cabinWidth   = p.bodyWidth * (0.85 + Math.random() * 0.1);
+  p.bodyColor      = t.palette[Math.floor(Math.random() * t.palette.length)];
+  p.headlightStyle = t.headlights[Math.floor(Math.random() * t.headlights.length)];
+  p.accessory      = t.accessories[Math.floor(Math.random() * t.accessories.length)];
+  p.wheelScale     = t.wheelScale;
+  rebuildCarVisual(car);
+  if (car.wheels) {
+    const s = p.wheelScale;
+    car.wheels.forEach(w => w.scale.set(s, s, s));
+  }
+}
+
+// Damage: shooter +1 level (unbounded), victim -1 level (floor 1)
+function damage(victim, attacker) {
+  if (victim === attacker) return;
+  applyTier(attacker, attacker.level + 1);
+  if (victim.level <= 1) {
+    // KO — victim is at the bottom; teleport away so it can't be farmed
+    respawnCar(victim);
+    Synth.respawn();
+  } else {
+    applyTier(victim, victim.level - 1);
+  }
+  updateBadges();
+  Synth.mutate();
+}
+
+// ── LEVEL BADGES (white digit, yellow if leader) ──────────────────────────
+function makeBadge() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256; canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.LinearFilter;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: tex, transparent: true, depthTest: false, depthWrite: false,
+  }));
+  sprite.scale.set(2.6, 1.3, 1);  // preserves 2:1 aspect of the canvas
+  sprite.renderOrder = 999;
+  scene.add(sprite);
+  return { canvas, ctx, tex, sprite, key: '' };
+}
+
+function paintBadge(badge, level, isLeader) {
+  const key = level + (isLeader ? 'Y' : 'W');
+  if (badge.key === key) return;
+  badge.key = key;
+  const ctx = badge.ctx;
+  const W = badge.canvas.width, H = badge.canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = isLeader ? '#ffd700' : '#ffffff';
+  ctx.font = 'bold 110px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(0,0,0,0.85)';
+  ctx.shadowBlur = 10;
+  ctx.fillText(String(level), W / 2, H / 2 + 4);
+  ctx.shadowBlur = 0;
+  badge.tex.needsUpdate = true;
+}
+
+function updateBadges() {
+  // Leader = car(s) with the highest level. Their badge is yellow; others white.
+  let maxLevel = -Infinity;
+  for (const c of allCars) if (c.level > maxLevel) maxLevel = c.level;
+  for (const c of allCars) paintBadge(c.badge, c.level, c.level === maxLevel);
+}
+
+function makeCar(px, pz, color) {
+  // Physics chassis
+  const chassis = new CANNON.Body({ mass: 700 });
+  chassis.addShape(new CANNON.Box(new CANNON.Vec3(1.85, 0.32, 0.92)));
+  chassis.position.set(px, 1.4, pz);
+  chassis.linearDamping = 0.05;
+  chassis.angularDamping = 0.6;
+  world.addBody(chassis);
+
+  // Visual group (filled by rebuildCarVisual)
+  const group = new THREE.Group();
+  scene.add(group);
+
+  // RaycastVehicle
+  const vehicle = new CANNON.RaycastVehicle({
+    chassisBody: chassis,
+    indexRightAxis: 2,
+    indexUpAxis: 1,
+    indexForwardAxis: 0,
+  });
+
+  const wBase = {
+    radius: 0.37,
+    directionLocal: new CANNON.Vec3(0, -1, 0),
+    suspensionStiffness: 55,
+    suspensionRestLength: 0.35,
+    frictionSlip: 5.5,
+    dampingRelaxation: 2.3,
+    dampingCompression: 4.4,
+    maxSuspensionForce: 300000,
+    rollInfluence: 0.015,
+    axleLocal: new CANNON.Vec3(0, 0, 1),
+    maxSuspensionTravel: 0.28,
+    customSlidingRotationalSpeed: -30,
+    useCustomSlidingRotationalSpeed: true,
+  };
+
+  // FL, FR, RL, RR
+  [[1.42, 0.92],[1.42, -0.92],[-1.42, 0.92],[-1.42, -0.92]].forEach(([fx, fz]) => {
+    vehicle.addWheel({
+      ...wBase,
+      chassisConnectionPointLocal: new CANNON.Vec3(fx, 0, fz)
+    });
+  });
+
+  vehicle.addToWorld(world);
+
+  // Wheel meshes — tyre + hub disc on each side, grouped so updateWheelTransform spins them
+  const tyreGeom = new THREE.CylinderGeometry(0.37, 0.37, 0.32, 20);
+  tyreGeom.applyMatrix4(new THREE.Matrix4().makeRotationX(Math.PI / 2));
+  const tyreMat = new THREE.MeshLambertMaterial({ color: 0x1a1a1a });
+
+  const hubGeom = new THREE.CircleGeometry(0.22, 16);
+  const hubMat  = new THREE.MeshLambertMaterial({ color: 0xbbbbbb });
+
+  const spokeGeom = new THREE.BoxGeometry(0.5, 0.05, 0.04);
+  const spokeMat  = new THREE.MeshLambertMaterial({ color: 0x888888 });
+
+  const wheels = vehicle.wheelInfos.map(() => {
+    const wg = new THREE.Group();
+    const tyre = new THREE.Mesh(tyreGeom, tyreMat);
+    tyre.castShadow = true;
+    wg.add(tyre);
+
+    // hub on +Z face
+    const hubA = new THREE.Mesh(hubGeom, hubMat);
+    hubA.position.z = 0.165;
+    wg.add(hubA);
+    // hub on -Z face
+    const hubB = new THREE.Mesh(hubGeom, hubMat);
+    hubB.position.z = -0.165;
+    hubB.rotation.y = Math.PI;
+    wg.add(hubB);
+
+    // spoke marker so wheel rotation is visible
+    const spoke = new THREE.Mesh(spokeGeom, spokeMat);
+    spoke.position.z = 0.166;
+    wg.add(spoke);
+
+    scene.add(wg);
+    return wg;
+  });
+
+  const car = { vehicle, chassis, group, wheels, design: defaultDesign(color) };
+  rebuildCarVisual(car);
+  return car;
+}
+
+// ── CARS ───────────────────────────────────────────────────────────────────
+const player = makeCar(0, -32, 0xe63946);
+const aiCars = [
+  makeCar( 5, -32, 0x457b9d),
+  makeCar(-5, -32, 0x2a9d8f),
+  makeCar( 2, -38, 0xe9c46a),
+];
+const allCars = [player, ...aiCars];
+
+// ── AI ─────────────────────────────────────────────────────────────────────
+const aiState = aiCars.map(() => ({
+  steer: 0, stuckTime: 0, lastShot: 0, lastJump: 0, mode: 'chase', modeUntil: 0,
+}));
+
+// Everyone starts at level 1 (jalopy). Levels grow unboundedly via hits.
+allCars.forEach(c => { c.level = 1; c.badge = makeBadge(); });
+allCars.forEach(c => applyTier(c, 1));
+updateBadges();
+
+function respawnCar(car) {
+  // Random spot inside arena, random heading
+  const angle = Math.random() * Math.PI * 2;
+  const r = 30 + Math.random() * 35;
+  const x = Math.max(-A + 8, Math.min(A - 8, Math.cos(angle) * r));
+  const z = Math.max(-A + 8, Math.min(A - 8, Math.sin(angle) * r));
+  car.chassis.position.set(x, 2.5, z);
+  car.chassis.velocity.set(0, 0, 0);
+  car.chassis.angularVelocity.set(0, 0, 0);
+  car.chassis.quaternion.setFromEuler(0, Math.random() * Math.PI * 2, 0);
+  // If car is an AI, clear its stuck timer so it doesn't insta-respawn again
+  const idx = aiCars.indexOf(car);
+  if (idx >= 0) aiState[idx].stuckTime = 0;
+}
+
+function tickAI(car, state, dt, now) {
+  const p = car.chassis.position;
+  const vel = car.chassis.velocity;
+  const spd = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
+
+  // Detect flipped (car's local up no longer points up)
+  const upLocal = new CANNON.Vec3(0, 1, 0);
+  const upWorld = new CANNON.Vec3();
+  car.chassis.quaternion.vmult(upLocal, upWorld);
+  const flipped = upWorld.y < 0.3;
+
+  // Stuck timer: low speed for sustained period, or flipped
+  if (flipped || spd < 1.2) state.stuckTime += dt;
+  else state.stuckTime = 0;
+
+  if (state.stuckTime > 2.2) {
+    respawnCar(car);
+    Synth.respawn();
+    state.stuckTime = 0;
+    state.mode = 'chase';
+    return;
+  }
+
+  // Vector to player
+  const tp = player.chassis.position;
+  const dx = tp.x - p.x;
+  const dz = tp.z - p.z;
+  const dist = Math.max(0.1, Math.sqrt(dx * dx + dz * dz));
+
+  // Mode switching: occasionally back off when too close (avoid pile-up)
+  if (now > state.modeUntil) {
+    if (state.mode === 'chase' && dist < 6 && Math.random() < 0.3) {
+      state.mode = 'reverse';
+      state.modeUntil = now + 700 + Math.random() * 600;
+    } else if (state.mode === 'reverse') {
+      state.mode = 'chase';
+      state.modeUntil = now + 2000 + Math.random() * 2000;
+    } else if (state.mode === 'chase' && Math.random() < 0.05) {
+      // Brief flank — aim slightly off-target
+      state.mode = 'flank';
+      state.flankSign = Math.random() < 0.5 ? 1 : -1;
+      state.modeUntil = now + 1200;
+    } else if (state.mode === 'flank') {
+      state.mode = 'chase';
+      state.modeUntil = now + 1500;
+    }
+  }
+
+  // Aim point depends on mode
+  let aimX = dx, aimZ = dz;
+  if (state.mode === 'flank') {
+    // Aim 8m to the side of player
+    const px = -dz / dist, pz = dx / dist; // perpendicular
+    aimX = dx + px * 8 * state.flankSign;
+    aimZ = dz + pz * 8 * state.flankSign;
+  }
+
+  const aimDist = Math.max(0.1, Math.sqrt(aimX * aimX + aimZ * aimZ));
+  const tx = aimX / aimDist, tz = aimZ / aimDist;
+
+  // Car forward vector
+  const fwdLocal = new CANNON.Vec3(1, 0, 0);
+  const fwd = new CANNON.Vec3();
+  car.chassis.quaternion.vmult(fwdLocal, fwd);
+
+  const cross = fwd.x * tz - fwd.z * tx;
+  const dot   = fwd.x * tx + fwd.z * tz;
+
+  let steerSign = state.mode === 'reverse' ? 1 : -1;
+  let targetSteer = Math.max(-0.5, Math.min(0.5, steerSign * cross * 3));
+  state.steer += (targetSteer - state.steer) * 0.2;
+
+  let force = 4400;
+  if (state.mode === 'reverse') force = -3500;
+  else if (dot < -0.3) force = 1500;  // ease off when facing wrong way
+
+  car.vehicle.applyEngineForce(force, 2);
+  car.vehicle.applyEngineForce(force, 3);
+  car.vehicle.setSteeringValue(state.steer, 0);
+  car.vehicle.setSteeringValue(state.steer, 1);
+  [0, 1, 2, 3].forEach(i => car.vehicle.setBrake(0, i));
+
+  // Shooting: aimed at player + close enough + cooldown
+  if (dist < 38 && dot > 0.65 && state.mode !== 'reverse'
+      && now - state.lastShot > 900 + Math.random() * 700) {
+    shoot(car);
+    state.lastShot = now;
+  }
+
+  // Jumping: random with cooldown when moving forward at speed
+  if (spd > 6 && state.mode === 'chase'
+      && now - state.lastJump > 2200 + Math.random() * 2000) {
+    car.chassis.applyImpulse(new CANNON.Vec3(0, 6800, 0), new CANNON.Vec3(0, 0, 0));
+    Synth.jump();
+    state.lastJump = now;
+  }
+}
+
+// ── SYNTH ──────────────────────────────────────────────────────────────────
+// Tiny Web-Audio synth. Every sound family steps through a fixed pattern of
+// pitches, each with mild random jitter, so repeats become a melody-ish loop.
+const Synth = (() => {
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  const ctx = new Ctx();
+  const master = ctx.createGain();
+  master.gain.value = 0.32;
+  master.connect(ctx.destination);
+
+  let muted = false;
+  function setMute(v) {
+    muted = v;
+    master.gain.setTargetAtTime(v ? 0.0001 : 0.32, ctx.currentTime, 0.05);
+  }
+  function ensureRunning() {
+    if (ctx.state === 'suspended') ctx.resume();
+  }
+
+  // Engine speed level (0..1) — drives the bass sequencer's loudness/cutoff
+  let engineLevel = 0;
+  function setEngine(speed) {
+    engineLevel = Math.min(1, speed / 25);
+  }
+
+  // Generic short envelope blip with lowpass for muffled feel
+  function blip({ freq, dur = 0.12, type = 'sine', cutoff = 800, vel = 0.25, sweep = 0, q = 0.7 }) {
+    if (muted) return;
+    ensureRunning();
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    if (sweep) osc.frequency.linearRampToValueAtTime(sweep, t + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vel, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = cutoff;
+    f.Q.value = q;
+    osc.connect(f).connect(g).connect(master);
+    osc.start(t);
+    osc.stop(t + dur + 0.03);
+  }
+
+  // Patterns — each family advances through its sequence on every call
+  const counters = {};
+  function step(key, arr) {
+    const i = (counters[key] || 0);
+    counters[key] = i + 1;
+    return arr[i % arr.length];
+  }
+  const J = () => 1 + (Math.random() - 0.5) * 0.04; // ±2% jitter
+  const M = (m) => 440 * Math.pow(2, (m - 69) / 12); // MIDI → Hz
+
+  // ── Popcorn — extracted directly from MIDI (Kingsley / Hot Butter, 1972).
+  // Each entry = [dt-from-previous-ms, MIDI-pitch].  Tempo 147 BPM, 8th=204ms.
+  const MEL = [[0,71],[204,69],[204,71],[204,66],[204,62],[204,66],[204,59],[408,71],[204,69],[204,71],[204,66],[204,62],[204,66],[204,59],[408,71],[204,73],[204,74],[204,73],[204,74],[204,71],[204,73],[204,71],[204,73],[204,69],[204,71],[204,69],[204,71],[204,67],[204,71],[408,71],[204,69],[204,71],[204,66],[204,62],[204,66],[204,59],[408,71],[204,69],[204,71],[204,66],[204,62],[204,66],[204,59],[408,71],[204,73],[204,74],[204,73],[204,74],[204,71],[204,73],[204,71],[204,73],[204,69],[204,71],[204,69],[204,71],[204,73],[204,74],[408,66],[204,64],[204,66],[204,62],[204,57],[204,62],[204,54],[408,66],[204,64],[204,66],[204,62],[204,57],[204,62],[204,54],[408,66],[204,68],[204,69],[204,68],[204,69],[204,66],[204,68],[204,66],[204,68],[204,64],[204,66],[204,64],[204,66],[204,62],[204,66],[408,66],[204,64],[204,66],[204,62],[204,57],[204,62],[204,54],[408,66],[204,64],[204,66],[204,62],[204,57],[204,62],[204,54],[408,66],[204,68],[204,69],[204,68],[204,69],[204,66],[204,68],[204,66],[204,68],[204,64],[204,66],[204,64],[204,66],[204,62],[204,66],[408,71],[204,69],[204,71],[204,66],[204,62],[102,66],[204,59],[102,59],[408,71],[204,69],[204,71],[204,66],[204,62],[102,66],[204,59],[510,71],[204,73],[204,74],[204,73],[102,74],[204,74],[102,71],[204,73],[204,71],[102,73],[204,73],[102,69],[204,71],[204,69],[102,71],[204,71],[102,69],[204,71],[408,71],[204,69],[204,71],[204,66],[204,62],[102,66],[204,59],[510,71],[204,69],[204,71],[204,66],[204,62],[102,66],[204,59],[510,71],[204,73],[204,74],[204,73],[102,74],[204,74],[102,71],[204,73],[204,71],[102,73],[204,73],[102,69],[204,71],[204,69],[102,71],[204,71],[102,73],[204,74],[408,66],[204,64],[204,66],[204,62],[204,57],[102,62],[204,54],[510,66],[204,64],[204,66],[204,62],[204,57],[102,62],[204,54],[510,66],[204,68],[204,69],[204,68],[102,69],[204,69],[102,66],[204,68],[204,66],[102,68],[204,68],[102,64],[204,66],[204,64],[102,66],[204,66],[102,62],[204,66],[408,66],[204,64],[204,66],[204,62],[204,57],[102,62],[204,54],[510,66],[204,64],[204,66],[204,62],[204,57],[102,62],[204,54],[510,66],[204,68],[204,69],[204,68],[102,69],[204,69],[102,66],[204,68],[204,66],[102,68],[204,68],[102,64],[204,66]];
+  const BASS = [[0,35],[204,47],[102,42],[102,35],[204,47],[102,42],[102,35],[204,47],[102,42],[102,35],[102,39],[102,40],[102,42],[102,35],[204,47],[102,42],[102,35],[204,47],[102,42],[102,35],[204,47],[102,42],[102,35],[102,39]];
+
+  // Triads from B-minor (the song's key) for chord stabs
+  const CHORDS = [[59,62,66],[64,67,71],[66,69,73],[57,60,64],[62,66,69]].map(c => c.map(M));
+  // Two-note rising chirps for jump
+  const RISE = [[59,66],[62,69],[64,71],[57,64],[59,71]].map(p => p.map(M));
+  // Falling drops for respawn
+  const FALL = [[78,59],[76,57],[74,59],[71,55],[73,59]].map(p => p.map(M));
+
+  // Bass loop — runs continuously, volume gated by engineLevel
+  let bassIdx = 0;
+  function bassTick() {
+    const [, midi] = BASS[bassIdx];
+    if (engineLevel > 0.04 && !muted && ctx.state === 'running') {
+      const f = M(midi);
+      blip({
+        freq: f,
+        dur: 0.16,
+        type: 'sawtooth',
+        cutoff: 280 + engineLevel * 500,
+        vel: 0.06 + engineLevel * 0.18,
+        q: 0.9,
+      });
+    }
+    const nextIdx = (bassIdx + 1) % BASS.length;
+    const dtNext = BASS[nextIdx][0];
+    bassIdx = nextIdx;
+    setTimeout(bassTick, dtNext);
+  }
+  setTimeout(bassTick, 50);  // kick off the loop after init
+
+  let melIdx = 0;
+
+  return {
+    setEngine,
+    setMute,
+    isMuted: () => muted,
+    ensureRunning,
+    // Plays the next melody note in the Popcorn line, returns ms-until-next-note
+    shoot() {
+      const [, midi] = MEL[melIdx];
+      const f = M(midi) * J();
+      blip({ freq: f, dur: 0.09, type: 'square', cutoff: 1300, vel: 0.20, sweep: f * 0.93 });
+      melIdx = (melIdx + 1) % MEL.length;
+      return MEL[melIdx][0];  // dt of the next note
+    },
+    // Sub-bass thump on hit
+    hit() {
+      const f = M(36) * J();
+      blip({ freq: f, dur: 0.22, type: 'sawtooth', cutoff: 260, vel: 0.40, sweep: f * 0.55, q: 1.2 });
+    },
+    jump() {
+      const [a, b] = step('jump', RISE);
+      blip({ freq: a * J(), dur: 0.10, type: 'square', cutoff: 1100, vel: 0.18 });
+      setTimeout(() => blip({ freq: b * J(), dur: 0.14, type: 'square', cutoff: 1200, vel: 0.20 }), 70);
+    },
+    respawn() {
+      const [a, b] = step('respawn', FALL);
+      blip({ freq: a * J(), dur: 0.12, type: 'triangle', cutoff: 900, vel: 0.18 });
+      setTimeout(() => blip({ freq: b * J(), dur: 0.22, type: 'triangle', cutoff: 700, vel: 0.20, sweep: b * 0.7 }), 80);
+    },
+    mutate() {
+      const chord = step('mutate', CHORDS);
+      chord.forEach((f, i) => {
+        setTimeout(() => blip({ freq: f * J(), dur: 0.20, type: 'sine', cutoff: 1500, vel: 0.13 }), i * 38);
+      });
+    },
+  };
+})();
+
+// ── PROJECTILES ────────────────────────────────────────────────────────────
+const projectiles = [];
+const projGeom = new THREE.SphereGeometry(0.2, 12, 12);
+const projMat  = new THREE.MeshBasicMaterial({ color: 0xffaa22 });
+
+function shoot(car) {
+  // Sound only for the player — AI shots are silent so the Popcorn melody stays clean
+  const nextDt = (car === player) ? Synth.shoot() : 0;
+  const fwdLocal = new CANNON.Vec3(1, 0, 0);
+  const fwd = new CANNON.Vec3();
+  car.chassis.quaternion.vmult(fwdLocal, fwd);
+
+  const body = new CANNON.Body({ mass: 4 });
+  body.addShape(new CANNON.Sphere(0.2));
+  body.position.set(
+    car.chassis.position.x + fwd.x * 3.0,
+    car.chassis.position.y + 0.4,
+    car.chassis.position.z + fwd.z * 3.0
+  );
+  body.linearDamping = 0;
+  const baseSpeed = 55;
+  body.velocity.set(
+    car.chassis.velocity.x + fwd.x * baseSpeed,
+    car.chassis.velocity.y + 1.5,
+    car.chassis.velocity.z + fwd.z * baseSpeed
+  );
+  world.addBody(body);
+
+  const mesh = new THREE.Mesh(projGeom, projMat);
+  scene.add(mesh);
+
+  const proj = { body, mesh, life: 4, dead: false, owner: car };
+  body.addEventListener('collide', (e) => {
+    if (proj.dead) return;
+    let hitCar = false;
+    for (const c of allCars) {
+      if (e.body === c.chassis && c !== car) {
+        damage(c, car);
+        hitCar = true;
+        break;
+      }
+    }
+    if (hitCar) Synth.hit();
+    proj.dead = true;
+  });
+  projectiles.push(proj);
+  return nextDt;
+}
+
+function updateProjectiles(dt) {
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const p = projectiles[i];
+    p.life -= dt;
+    if (p.life <= 0 || p.dead) {
+      world.removeBody(p.body);
+      scene.remove(p.mesh);
+      projectiles.splice(i, 1);
+    } else {
+      p.mesh.position.copy(p.body.position);
+    }
+  }
+}
+
+// ── INPUT ──────────────────────────────────────────────────────────────────
+const K = {};
+let camMode = 0;             // 0=chase, 1=side-L, 2=side-R, 3=front
+let nextShotTime = 0;
+let lastJump = 0;
+
+window.addEventListener('keydown', e => {
+  K[e.code] = true;
+  if (e.code === 'KeyR') resetPlayer();
+  if (e.code === 'KeyV') camMode = (camMode + 1) % 4;
+  if (e.code === 'KeyM') Synth.setMute(!Synth.isMuted());
+  Synth.ensureRunning();
+  const block = ['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyQ','KeyE','KeyV','KeyM'];
+  if (block.includes(e.code)) e.preventDefault();
+});
+window.addEventListener('keyup', e => { K[e.code] = false; });
+
+function resetPlayer() {
+  // Manual respawn costs 5 levels (floor 1)
+  applyTier(player, Math.max(1, player.level - 5));
+  respawnCar(player);
+  updateBadges();
+  Synth.respawn();
+}
+
+// ── CAMERA STATE ───────────────────────────────────────────────────────────
+const camPos = new THREE.Vector3(0, 9, -44);
+const camLook = new THREE.Vector3(0, 1, -32);
+
+// ── MAIN LOOP ──────────────────────────────────────────────────────────────
+const MAX_FORCE = 4600;
+const MAX_STEER = 0.47;
+
+let prevTime = performance.now();
+
+function loop() {
+  requestAnimationFrame(loop);
+
+  const now = performance.now();
+  const dt = Math.min((now - prevTime) / 1000, 0.05);
+  prevTime = now;
+
+  // ── Player input ──────────────────────────────────────────────────────
+  const v = player.vehicle;
+  let eng = 0, steer = 0;
+
+  if (K['ArrowUp'] || K['KeyW']) {
+    eng = MAX_FORCE;
+  }
+  if (K['ArrowDown'] || K['KeyS']) {
+    const vel = player.chassis.velocity;
+    const spd = Math.sqrt(vel.x*vel.x + vel.z*vel.z);
+    eng = spd > 0.8 ? -MAX_FORCE * 0.55 : -MAX_FORCE * 0.28;
+  }
+  if (K['ArrowLeft'] || K['KeyA']) steer =  MAX_STEER;
+  if (K['ArrowRight'] || K['KeyD']) steer = -MAX_STEER;
+
+  v.applyEngineForce(eng, 2);
+  v.applyEngineForce(eng, 3);
+  v.setSteeringValue(steer, 0);
+  v.setSteeringValue(steer, 1);
+
+  const hb = K['Space'] ? 85 : 0;
+  v.setBrake(0,  0);
+  v.setBrake(0,  1);
+  v.setBrake(hb, 2);
+  v.setBrake(hb, 3);
+
+  // ── Shoot — fires at the Popcorn melody's tempo (8th=204ms, 16ths=102ms)
+  if (K['KeyQ'] && now >= nextShotTime) {
+    const dt = shoot(player);
+    nextShotTime = now + (dt || 200);
+  }
+
+  // ── Engine sound (track player speed)
+  Synth.setEngine(Math.sqrt(player.chassis.velocity.x ** 2 + player.chassis.velocity.z ** 2));
+
+  // ── Jump ──────────────────────────────────────────────────────────────
+  if (K['KeyE'] && now - lastJump > 1100) {
+    player.chassis.applyImpulse(new CANNON.Vec3(0, 6800, 0), new CANNON.Vec3(0, 0, 0));
+    Synth.jump();
+    lastJump = now;
+  }
+
+  // ── AI ────────────────────────────────────────────────────────────────
+  aiCars.forEach((car, i) => tickAI(car, aiState[i], dt, now));
+
+  // ── Physics step ──────────────────────────────────────────────────────
+  world.step(1 / 60, dt, 3);
+  updateProjectiles(dt);
+
+  // ── Sync visuals ──────────────────────────────────────────────────────
+  for (const car of allCars) {
+    car.group.position.copy(car.chassis.position);
+    car.group.quaternion.copy(car.chassis.quaternion);
+    car.vehicle.wheelInfos.forEach((info, i) => {
+      car.vehicle.updateWheelTransform(i);
+      car.wheels[i].position.copy(info.worldTransform.position);
+      car.wheels[i].quaternion.copy(info.worldTransform.quaternion);
+    });
+    if (car.badge) {
+      car.badge.sprite.position.set(
+        car.chassis.position.x,
+        car.chassis.position.y + 2.6,
+        car.chassis.position.z
+      );
+    }
+  }
+  for (const { body, mesh } of dynamics) {
+    mesh.position.copy(body.position);
+    mesh.quaternion.copy(body.quaternion);
+  }
+  for (const b of dynBuildings) {
+    b.mesh.position.copy(b.body.position);
+    b.mesh.quaternion.copy(b.body.quaternion);
+    b.roof.position.set(b.body.position.x, b.body.position.y + b.roofYLocal, b.body.position.z);
+  }
+
+  // ── Camera (cycles via V) ─────────────────────────────────────────────
+  const cp = player.chassis.position;
+  const cq = player.chassis.quaternion;
+
+  let localOff;
+  if      (camMode === 0) localOff = new CANNON.Vec3(-7.8, 3.4,  0);
+  else if (camMode === 1) localOff = new CANNON.Vec3( 0,   2.6, -7.5);
+  else if (camMode === 2) localOff = new CANNON.Vec3( 0,   2.6,  7.5);
+  else                    localOff = new CANNON.Vec3( 7.5, 2.8,  0);
+
+  const worldOff = new CANNON.Vec3();
+  cq.vmult(localOff, worldOff);
+
+  const lerpK = camMode === 0 ? 0.09 : 0.18;
+  camPos.lerp(
+    new THREE.Vector3(cp.x + worldOff.x, cp.y + worldOff.y, cp.z + worldOff.z),
+    lerpK
+  );
+  camLook.lerp(new THREE.Vector3(cp.x, cp.y + 0.7, cp.z), lerpK + 0.04);
+
+  camera.position.copy(camPos);
+  camera.lookAt(camLook);
+
+  // ── HUD ───────────────────────────────────────────────────────────────
+  const vel = player.chassis.velocity;
+  const kmh = Math.round(Math.sqrt(vel.x*vel.x + vel.y*vel.y + vel.z*vel.z) * 3.6);
+  document.getElementById('spd').textContent = kmh;
+
+  renderer.render(scene, camera);
+}
+
+loop();
+</script>
+</body>
+</html>
