@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>SCHNAIDER RACING</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -27,6 +28,64 @@
     position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%);
     font-size: 10px; letter-spacing: 2px; opacity: 0.25; white-space: nowrap;
   }
+
+  /* ── TOUCH CONTROLS — only shown on coarse pointer / no-hover devices ── */
+  #touch-controls { display: none; pointer-events: none; }
+  .tc-btn {
+    pointer-events: auto;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1.5px solid rgba(255, 255, 255, 0.30);
+    color: rgba(255, 255, 255, 0.85);
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tc-btn.pressed {
+    background: rgba(255, 255, 255, 0.22);
+    border-color: rgba(255, 255, 255, 0.65);
+    color: #fff;
+  }
+  .tc-steer {
+    position: absolute; bottom: 28px; left: 24px;
+    display: flex; gap: 14px;
+  }
+  .tc-steer .tc-btn { width: 76px; height: 76px; border-radius: 50%; font-size: 28px; }
+  .tc-actions {
+    position: absolute; bottom: 28px; right: 24px;
+    display: grid; grid-template-columns: 76px 76px;
+    grid-template-areas: "shoot gas" "jump brake";
+    gap: 12px;
+  }
+  .tc-actions .tc-btn { width: 76px; height: 76px; border-radius: 50%; font-size: 13px; letter-spacing: 1px; }
+  .tc-actions [data-code='KeyW'] { grid-area: gas; background: rgba(60, 220, 120, 0.10); border-color: rgba(60, 220, 120, 0.45); color: rgba(180,255,200,0.9); }
+  .tc-actions [data-code='KeyS'] { grid-area: brake; background: rgba(220, 80, 80, 0.10); border-color: rgba(220, 80, 80, 0.45); color: rgba(255,200,200,0.9); }
+  .tc-actions [data-code='KeyQ'] { grid-area: shoot; }
+  .tc-actions [data-code='KeyE'] { grid-area: jump; }
+  .tc-top {
+    position: absolute; top: 16px; right: 16px;
+    display: flex; gap: 7px;
+  }
+  .tc-top .tc-btn { padding: 0 12px; height: 32px; border-radius: 16px; font-size: 10px; letter-spacing: 1px; }
+
+  @media (hover: none) and (pointer: coarse) {
+    #touch-controls { display: block; }
+    #hint { display: none; }
+    #brand { display: none; }
+    #speedometer { top: 14px; bottom: auto; left: 14px; right: auto; text-align: left; }
+    #spd { font-size: 38px; }
+    #unit { font-size: 9px; }
+  }
+  /* JS-flagged touch fallback (covers preview emulators that don't honour the media query) */
+  body.touch #touch-controls { display: block; }
+  body.touch #hint { display: none; }
+  body.touch #brand { display: none; }
+  body.touch #speedometer { top: 14px; bottom: auto; left: 14px; right: auto; text-align: left; }
+  body.touch #spd { font-size: 38px; }
+  body.touch #unit { font-size: 9px; }
+
 </style>
 </head>
 <body>
@@ -37,6 +96,25 @@
     <div id="unit">KM/H</div>
   </div>
   <div id="hint">W/↑ GAS &nbsp;·&nbsp; A/D STEER &nbsp;·&nbsp; SPACE HANDBRAKE &nbsp;·&nbsp; Q SHOOT &nbsp;·&nbsp; E JUMP &nbsp;·&nbsp; V CAMERA &nbsp;·&nbsp; M MUTE &nbsp;·&nbsp; R RESET</div>
+</div>
+
+<div id="touch-controls">
+  <div class="tc-top">
+    <button class="tc-btn" data-code="KeyV" data-tap>CAM</button>
+    <button class="tc-btn" data-code="Space">HB</button>
+    <button class="tc-btn" data-code="KeyM" data-tap>MUTE</button>
+    <button class="tc-btn" data-code="KeyR" data-tap>RESET</button>
+  </div>
+  <div class="tc-steer">
+    <button class="tc-btn" data-code="KeyA">◀</button>
+    <button class="tc-btn" data-code="KeyD">▶</button>
+  </div>
+  <div class="tc-actions">
+    <button class="tc-btn" data-code="KeyQ">SHOOT</button>
+    <button class="tc-btn" data-code="KeyW">GAS</button>
+    <button class="tc-btn" data-code="KeyE">JUMP</button>
+    <button class="tc-btn" data-code="KeyS">BRAKE</button>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -959,6 +1037,44 @@ window.addEventListener('keydown', e => {
   if (block.includes(e.code)) e.preventDefault();
 });
 window.addEventListener('keyup', e => { K[e.code] = false; });
+
+// Detect touch device — small viewport OR touch-capable. Adds body.touch class.
+if ('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth <= 800) {
+  document.body.classList.add('touch');
+}
+
+// ── TOUCH CONTROLS ─────────────────────────────────────────────────────────
+// Each .tc-btn has data-code matching a keyboard code. Hold-buttons set K[code]
+// while pressed (matches keyboard); tap-buttons fire one-shot logic on press.
+document.querySelectorAll('.tc-btn').forEach(btn => {
+  const code = btn.dataset.code;
+  const isTap = btn.hasAttribute('data-tap');
+  const press = (e) => {
+    e.preventDefault();
+    btn.classList.add('pressed');
+    Synth.ensureRunning();
+    if (isTap) {
+      if (code === 'KeyR') resetPlayer();
+      else if (code === 'KeyV') camMode = (camMode + 1) % 4;
+      else if (code === 'KeyM') Synth.setMute(!Synth.isMuted());
+    } else {
+      K[code] = true;
+    }
+  };
+  const release = (e) => {
+    if (e) e.preventDefault();
+    btn.classList.remove('pressed');
+    if (!isTap) K[code] = false;
+  };
+  btn.addEventListener('touchstart', press, { passive: false });
+  btn.addEventListener('touchend', release, { passive: false });
+  btn.addEventListener('touchcancel', release, { passive: false });
+  btn.addEventListener('mousedown', press);
+  btn.addEventListener('mouseup', release);
+  btn.addEventListener('mouseleave', release);
+  // Block context menu on long-press
+  btn.addEventListener('contextmenu', e => e.preventDefault());
+});
 
 function resetPlayer() {
   // Manual respawn costs 5 levels (floor 1)
