@@ -960,50 +960,95 @@ const Synth = (() => {
 
 // ── PROJECTILES ────────────────────────────────────────────────────────────
 const projectiles = [];
-const projGeom = new THREE.SphereGeometry(0.2, 12, 12);
-const projMat  = new THREE.MeshBasicMaterial({ color: 0xffaa22 });
+// Projectile-mesh templates per headlight style. The flight axis is +X (matches
+// car forward), so the headlight's depth-axis becomes the streak direction.
+const projMatLight = new THREE.MeshBasicMaterial({ color: 0xffffcc });
+function makeProjectileMesh(style) {
+  let geom;
+  if (style === 'wide')        geom = new THREE.BoxGeometry(0.18, 0.20, 1.05);
+  else if (style === 'round')  geom = new THREE.SphereGeometry(0.22, 10, 10);
+  else if (style === 'split')  geom = new THREE.BoxGeometry(0.18, 0.16, 0.34);
+  else                         geom = new THREE.BoxGeometry(0.18, 0.36, 0.55);
+  return new THREE.Mesh(geom, projMatLight);
+}
+
+// For a given car, return the local-space spawn points of every headlight.
+// Position matches what rebuildCarVisual draws so the projectile appears to
+// detach from the actual headlight.
+function headlightSpawns(car) {
+  const p = car.design;
+  const xFront = p.bodyLength / 2 + 0.4;          // a hair forward of bumper
+  const zSide  = p.bodyWidth / 2 - 0.25;
+  const yBody  = p.bodyLift;
+  const out = [];
+  if (p.headlightStyle === 'wide') {
+    out.push({ pos: [xFront, yBody, 0], style: 'wide' });
+  } else if (p.headlightStyle === 'split') {
+    for (const z of [-zSide, zSide]) {
+      for (const yo of [-0.12, 0.12]) {
+        out.push({ pos: [xFront, yBody + yo, z], style: 'split' });
+      }
+    }
+  } else {
+    for (const z of [-zSide, zSide]) {
+      out.push({ pos: [xFront, yBody, z], style: p.headlightStyle });
+    }
+  }
+  return out;
+}
 
 function shoot(car) {
-  // Sound only for the player — AI shots are silent so the Popcorn melody stays clean
+  // One melody note per shot (only audible when the player fires)
   const nextDt = (car === player) ? Synth.shoot() : 0;
+
+  // Forward direction in world space
   const fwdLocal = new CANNON.Vec3(1, 0, 0);
   const fwd = new CANNON.Vec3();
   car.chassis.quaternion.vmult(fwdLocal, fwd);
 
-  const body = new CANNON.Body({ mass: 4 });
-  body.addShape(new CANNON.Sphere(0.2));
-  body.position.set(
-    car.chassis.position.x + fwd.x * 3.0,
-    car.chassis.position.y + 0.4,
-    car.chassis.position.z + fwd.z * 3.0
-  );
-  body.linearDamping = 0;
   const baseSpeed = 55;
-  body.velocity.set(
-    car.chassis.velocity.x + fwd.x * baseSpeed,
-    car.chassis.velocity.y + 1.5,
-    car.chassis.velocity.z + fwd.z * baseSpeed
-  );
-  world.addBody(body);
+  for (const spawn of headlightSpawns(car)) {
+    // Local → world for spawn position
+    const localOff = new CANNON.Vec3(spawn.pos[0], spawn.pos[1], spawn.pos[2]);
+    const worldOff = new CANNON.Vec3();
+    car.chassis.quaternion.vmult(localOff, worldOff);
 
-  const mesh = new THREE.Mesh(projGeom, projMat);
-  scene.add(mesh);
+    const body = new CANNON.Body({ mass: 3 });
+    body.addShape(new CANNON.Sphere(0.18));   // physics: simple sphere collider
+    body.position.set(
+      car.chassis.position.x + worldOff.x,
+      car.chassis.position.y + worldOff.y,
+      car.chassis.position.z + worldOff.z
+    );
+    body.linearDamping = 0;
+    body.velocity.set(
+      car.chassis.velocity.x + fwd.x * baseSpeed,
+      car.chassis.velocity.y + 1.2,
+      car.chassis.velocity.z + fwd.z * baseSpeed
+    );
+    world.addBody(body);
 
-  const proj = { body, mesh, life: 4, dead: false, owner: car };
-  body.addEventListener('collide', (e) => {
-    if (proj.dead) return;
-    let hitCar = false;
-    for (const c of allCars) {
-      if (e.body === c.chassis && c !== car) {
-        damage(c, car);
-        hitCar = true;
-        break;
+    // Visual: a copy of the headlight, oriented with the car at firing time
+    const mesh = makeProjectileMesh(spawn.style);
+    mesh.quaternion.copy(car.chassis.quaternion);
+    scene.add(mesh);
+
+    const proj = { body, mesh, life: 3, dead: false, owner: car };
+    body.addEventListener('collide', (e) => {
+      if (proj.dead) return;
+      let hitCar = false;
+      for (const c of allCars) {
+        if (e.body === c.chassis && c !== car) {
+          damage(c, car);
+          hitCar = true;
+          break;
+        }
       }
-    }
-    if (hitCar) Synth.hit();
-    proj.dead = true;
-  });
-  projectiles.push(proj);
+      if (hitCar) Synth.hit();
+      proj.dead = true;
+    });
+    projectiles.push(proj);
+  }
   return nextDt;
 }
 
@@ -1105,7 +1150,12 @@ function loop() {
   const v = player.vehicle;
   let eng = 0, steer = 0;
 
-  if (K['ArrowUp'] || K['KeyW']) {
+  // On mobile / touch, holding STEER or SHOOT implies GAS so one finger is enough.
+  // Brake (S / ArrowDown) still wins below — it's checked after.
+  const touchAssist = document.body.classList.contains('touch');
+  const wantGas = K['ArrowUp'] || K['KeyW'] ||
+                  (touchAssist && (K['KeyA'] || K['KeyD'] || K['KeyQ']));
+  if (wantGas) {
     eng = MAX_FORCE;
   }
   if (K['ArrowDown'] || K['KeyS']) {
