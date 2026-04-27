@@ -349,8 +349,12 @@ function defaultDesign(color) {
     bodyLength: 3.7, bodyHeight: 0.55, bodyWidth: 1.7,
     bodyLift: 0.28,
     cabinOffset: -0.25, cabinLength: 1.85, cabinHeight: 0.56, cabinWidth: 1.5,
-    headlightStyle: 'box',  // 'box' | 'wide' | 'round' | 'split'
-    accessory: 'none',      // 'none' | 'spoiler' | 'antenna' | 'scoop' | 'roofbox'
+    cabinPosition: 'center', // 'rear' | 'center' | 'front' | 'full'
+    cabinSlopeFront: 0, cabinSlopeRear: 0, cabinSlopeSides: 0,
+    convertible: false,
+    headlightStyle: 'box',
+    accessory: 'none',
+    wheelScale: 1.0,
   };
 }
 
@@ -358,19 +362,64 @@ function defaultDesign(color) {
 // `viz` builds the on-car mesh; `proj` builds the matching flying projectile.
 const projMatLight = new THREE.MeshBasicMaterial({ color: 0xffffcc });
 const HL = {
+  // Single per-side
   box:           { quad: false, viz: () => new THREE.BoxGeometry(0.08, 0.17, 0.30), proj: () => new THREE.BoxGeometry(0.18, 0.36, 0.55) },
-  wide:          { quad: false, viz: () => new THREE.BoxGeometry(0.08, 0.09, 0.60), proj: () => new THREE.BoxGeometry(0.18, 0.20, 1.05) },
+  'box-h':       { quad: false, viz: () => new THREE.BoxGeometry(0.08, 0.10, 0.34), proj: () => new THREE.BoxGeometry(0.18, 0.22, 0.62) },
+  tall:          { quad: false, viz: () => new THREE.BoxGeometry(0.08, 0.32, 0.10), proj: () => new THREE.BoxGeometry(0.18, 0.62, 0.20) },
   round:         { quad: false, viz: () => new THREE.SphereGeometry(0.14, 12, 8),    proj: () => new THREE.SphereGeometry(0.22, 12, 10) },
   oval:          { quad: false,
                    viz:  () => { const g = new THREE.SphereGeometry(0.14, 14, 10); g.scale(0.6, 0.7, 1.7); return g; },
                    proj: () => { const g = new THREE.SphereGeometry(0.20, 14, 10); g.scale(0.6, 0.8, 2.0); return g; } },
+  'pill-v':      { quad: false,
+                   viz:  () => { const g = new THREE.SphereGeometry(0.13, 12, 10); g.scale(0.7, 1.7, 0.7); return g; },
+                   proj: () => { const g = new THREE.SphereGeometry(0.18, 12, 10); g.scale(0.7, 1.8, 0.7); return g; } },
+  // Single, centred (one light total)
+  wide:          { quad: false, viz: () => new THREE.BoxGeometry(0.08, 0.09, 0.60), proj: () => new THREE.BoxGeometry(0.18, 0.20, 1.05) },
+  // Quad (4 lights, 2 per side)
   split:         { quad: true,  viz: () => new THREE.BoxGeometry(0.08, 0.07, 0.18), proj: () => new THREE.BoxGeometry(0.16, 0.14, 0.32) },
+  'split-tall':  { quad: true,  viz: () => new THREE.BoxGeometry(0.08, 0.16, 0.07), proj: () => new THREE.BoxGeometry(0.16, 0.28, 0.14) },
   'split-round': { quad: true,  viz: () => new THREE.SphereGeometry(0.08, 10, 8),   proj: () => new THREE.SphereGeometry(0.13, 10, 8) },
   'split-oval':  { quad: true,
                    viz:  () => { const g = new THREE.SphereGeometry(0.09, 12, 8); g.scale(0.7, 0.7, 1.6); return g; },
                    proj: () => { const g = new THREE.SphereGeometry(0.13, 12, 8); g.scale(0.7, 0.8, 1.8); return g; } },
 };
 const HL_KEYS = Object.keys(HL);
+
+// Tapered-box geometry for cabins. `slope` values 0..baseSize/2 pull each top
+// edge inward toward the centre, so any combination of front/rear/side slopes
+// yields a coherent trapezoidal cabin (or pure box when all slopes = 0).
+function makeTaperedCab(bw, bl, h, slopeFront, slopeRear, slopeLeft, slopeRight) {
+  const bx = bl / 2, bz = bw / 2;
+  const sf = Math.max(0, Math.min(bl * 0.45, slopeFront || 0));
+  const sr = Math.max(0, Math.min(bl * 0.45, slopeRear  || 0));
+  const sl = Math.max(0, Math.min(bz * 0.9,  slopeLeft  || 0));
+  const sR = Math.max(0, Math.min(bz * 0.9,  slopeRight || 0));
+  // Bottom corners
+  const v0 = [-bx, 0, -bz];
+  const v1 = [ bx, 0, -bz];
+  const v2 = [ bx, 0,  bz];
+  const v3 = [-bx, 0,  bz];
+  // Top corners (pulled inward by slope amounts)
+  const v4 = [-bx + sr, h, -bz + sl];
+  const v5 = [ bx - sf, h, -bz + sl];
+  const v6 = [ bx - sf, h,  bz - sR];
+  const v7 = [-bx + sr, h,  bz - sR];
+  // 6 quad faces, each split into 2 tris (CCW from outside)
+  const positions = [];
+  function quad(a, b, c, d) {
+    positions.push(...a, ...b, ...c, ...a, ...c, ...d);
+  }
+  quad(v0, v3, v2, v1);   // bottom (-Y)
+  quad(v4, v5, v6, v7);   // top (+Y)
+  quad(v0, v1, v5, v4);   // -Z side
+  quad(v1, v2, v6, v5);   // +X (front) — sloped if sf > 0
+  quad(v2, v3, v7, v6);   // +Z side
+  quad(v3, v0, v4, v7);   // -X (rear) — sloped if sr > 0
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  g.computeVertexNormals();
+  return g;
+}
 
 function rebuildCarVisual(car) {
   const g = car.group;
@@ -391,15 +440,39 @@ function rebuildCarVisual(car) {
   body.castShadow = true;
   g.add(body);
 
-  // Cabin
-  const cabinY = p.bodyLift + p.bodyHeight / 2 + p.cabinHeight / 2;
-  const cabin = new THREE.Mesh(
-    new THREE.BoxGeometry(p.cabinLength, p.cabinHeight, p.cabinWidth),
-    new THREE.MeshLambertMaterial({ color: darkenHex(p.bodyColor, 0.55) })
-  );
-  cabin.position.set(p.cabinOffset, cabinY, 0);
-  cabin.castShadow = true;
-  g.add(cabin);
+  // Cabin: convertible = just a windshield, otherwise a (possibly tapered) box
+  const cabinBaseY = p.bodyLift + p.bodyHeight / 2;
+  if (p.convertible) {
+    const wsW = p.cabinWidth, wsH = 0.32, wsT = 0.06;
+    const ws = new THREE.Mesh(
+      new THREE.BoxGeometry(wsT, wsH, wsW),
+      new THREE.MeshLambertMaterial({
+        color: 0x88aacc, transparent: true, opacity: 0.55,
+      })
+    );
+    ws.position.set(p.cabinOffset + p.cabinLength * 0.4, cabinBaseY + wsH / 2, 0);
+    ws.rotation.z = -0.3;
+    g.add(ws);
+    // Tiny rollbar/headrest behind the windshield for shape
+    const bar = new THREE.Mesh(
+      new THREE.BoxGeometry(0.18, 0.22, p.cabinWidth * 0.6),
+      new THREE.MeshLambertMaterial({ color: darkenHex(p.bodyColor, 0.45) })
+    );
+    bar.position.set(p.cabinOffset - p.cabinLength * 0.3, cabinBaseY + 0.11, 0);
+    g.add(bar);
+  } else {
+    const cab = new THREE.Mesh(
+      makeTaperedCab(
+        p.cabinWidth, p.cabinLength, p.cabinHeight,
+        p.cabinSlopeFront, p.cabinSlopeRear,
+        p.cabinSlopeSides, p.cabinSlopeSides
+      ),
+      new THREE.MeshLambertMaterial({ color: darkenHex(p.bodyColor, 0.55) })
+    );
+    cab.position.set(p.cabinOffset, cabinBaseY, 0);
+    cab.castShadow = true;
+    g.add(cab);
+  }
 
   // Headlights — driven by the HL catalogue so projectile shape always matches
   const hlMat  = new THREE.MeshBasicMaterial({ color: 0xffffcc });
@@ -431,7 +504,7 @@ function rebuildCarVisual(car) {
   });
 
   // Accessory
-  const roofY = cabinY + p.cabinHeight / 2;
+  const roofY = cabinBaseY + p.cabinHeight;
   if (p.accessory === 'spoiler') {
     const sp = new THREE.Mesh(
       new THREE.BoxGeometry(0.45, 0.08, p.bodyWidth - 0.1),
@@ -471,88 +544,104 @@ function rebuildCarVisual(car) {
   }
 }
 
-// ── TIER SYSTEM ────────────────────────────────────────────────────────────
-// 5 tiers, 0=cheapest (rust jalopy) → 4=top (super/luxe).
-// Each tier defines an envelope: silhouette gets richer, wheels grow, lights upgrade.
-// Sibling concept of ~/komp/PROJECTS/Sketches/parametric_car_generator.html
-const TIERS = [
-  // 0 — JALOPY: tiny, dull palette, basic round headlight, no accessory, small wheels
-  {
-    name: 'jalopy',
-    bodyLen: [2.9, 3.3], bodyH: [0.40, 0.48], lift: [0.16, 0.22],
-    cabLen:  [1.4, 1.7], cabH:  [0.38, 0.48], cabOff: [-0.05, 0.10],
-    bodyW:   [1.45, 1.55],
-    wheelScale: 0.78,
-    palette: [0x9b8b6f, 0x6e6048, 0x7a6d52, 0x8b5a3c, 0x4a4438, 0xa89a78, 0x5a5040],
-    headlights: ['round', 'oval'],
-    accessories: ['none'],
-  },
-  // 1 — HATCH: small/cheap commuter, single colour, simple lights
-  {
-    name: 'hatch',
-    bodyLen: [3.2, 3.6], bodyH: [0.44, 0.52], lift: [0.20, 0.26],
-    cabLen:  [1.6, 1.9], cabH:  [0.46, 0.56], cabOff: [-0.05, 0.15],
-    bodyW:   [1.55, 1.65],
-    wheelScale: 0.88,
-    palette: [0xc0392b, 0x27ae60, 0x2980b9, 0xe67e22, 0xeeeeee, 0x444444, 0xb0a890],
-    headlights: ['box', 'round', 'oval'],
-    accessories: ['none', 'antenna'],
-  },
-  // 2 — SEDAN: standard, normal proportions
-  {
-    name: 'sedan',
-    bodyLen: [3.6, 4.0], bodyH: [0.48, 0.56], lift: [0.24, 0.30],
-    cabLen:  [1.8, 2.1], cabH:  [0.50, 0.60], cabOff: [-0.18, 0.05],
-    bodyW:   [1.65, 1.75],
-    wheelScale: 1.0,
-    palette: [0xe63946, 0x457b9d, 0x2a9d8f, 0xe9c46a, 0xffffff, 0x222222, 0x6c5ce7],
-    headlights: ['box', 'wide', 'oval'],
-    accessories: ['none', 'antenna', 'spoiler'],
-  },
-  // 3 — SUV/EXEC: bigger, premium colours, wide lights, optional roof gear
-  {
-    name: 'suv',
-    bodyLen: [3.9, 4.3], bodyH: [0.58, 0.72], lift: [0.34, 0.44],
-    cabLen:  [2.1, 2.4], cabH:  [0.58, 0.74], cabOff: [-0.10, 0.10],
-    bodyW:   [1.75, 1.88],
-    wheelScale: 1.14,
-    palette: [0x1a1a1a, 0xeeeeee, 0x2c3e50, 0x6d4c41, 0x424f4a, 0x0a3d62, 0x3d3d3d],
-    headlights: ['split', 'wide', 'split-round', 'oval'],
-    accessories: ['roofbox', 'antenna', 'scoop', 'spoiler'],
-  },
-  // 4 — SUPER: low slammed wedge, vivid, double headlights, big wheels, spoiler
-  {
-    name: 'super',
-    bodyLen: [4.0, 4.4], bodyH: [0.30, 0.40], lift: [0.14, 0.20],
-    cabLen:  [1.6, 1.9], cabH:  [0.30, 0.40], cabOff: [-0.20, 0.05],
-    bodyW:   [1.82, 1.92],
-    wheelScale: 1.24,
-    palette: [0xffd700, 0xff0033, 0xffffff, 0x000000, 0xff5500, 0x9b59b6, 0xff00ff, 0x00e5ff],
-    headlights: ['split', 'split-round', 'split-oval'],
-    accessories: ['spoiler'],
-  },
+// ── LEVEL-BASED PARAMETRIC SYSTEM ─────────────────────────────────────────
+// car.level is an unbounded integer (min 1). Each level unlocks visual
+// features and shifts parameter ranges. Inspired by the parametric car
+// generator at ~/komp/PROJECTS/Sketches/parametric_car_generator.html.
+const PALETTES = [
+  // [maxLevel, colours]
+  [4,    [0x9b8b6f, 0x6e6048, 0x7a6d52, 0x8b5a3c, 0x4a4438, 0xa89a78, 0x5a5040]],   // jalopy/dull
+  [12,   [0xc0392b, 0x27ae60, 0x2980b9, 0xe67e22, 0xeeeeee, 0x444444, 0xb0a890]],   // commuter
+  [25,   [0xe63946, 0x457b9d, 0x2a9d8f, 0xe9c46a, 0xffffff, 0x222222, 0x6c5ce7]],   // standard
+  [50,   [0x1a1a1a, 0xeeeeee, 0x2c3e50, 0x6d4c41, 0x424f4a, 0x0a3d62, 0x3d3d3d, 0x8d6e63]],  // exec
+  [100,  [0xffd700, 0xff0033, 0xffffff, 0x000000, 0xff5500, 0x9b59b6, 0xff00ff, 0x00e5ff]],  // super
+  [9999, [0x00fff7, 0xff00ff, 0xffd700, 0xc0c0c0, 0xff66ee, 0xfffeed, 0xfff7d6, 0x80ffaa, 0xff7f50]], // exotic
 ];
 
-function rng(r) { return r[0] + Math.random() * (r[1] - r[0]); }
+function rng(a, b) { return a + Math.random() * (b - a); }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function lerp(a, b, t) { return a + (b - a) * t; }
 
-// car.level — unbounded integer, min 1. Visual archetype plateaus at TIERS[4].
+function unlockedHeadlights(L) {
+  if (L < 3)   return ['round'];
+  if (L < 7)   return ['round', 'oval', 'box'];
+  if (L < 14)  return ['round', 'oval', 'box', 'box-h', 'wide'];
+  if (L < 25)  return ['round', 'oval', 'box', 'box-h', 'wide', 'tall', 'pill-v'];
+  if (L < 45)  return ['round', 'oval', 'box', 'box-h', 'wide', 'tall', 'pill-v', 'split', 'split-round'];
+  if (L < 80)  return ['oval', 'box', 'box-h', 'wide', 'tall', 'pill-v', 'split', 'split-round', 'split-tall', 'split-oval'];
+  return HL_KEYS;
+}
+function unlockedAccessories(L) {
+  if (L < 5)   return ['none'];
+  if (L < 12)  return ['none', 'antenna'];
+  if (L < 25)  return ['none', 'antenna', 'spoiler'];
+  if (L < 45)  return ['none', 'antenna', 'spoiler', 'roofbox', 'scoop'];
+  return ['none', 'antenna', 'spoiler', 'roofbox', 'scoop', 'spoiler'];
+}
+function unlockedCabinPositions(L) {
+  if (L < 8)   return ['rear', 'center'];
+  if (L < 20)  return ['rear', 'center', 'front'];
+  if (L < 35)  return ['rear', 'center', 'front', 'full'];
+  return ['rear', 'center', 'front', 'full', 'rear', 'center']; // weighted toward rear/center at high levels
+}
+function pickPalette(L) {
+  return PALETTES.find(p => L <= p[0])[1];
+}
+
 function applyTier(car, level) {
   car.level = Math.max(1, level | 0);
-  const visualTier = Math.min(car.level - 1, TIERS.length - 1);
-  const t = TIERS[visualTier];
+  const L = car.level;
+  const t = Math.min(1, (L - 1) / 50);   // 0..1, saturates at level 51
   const p = car.design;
-  p.bodyLength   = rng(t.bodyLen);
-  p.bodyHeight   = rng(t.bodyH);
-  p.bodyLift     = rng(t.lift);
-  p.cabinLength  = rng(t.cabLen);
-  p.cabinHeight  = rng(t.cabH);
-  p.cabinOffset  = rng(t.cabOff);
-  p.bodyWidth    = rng(t.bodyW);
-  p.cabinWidth   = p.bodyWidth * (0.85 + Math.random() * 0.1);
-  p.bodyColor      = t.palette[Math.floor(Math.random() * t.palette.length)];
-  p.headlightStyle = t.headlights[Math.floor(Math.random() * t.headlights.length)];
-  p.accessory      = t.accessories[Math.floor(Math.random() * t.accessories.length)];
-  p.wheelScale     = t.wheelScale;
+
+  // Body proportions — get longer / lower / wider with level, plus some jitter
+  p.bodyLength = lerp(2.9, 4.5, t)  + rng(-0.2, 0.2);
+  p.bodyWidth  = lerp(1.50, 1.95, t) + rng(-0.05, 0.05);
+  p.bodyHeight = lerp(0.46, 0.32, t) + rng(-0.06, 0.06);
+  p.bodyLift   = lerp(0.22, 0.18, t) + rng(-0.03, 0.05);
+
+  // Cabin position decides offset & length envelope
+  p.cabinPosition = pick(unlockedCabinPositions(L));
+  switch (p.cabinPosition) {
+    case 'rear':
+      p.cabinOffset = -p.bodyLength * 0.18 + rng(-0.05, 0.05);
+      p.cabinLength = p.bodyLength * 0.38 + rng(0, 0.15);
+      break;
+    case 'center':
+      p.cabinOffset = rng(-0.10, 0.05);
+      p.cabinLength = p.bodyLength * 0.50 + rng(0, 0.15);
+      break;
+    case 'front':
+      p.cabinOffset = p.bodyLength * 0.16 + rng(-0.05, 0.05);
+      p.cabinLength = p.bodyLength * 0.38 + rng(0, 0.10);
+      break;
+    case 'full':
+      p.cabinOffset = rng(-0.05, 0.05);
+      p.cabinLength = p.bodyLength * 0.78;
+      break;
+  }
+  p.cabinWidth = p.bodyWidth * (0.85 + Math.random() * 0.10);
+  p.cabinHeight = p.cabinPosition === 'full'
+    ? lerp(0.55, 0.85, t)
+    : lerp(0.42, 0.58, t) + rng(-0.05, 0.10);
+
+  // Cabin roof slopes — start unlocking around L=12, grow with level
+  const slopeMax = Math.min(0.45, Math.max(0, (L - 12) / 60));
+  p.cabinSlopeFront = (Math.random() < 0.55) ? Math.random() * slopeMax * p.cabinLength : 0;
+  p.cabinSlopeRear  = (Math.random() < 0.45) ? Math.random() * slopeMax * p.cabinLength : 0;
+  p.cabinSlopeSides = (Math.random() < 0.35) ? Math.random() * slopeMax * p.cabinWidth * 0.4 : 0;
+
+  // Convertible (top off) — unlocks at L=30, low odds, climbs slowly
+  p.convertible = L >= 30 && Math.random() < Math.min(0.22, (L - 30) / 250);
+
+  // Wheel scale (visual only — physics radius stays at 0.37)
+  p.wheelScale = lerp(0.78, 1.30, t) + rng(-0.04, 0.04);
+
+  // Style + colour
+  p.bodyColor      = pick(pickPalette(L));
+  p.headlightStyle = pick(unlockedHeadlights(L));
+  p.accessory      = pick(unlockedAccessories(L));
+
   rebuildCarVisual(car);
   if (car.wheels) {
     const s = p.wheelScale;
@@ -668,11 +757,10 @@ function makeCar(px, pz, color) {
   tyreGeom.applyMatrix4(new THREE.Matrix4().makeRotationX(Math.PI / 2));
   const tyreMat = new THREE.MeshLambertMaterial({ color: 0x1a1a1a });
 
-  const hubGeom = new THREE.CircleGeometry(0.22, 16);
+  const hubGeom = new THREE.CircleGeometry(0.22, 18);
   const hubMat  = new THREE.MeshLambertMaterial({ color: 0xbbbbbb });
-
-  const spokeGeom = new THREE.BoxGeometry(0.5, 0.05, 0.04);
-  const spokeMat  = new THREE.MeshLambertMaterial({ color: 0x888888 });
+  const innerHubGeom = new THREE.CircleGeometry(0.10, 14);
+  const innerHubMat  = new THREE.MeshLambertMaterial({ color: 0x444444 });
 
   const wheels = vehicle.wheelInfos.map(() => {
     const wg = new THREE.Group();
@@ -680,20 +768,16 @@ function makeCar(px, pz, color) {
     tyre.castShadow = true;
     wg.add(tyre);
 
-    // hub on +Z face
-    const hubA = new THREE.Mesh(hubGeom, hubMat);
-    hubA.position.z = 0.165;
-    wg.add(hubA);
-    // hub on -Z face
-    const hubB = new THREE.Mesh(hubGeom, hubMat);
-    hubB.position.z = -0.165;
-    hubB.rotation.y = Math.PI;
-    wg.add(hubB);
-
-    // spoke marker so wheel rotation is visible
-    const spoke = new THREE.Mesh(spokeGeom, spokeMat);
-    spoke.position.z = 0.166;
-    wg.add(spoke);
+    [0.165, -0.165].forEach((z, i) => {
+      const hub = new THREE.Mesh(hubGeom, hubMat);
+      hub.position.z = z;
+      if (i === 1) hub.rotation.y = Math.PI;
+      wg.add(hub);
+      const inner = new THREE.Mesh(innerHubGeom, innerHubMat);
+      inner.position.z = z + (i === 0 ? 0.001 : -0.001);
+      if (i === 1) inner.rotation.y = Math.PI;
+      wg.add(inner);
+    });
 
     scene.add(wg);
     return wg;
