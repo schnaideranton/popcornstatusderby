@@ -385,36 +385,34 @@ const HL = {
 };
 const HL_KEYS = Object.keys(HL);
 
-// Tapered-box geometry for cabins. `slope` values 0..baseSize/2 pull each top
-// edge inward toward the centre, so any combination of front/rear/side slopes
-// yields a coherent trapezoidal cabin (or pure box when all slopes = 0).
+// Tapered-box geometry for cabins. `slope` values pull each top edge inward,
+// so any combination of front/rear/side slopes yields a coherent trapezoidal
+// cabin (pure box when all slopes = 0). Face windings are CCW viewed from
+// outside so Three.js back-face culling renders the cabin correctly.
 function makeTaperedCab(bw, bl, h, slopeFront, slopeRear, slopeLeft, slopeRight) {
   const bx = bl / 2, bz = bw / 2;
   const sf = Math.max(0, Math.min(bl * 0.45, slopeFront || 0));
   const sr = Math.max(0, Math.min(bl * 0.45, slopeRear  || 0));
   const sl = Math.max(0, Math.min(bz * 0.9,  slopeLeft  || 0));
   const sR = Math.max(0, Math.min(bz * 0.9,  slopeRight || 0));
-  // Bottom corners
-  const v0 = [-bx, 0, -bz];
-  const v1 = [ bx, 0, -bz];
-  const v2 = [ bx, 0,  bz];
-  const v3 = [-bx, 0,  bz];
-  // Top corners (pulled inward by slope amounts)
-  const v4 = [-bx + sr, h, -bz + sl];
-  const v5 = [ bx - sf, h, -bz + sl];
-  const v6 = [ bx - sf, h,  bz - sR];
-  const v7 = [-bx + sr, h,  bz - sR];
-  // 6 quad faces, each split into 2 tris (CCW from outside)
+  // Bottom corners (y=0)        Top corners (y=h, pulled inward by slopes)
+  const v0 = [-bx, 0, -bz];      const v4 = [-bx + sr, h, -bz + sl];
+  const v1 = [ bx, 0, -bz];      const v5 = [ bx - sf, h, -bz + sl];
+  const v2 = [ bx, 0,  bz];      const v6 = [ bx - sf, h,  bz - sR];
+  const v3 = [-bx, 0,  bz];      const v7 = [-bx + sr, h,  bz - sR];
+
   const positions = [];
   function quad(a, b, c, d) {
     positions.push(...a, ...b, ...c, ...a, ...c, ...d);
   }
-  quad(v0, v3, v2, v1);   // bottom (-Y)
-  quad(v4, v5, v6, v7);   // top (+Y)
-  quad(v0, v1, v5, v4);   // -Z side
-  quad(v1, v2, v6, v5);   // +X (front) — sloped if sf > 0
-  quad(v2, v3, v7, v6);   // +Z side
-  quad(v3, v0, v4, v7);   // -X (rear) — sloped if sr > 0
+  // Outward normals via right-hand rule on first three vertices
+  quad(v0, v1, v2, v3);   // bottom  (-Y)
+  quad(v4, v7, v6, v5);   // top     (+Y)
+  quad(v0, v4, v5, v1);   // -Z side
+  quad(v1, v5, v6, v2);   // +X (front, sloped if sf > 0)
+  quad(v2, v6, v7, v3);   // +Z side
+  quad(v3, v7, v4, v0);   // -X (rear, sloped if sr > 0)
+
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   g.computeVertexNormals();
@@ -635,7 +633,14 @@ function applyTier(car, level) {
   // Wheel scale (visual only — physics radius stays at 0.37)
   p.wheelScale = lerp(0.78, 1.30, t) + rng(-0.04, 0.04);
 
-  // Style — colour is sticky (set once at car creation, kept across upgrades)
+  // Colour — full RGB-pipette chaos. 30% pure random, 70% from any curated
+  // palette tier so dull/normal/neon all coexist regardless of level.
+  if (Math.random() < 0.30) {
+    p.bodyColor = Math.floor(Math.random() * 0xffffff);
+  } else {
+    const pool = PALETTES.flatMap(p => p[1]);
+    p.bodyColor = pool[Math.floor(Math.random() * pool.length)];
+  }
   p.headlightStyle = pick(unlockedHeadlights(L));
   p.accessory      = pick(unlockedAccessories(L));
 
