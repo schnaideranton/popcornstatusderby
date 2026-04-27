@@ -223,7 +223,7 @@ scene.add(sun);
 
 // ── PHYSICS ────────────────────────────────────────────────────────────────
 const world = new CANNON.World();
-world.gravity.set(0, -16, 0);  // arcade-y — gentler so cars climb hills easily
+world.gravity.set(0, -18, 0);
 world.broadphase = new CANNON.SAPBroadphase(world);
 world.allowSleep = true;
 
@@ -300,14 +300,23 @@ const dynBuildings = []; // kept for the existing sync loop (now empty)
 // with different top/bottom radii) approximating the curve, because cannon-es
 // Trimesh + RaycastVehicle wheels don't collide reliably.
 const HILL_COLOR = 0x303030;
-// Hill data — no physics body. Cars ride hills via a visual lift in the
-// render loop (hillHeightAt). Driving feel = flat ground, no friction loss
-// or stalling on edges. Pure arcade.
-const HILLS = []; // { x, z, sigma, peakH }
-
+// Hills = huge half-buried spheres. Physics body really exists, but radius
+// is so large that the visible cap has a gentle slope (~22-25°). Cars
+// climb a bit slower than on the plane, but they don't grind to a stop.
+// At speed: jump off the peak; slow: roll back down. Real physics, arcade
+// feel because the geometry itself is forgiving.
 function makeHill(x, z, sigma, peakH) {
-  HILLS.push({ x, z, sigma, peakH });
-  // Visual only — Gaussian lathe.
+  // Sphere physics: peak height H, radius R chosen so base slope ~24°
+  const R       = peakH * 12;       // sphere radius
+  const burial  = R - peakH;        // how deep the centre sits below ground
+  const body = new CANNON.Body({ mass: 0, material: matBldg });
+  body.addShape(new CANNON.Sphere(R));
+  body.position.set(x, -burial, z);
+  world.addBody(body);
+
+  // Visual stays the smooth Gaussian lathe (it matches the sphere closely
+  // enough near the centre; outer fringe slightly oversells the slope but
+  // that just looks like the hill blends into the floor).
   const profile = [];
   const profSegs = 26;
   const totalR   = sigma * 3.2;
@@ -327,31 +336,23 @@ function makeHill(x, z, sigma, peakH) {
   scene.add(mesh);
 }
 
-// Returns the maximum hill height at world XZ (sum of nearest hill peaks)
-function hillHeightAt(x, z) {
-  let h = 0;
-  for (const hl of HILLS) {
-    const dx = x - hl.x, dz = z - hl.z;
-    const r2 = dx * dx + dz * dz;
-    const sig2 = hl.sigma * hl.sigma;
-    const hh = hl.peakH * Math.exp(-r2 / (2 * sig2));
-    if (hh > h) h = hh;
-  }
-  return h;
-}
+// Stub kept for camera + sync — returns 0 since hills now have real physics.
+function hillHeightAt() { return 0; }
 
 // 8 hills — same colour as ground (let the cars be the only colour).
 // Heights ×3 vs the previous spec for proper mounds.
 // [x,    z,    sigma, peakH]
+// Bigger spheres need more room — keep peaks modest (R = peak*12 base width
+// ≈ peak*9, so a 3m hill is ~27m wide).
 const hills = [
-  [-50, -45,  4.5, 4.8],
-  [ 50,  45,  6.5, 7.5],
-  [-50,  45,  3.0, 3.0],
-  [ 50, -45,  7.0, 9.0],
-  [   0,  55,  5.0, 6.6],
-  [   0, -55,  3.5, 4.2],
-  [-25,    0,  3.0, 3.3],
-  [ 25,    0,  5.0, 5.4],
+  [-55, -50,  4.0, 2.4],
+  [ 55,  50,  5.0, 3.2],
+  [-55,  50,  3.0, 1.8],
+  [ 55, -50,  5.5, 3.5],
+  [   0,  60,  4.0, 2.6],
+  [   0, -60,  3.0, 2.0],
+  [-30,    0,  3.0, 1.6],
+  [ 30,    0,  3.5, 2.2],
 ];
 hills.forEach(([x, z, sig, h]) => makeHill(x, z, sig, h));
 
@@ -788,12 +789,12 @@ function updateBadges() {
 }
 
 function makeCar(px, pz, color) {
-  // Physics chassis — lighter so engine torque feels punchy on hills
-  const chassis = new CANNON.Body({ mass: 500 });
+  // Physics chassis
+  const chassis = new CANNON.Body({ mass: 650 });
   chassis.addShape(new CANNON.Box(new CANNON.Vec3(1.85, 0.32, 0.92)));
   chassis.position.set(px, 1.4, pz);
   chassis.linearDamping = 0.05;
-  chassis.angularDamping = 0.7;
+  chassis.angularDamping = 0.6;
   world.addBody(chassis);
 
   // Visual group (filled by rebuildCarVisual)
@@ -808,19 +809,19 @@ function makeCar(px, pz, color) {
     indexForwardAxis: 0,
   });
 
-  // Soft suspension + long travel = visible spring on landings, no stalling
+  // Friction high so steering bites; suspension soft+long for visible bounce
   const wBase = {
     radius: 0.37,
     directionLocal: new CANNON.Vec3(0, -1, 0),
-    suspensionStiffness: 38,
-    suspensionRestLength: 0.42,
-    frictionSlip: 3.8,
-    dampingRelaxation: 1.8,
-    dampingCompression: 3.0,
-    maxSuspensionForce: 200000,
+    suspensionStiffness: 42,
+    suspensionRestLength: 0.40,
+    frictionSlip: 5.5,
+    dampingRelaxation: 2.0,
+    dampingCompression: 3.4,
+    maxSuspensionForce: 220000,
     rollInfluence: 0.02,
     axleLocal: new CANNON.Vec3(0, 0, 1),
-    maxSuspensionTravel: 0.55,
+    maxSuspensionTravel: 0.50,
     customSlidingRotationalSpeed: -30,
     useCustomSlidingRotationalSpeed: true,
   };
@@ -1381,7 +1382,7 @@ const camPos = new THREE.Vector3(0, 9, -44);
 const camLook = new THREE.Vector3(0, 1, -32);
 
 // ── MAIN LOOP ──────────────────────────────────────────────────────────────
-const MAX_FORCE = 9500;  // boosted so cars hold speed up hills (arcade feel)
+const MAX_FORCE = 6500;
 const MAX_STEER = 0.47;
 
 let prevTime = performance.now();
