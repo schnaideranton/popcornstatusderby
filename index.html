@@ -199,6 +199,9 @@ scene.background = new THREE.Color(0x4a6891);
 scene.fog = new THREE.FogExp2(0x4a6891, 0.007);
 
 const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.1, 500);
+// Mini camera — 3/4 profile of the player car, drawn in the top-right HUD
+// during birds-eye mode so you can still see what your car looks like.
+const miniCam = new THREE.PerspectiveCamera(34, 1, 0.1, 60);
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -306,8 +309,10 @@ const HILL_COLOR = 0x303030;
 // At speed: jump off the peak; slow: roll back down. Real physics, arcade
 // feel because the geometry itself is forgiving.
 function makeHill(x, z, sigma, peakH) {
-  // Sphere physics: peak height H, radius R chosen so base slope ~24°
-  const R       = peakH * 12;       // sphere radius
+  // Sphere physics: huge radius so visible cap is shallow (~13° at base).
+  // Cars cross the hill ~80% of flat speed, fast enough to launch off the
+  // far side instead of grinding to a stop.
+  const R       = peakH * 22;       // sphere radius
   const burial  = R - peakH;        // how deep the centre sits below ground
   const body = new CANNON.Body({ mass: 0, material: matBldg });
   body.addShape(new CANNON.Sphere(R));
@@ -360,7 +365,7 @@ hills.forEach(([x, z, sig, h]) => makeHill(x, z, sig, h));
 const dynamics = [];
 
 function dynBox(x, z, size, color) {
-  const body = new CANNON.Body({ mass: 6 });
+  const body = new CANNON.Body({ mass: 1.5 });   // very light — drift décor, not obstacle
   body.addShape(new CANNON.Box(new CANNON.Vec3(size/2, size/2, size/2)));
   body.position.set(x, size/2 + 0.01, z);
   body.linearDamping = 0.05;
@@ -378,7 +383,7 @@ function dynBox(x, z, size, color) {
 }
 
 function dynBarrel(x, z) {
-  const body = new CANNON.Body({ mass: 10 });
+  const body = new CANNON.Body({ mass: 2.5 });   // light — bounces off cars like the boxes
   body.addShape(new CANNON.Cylinder(0.44, 0.44, 1.1, 10));
   body.position.set(x, 0.56, z);
   body.linearDamping = 0.05;
@@ -1382,7 +1387,7 @@ const camPos = new THREE.Vector3(0, 9, -44);
 const camLook = new THREE.Vector3(0, 1, -32);
 
 // ── MAIN LOOP ──────────────────────────────────────────────────────────────
-const MAX_FORCE = 6500;
+const MAX_FORCE = 8500;
 const MAX_STEER = 0.47;
 
 let prevTime = performance.now();
@@ -1505,6 +1510,25 @@ function loop() {
 
   // ── Engine sound (track player speed)
   Synth.setEngine(Math.sqrt(player.chassis.velocity.x ** 2 + player.chassis.velocity.z ** 2));
+
+  // ── Mid-air auto-leveling — when no wheel is in contact, gently torque
+  // the chassis upright so the car comes down on all four wheels.
+  {
+    const inAir = !player.vehicle.wheelInfos.some(w => w.isInContact);
+    if (inAir) {
+      const upL = new CANNON.Vec3(0, 1, 0);
+      const upW = new CANNON.Vec3();
+      player.chassis.quaternion.vmult(upL, upW);
+      const target = new CANNON.Vec3(0, 1, 0);
+      const axis = new CANNON.Vec3();
+      upW.cross(target, axis);
+      const k = 110;
+      player.chassis.applyTorque(new CANNON.Vec3(axis.x * k, axis.y * k, axis.z * k));
+      // Bleed angular spin so it doesn't tumble
+      const av = player.chassis.angularVelocity;
+      av.x *= 0.94; av.y *= 0.94; av.z *= 0.94;
+    }
+  }
 
   // ── Jump / flip-righting ──────────────────────────────────────────────
   // Detect orientation each frame; if the car is on its side / roof, JUMP
@@ -1635,6 +1659,33 @@ function loop() {
   document.getElementById('spd').textContent = kmh;
 
   renderer.render(scene, camera);
+
+  // ── Mini player view — 3/4 profile in the top-right corner during
+  // birds-eye top-down so the player can see what their car looks like.
+  if (camMode === 5) {
+    const cp2 = player.chassis.position;
+    miniCam.position.set(cp2.x - 4.0, cp2.y + 2.6, cp2.z + 4.5);
+    miniCam.lookAt(cp2.x, cp2.y + 0.4, cp2.z);
+
+    const dpr = renderer.getPixelRatio();
+    const W = renderer.domElement.width;
+    const H = renderer.domElement.height;
+    const sizeCss = Math.min(180, Math.floor(Math.min(window.innerWidth, window.innerHeight) / 4));
+    const size = Math.floor(sizeCss * dpr);
+    const margin = Math.floor(14 * dpr);
+    const x = W - size - margin;
+    const y = H - size - margin;
+
+    renderer.autoClear = false;
+    renderer.setScissorTest(true);
+    renderer.setViewport(x, y, size, size);
+    renderer.setScissor(x, y, size, size);
+    renderer.clearDepth();
+    renderer.render(scene, miniCam);
+    renderer.setScissorTest(false);
+    renderer.autoClear = true;
+    renderer.setViewport(0, 0, W, H);
+  }
 }
 
 loop();
