@@ -48,22 +48,79 @@
     border-color: rgba(255, 255, 255, 0.65);
     color: #fff;
   }
-  .tc-steer {
-    position: absolute; bottom: 28px; left: 24px;
-    display: flex; gap: 14px;
+  /* Steer pad: a horizontal slider track (bottom) + drift zone (top half).
+     Slide finger left/right for analog steering. Slide UP into drift zone
+     while still steering to engage handbrake (drift in current direction). */
+  .tc-steer-pad {
+    position: absolute; bottom: 24px; left: 16px;
+    width: 180px; height: 144px;
+    pointer-events: auto;
+    user-select: none; -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
   }
-  .tc-steer .tc-btn { width: 76px; height: 76px; border-radius: 50%; font-size: 28px; }
+  .tc-drift-zone {
+    position: absolute; top: 0; left: 0; right: 0; height: 60px;
+    border: 1.5px dashed rgba(255, 180, 80, 0.45);
+    border-radius: 14px;
+    background: rgba(255, 180, 80, 0.04);
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255, 200, 100, 0.55);
+    font-size: 10px; letter-spacing: 4px; font-weight: bold;
+    font-family: 'Courier New', monospace;
+  }
+  .tc-drift-zone.pressed {
+    background: rgba(255, 180, 80, 0.18);
+    border-color: rgba(255, 200, 100, 0.85);
+    color: rgba(255, 220, 150, 0.95);
+  }
+  .tc-steer-track {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 76px;
+    border: 1.5px solid rgba(255, 255, 255, 0.30);
+    border-radius: 38px;
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  }
+  .tc-steer-knob {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.18);
+    border: 2px solid rgba(255, 255, 255, 0.55);
+    color: rgba(255, 255, 255, 0.7);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Courier New', monospace; font-size: 22px; font-weight: bold;
+    pointer-events: none;
+    transition: background 0.05s linear, border-color 0.05s linear;
+  }
+  .tc-steer-knob.pressed {
+    background: rgba(255, 255, 255, 0.30);
+    border-color: rgba(255, 255, 255, 0.85);
+  }
+
+  /* Right-hand action stack: GAS (circle) on top → SHOOT (oval) directly
+     beneath as one ergonomic thumb-track; JUMP/BRAKE on the left column. */
   .tc-actions {
-    position: absolute; bottom: 28px; right: 24px;
-    display: grid; grid-template-columns: 76px 76px;
-    grid-template-areas: "shoot gas" "jump brake";
-    gap: 12px;
+    position: absolute; bottom: 24px; right: 16px;
+    display: grid; grid-template-columns: 64px 80px;
+    grid-template-areas:
+      "jump  gas"
+      "brake shoot";
+    gap: 8px;
+    align-items: end; justify-items: end;
   }
-  .tc-actions .tc-btn { width: 76px; height: 76px; border-radius: 50%; font-size: 13px; letter-spacing: 1px; }
-  .tc-actions [data-code='KeyW'] { grid-area: gas; background: rgba(60, 220, 120, 0.10); border-color: rgba(60, 220, 120, 0.45); color: rgba(180,255,200,0.9); }
-  .tc-actions [data-code='KeyS'] { grid-area: brake; background: rgba(220, 80, 80, 0.10); border-color: rgba(220, 80, 80, 0.45); color: rgba(255,200,200,0.9); }
-  .tc-actions [data-code='KeyQ'] { grid-area: shoot; }
-  .tc-actions [data-code='KeyE'] { grid-area: jump; }
+  .tc-actions .tc-btn { font-size: 12px; letter-spacing: 1px; }
+  .tc-actions [data-code='KeyE'] { grid-area: jump;  width: 64px; height: 64px; border-radius: 50%; }
+  .tc-actions [data-code='KeyS'] { grid-area: brake; width: 64px; height: 64px; border-radius: 50%;
+    background: rgba(220, 80, 80, 0.10); border-color: rgba(220, 80, 80, 0.45); color: rgba(255,200,200,0.9); }
+  .tc-actions [data-code='KeyW'] { grid-area: gas;   width: 80px; height: 70px; border-radius: 50%;
+    background: rgba(60, 220, 120, 0.10); border-color: rgba(60, 220, 120, 0.45); color: rgba(180,255,200,0.9); }
+  .tc-actions [data-code='KeyQ'] { grid-area: shoot; width: 80px; height: 50px; border-radius: 28px;
+    background: rgba(255, 220, 100, 0.10); border-color: rgba(255, 220, 100, 0.5); color: rgba(255,240,200,0.95);
+    margin-top: -6px; /* nestle visually under GAS */
+  }
   .tc-top {
     position: absolute; top: 16px; right: 16px;
     display: flex; gap: 7px;
@@ -105,13 +162,15 @@
     <button class="tc-btn" data-code="KeyM" data-tap>MUTE</button>
     <button class="tc-btn" data-code="KeyR" data-tap>RESET</button>
   </div>
-  <div class="tc-steer">
-    <button class="tc-btn" data-code="KeyA">◀</button>
-    <button class="tc-btn" data-code="KeyD">▶</button>
+  <div class="tc-steer-pad" id="tc-steer-pad">
+    <div class="tc-drift-zone" id="tc-drift-zone">DRIFT</div>
+    <div class="tc-steer-track" id="tc-steer-track">
+      <div class="tc-steer-knob" id="tc-steer-knob">⇆</div>
+    </div>
   </div>
   <div class="tc-actions">
-    <button class="tc-btn" data-code="KeyQ">SHOOT</button>
     <button class="tc-btn" data-code="KeyW">GAS</button>
+    <button class="tc-btn" data-code="KeyQ">SHOOT</button>
     <button class="tc-btn" data-code="KeyE">JUMP</button>
     <button class="tc-btn" data-code="KeyS">BRAKE</button>
   </div>
@@ -231,49 +290,42 @@ staticBox( -A, WH/2,  0, 4, WH, A*2+4, 0x3a4a5c, matWall);
 // Box bottom is sunk slightly into the ground so the leading edge isn't a wall.
 const dynBuildings = []; // kept for the existing sync loop (now empty)
 
-function makeRamp(x, z, run, rise, width, yawDeg, color) {
-  const hyp = Math.sqrt(run * run + rise * rise);
-  const angle = Math.atan2(rise, run);
-  const thick = 0.7;
-  const sink = 0.35; // how far the lower tip is buried in the ground
-
-  // Canonical: long axis +X, surface tilts so +X end goes up.
-  // Local quaternion: tilt around Z by `angle`, then yaw around Y by yawDeg.
-  const tiltQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), angle);
-  const yawQ  = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yawDeg * Math.PI / 180);
-  const q = new THREE.Quaternion().multiplyQuaternions(yawQ, tiltQ);
-
-  // Center the body so the slope's high-end is at world height ~rise
+// Hills — static spheres half-buried in the ground. Cars roll over from any
+// direction (no flat face = nowhere to get stuck or wedge under).
+function makeHill(x, z, radius, color) {
   const body = new CANNON.Body({ mass: 0, material: matBldg });
-  body.addShape(new CANNON.Box(new CANNON.Vec3(hyp / 2, thick / 2, width / 2)));
-  body.position.set(x, rise / 2 - sink, z);
-  body.quaternion.set(q.x, q.y, q.z, q.w);
+  body.addShape(new CANNON.Sphere(radius));
+  // Sphere centred at ground level → top hemisphere protrudes, bottom hidden.
+  // Centre slightly below 0 so the very top isn't a knife-edge if the car
+  // happens to graze it perfectly perpendicular.
+  body.position.set(x, -radius * 0.05, z);
   world.addBody(body);
 
+  // Visual: top hemisphere only (saves polys + matches what's reachable)
+  const geom = new THREE.SphereGeometry(radius, 28, 16, 0, Math.PI * 2, 0, Math.PI / 2);
   const mesh = new THREE.Mesh(
-    new THREE.BoxGeometry(hyp, thick, width),
+    geom,
     new THREE.MeshLambertMaterial({ color })
   );
-  mesh.position.copy(body.position);
-  mesh.quaternion.copy(body.quaternion);
+  mesh.position.set(x, -radius * 0.05, z);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   scene.add(mesh);
 }
 
-// 8 ramps — varied dimensions, oriented so launch direction differs each
-// [x,    z,    run, rise, width, yawDeg, color]
-const ramps = [
-  [-50, -45,  22,  4,  10,    0, 0x667788],
-  [ 50,  45,  28,  6,  14,  180, 0x887766],
-  [-50,  45,  18,  3,   8,   90, 0x668877],
-  [ 50, -45,  32,  7,  16,  -90, 0x776688],
-  [   0,  55,  24,  5,  12,    0, 0x556677],
-  [   0, -55,  20,  3,  10,  180, 0x665544],
-  [-25,    0,  16,  3,   8,   45, 0x665577],
-  [ 25,    0,  26,  6,  14, -135, 0x877766],
+// 8 hills — varied size, scattered so the arena always has rolling terrain
+// [x,    z,    radius, color]
+const hills = [
+  [-50, -45,  6, 0x6a8557],
+  [ 50,  45,  8, 0x7a8866],
+  [-50,  45,  4, 0x668877],
+  [ 50, -45,  9, 0x886677],
+  [   0,  55,  7, 0x556677],
+  [   0, -55,  5, 0x665544],
+  [-25,    0,  4, 0x756677],
+  [ 25,    0,  7, 0x778866],
 ];
-ramps.forEach(([x, z, run, rise, w, yaw, c]) => makeRamp(x, z, run, rise, w, yaw, c));
+hills.forEach(([x, z, r, c]) => makeHill(x, z, r, c));
 
 // ── DYNAMIC OBJECTS ────────────────────────────────────────────────────────
 const dynamics = [];
@@ -1183,6 +1235,74 @@ if ('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidt
   document.body.classList.add('touch');
 }
 
+// ── TOUCH STEERING PAD — analog wheel + drift zone ────────────────────────
+// touchSteer is null when finger is off the pad, else -1..+1 (analog).
+// touchDrifting is true when the active touch sits inside the upper drift zone.
+let touchSteer = null;
+let touchDrifting = false;
+const steerPadEl  = document.getElementById('tc-steer-pad');
+const steerKnobEl = document.getElementById('tc-steer-knob');
+const driftZoneEl = document.getElementById('tc-drift-zone');
+const steerTrackEl = document.getElementById('tc-steer-track');
+
+function readSteerTouch(clientX, clientY) {
+  const padR   = steerPadEl.getBoundingClientRect();
+  const trackR = steerTrackEl.getBoundingClientRect();
+  // Steering value: based on X across the whole pad
+  const knobR = 32;  // half of knob
+  const usableW = trackR.width - knobR * 2;
+  const x = clientX - trackR.left - knobR;
+  let s = Math.max(-1, Math.min(1, x / (usableW / 2) - 1));
+  // Easier centre: small dead zone
+  if (Math.abs(s) < 0.06) s = 0;
+  touchSteer = s;
+  steerKnobEl.style.left = ((s * 0.5 + 0.5) * 100) + '%';
+  // Drift zone: top portion of the pad (the dashed box). If finger is up there
+  // the steering value is preserved AND handbrake engages.
+  const localY = clientY - padR.top;
+  touchDrifting = localY < 78;  // matches drift-zone height + small overlap
+  driftZoneEl.classList.toggle('pressed', touchDrifting);
+  steerKnobEl.classList.add('pressed');
+}
+function clearSteerTouch() {
+  touchSteer = null;
+  touchDrifting = false;
+  steerKnobEl.style.left = '50%';
+  steerKnobEl.classList.remove('pressed');
+  driftZoneEl.classList.remove('pressed');
+}
+steerPadEl.addEventListener('touchstart', e => {
+  e.preventDefault();
+  Synth.ensureRunning();
+  const t = e.touches[0];
+  readSteerTouch(t.clientX, t.clientY);
+}, { passive: false });
+steerPadEl.addEventListener('touchmove', e => {
+  e.preventDefault();
+  // Find the touch that started on this pad — use the first one for simplicity
+  const t = e.touches[0];
+  readSteerTouch(t.clientX, t.clientY);
+}, { passive: false });
+steerPadEl.addEventListener('touchend', e => {
+  e.preventDefault();
+  if (e.touches.length === 0) clearSteerTouch();
+}, { passive: false });
+steerPadEl.addEventListener('touchcancel', clearSteerTouch);
+// Mouse fallback for desktop testing
+steerPadEl.addEventListener('mousedown', e => {
+  e.preventDefault();
+  Synth.ensureRunning();
+  readSteerTouch(e.clientX, e.clientY);
+  const onMove = ev => readSteerTouch(ev.clientX, ev.clientY);
+  const onUp = () => {
+    clearSteerTouch();
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', onUp);
+  };
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+});
+
 // ── TOUCH CONTROLS ─────────────────────────────────────────────────────────
 // Each .tc-btn has data-code matching a keyboard code. Hold-buttons set K[code]
 // while pressed (matches keyboard); tap-buttons fire one-shot logic on press.
@@ -1245,11 +1365,11 @@ function loop() {
   const v = player.vehicle;
   let eng = 0, steer = 0;
 
-  // On mobile / touch, holding STEER or SHOOT implies GAS so one finger is enough.
-  // Brake (S / ArrowDown) still wins below — it's checked after.
+  // On mobile / touch, holding STEER (slider), SHOOT, or DRIFT implies GAS so
+  // one finger is enough. Brake (S / ArrowDown) still wins below.
   const touchAssist = document.body.classList.contains('touch');
-  const wantGas = K['ArrowUp'] || K['KeyW'] ||
-                  (touchAssist && (K['KeyA'] || K['KeyD'] || K['KeyQ']));
+  const touchActiveDrive = touchAssist && (touchSteer !== null || K['KeyQ']);
+  const wantGas = K['ArrowUp'] || K['KeyW'] || touchActiveDrive;
   if (wantGas) {
     eng = MAX_FORCE;
   }
@@ -1258,15 +1378,20 @@ function loop() {
     const spd = Math.sqrt(vel.x*vel.x + vel.z*vel.z);
     eng = spd > 0.8 ? -MAX_FORCE * 0.55 : -MAX_FORCE * 0.28;
   }
-  if (K['ArrowLeft'] || K['KeyA']) steer =  MAX_STEER;
-  if (K['ArrowRight'] || K['KeyD']) steer = -MAX_STEER;
+  if (touchAssist && touchSteer !== null) {
+    // Analog touch steer: -1=left, +1=right. Keyboard convention: A→+steer.
+    steer = -touchSteer * MAX_STEER;
+  } else {
+    if (K['ArrowLeft']  || K['KeyA']) steer =  MAX_STEER;
+    if (K['ArrowRight'] || K['KeyD']) steer = -MAX_STEER;
+  }
 
   v.applyEngineForce(eng, 2);
   v.applyEngineForce(eng, 3);
   v.setSteeringValue(steer, 0);
   v.setSteeringValue(steer, 1);
 
-  const hb = K['Space'] ? 85 : 0;
+  const hb = (K['Space'] || (touchAssist && touchDrifting)) ? 85 : 0;
   v.setBrake(0,  0);
   v.setBrake(0,  1);
   v.setBrake(hb, 2);
