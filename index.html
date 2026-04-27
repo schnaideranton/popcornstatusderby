@@ -113,28 +113,19 @@
     border-color: rgba(255, 255, 255, 0.85);
   }
 
-  /* Right-hand action stack: GAS (circle) on top → SHOOT (oval) directly
-     beneath as one ergonomic thumb-track; JUMP/BRAKE on the left column. */
+  /* Three buttons spread along the row above the drift+steer pad.
+     GAS isn't a button — it's implied by holding the steer slider. */
   .tc-actions {
-    /* Sit above the full-width steering pad on mobile */
-    position: absolute; bottom: 156px; right: 16px;
-    display: grid; grid-template-columns: 64px 80px;
-    grid-template-areas:
-      "jump  gas"
-      "brake shoot";
-    gap: 8px;
-    align-items: end; justify-items: end;
+    position: absolute; bottom: 156px; left: 16px; right: 16px;
+    display: flex; justify-content: space-between; align-items: center;
+    pointer-events: none;
   }
-  .tc-actions .tc-btn { font-size: 12px; letter-spacing: 1px; }
-  .tc-actions [data-code='KeyE'] { grid-area: jump;  width: 64px; height: 64px; border-radius: 50%; }
-  .tc-actions [data-code='KeyS'] { grid-area: brake; width: 64px; height: 64px; border-radius: 50%;
+  .tc-actions .tc-btn { pointer-events: auto; font-size: 13px; letter-spacing: 1px; }
+  .tc-actions [data-code='KeyE'] { width: 72px; height: 72px; border-radius: 50%; }
+  .tc-actions [data-code='KeyS'] { width: 72px; height: 72px; border-radius: 50%;
     background: rgba(220, 80, 80, 0.10); border-color: rgba(220, 80, 80, 0.45); color: rgba(255,200,200,0.9); }
-  .tc-actions [data-code='KeyW'] { grid-area: gas;   width: 80px; height: 70px; border-radius: 50%;
-    background: rgba(60, 220, 120, 0.10); border-color: rgba(60, 220, 120, 0.45); color: rgba(180,255,200,0.9); }
-  .tc-actions [data-code='KeyQ'] { grid-area: shoot; width: 80px; height: 50px; border-radius: 28px;
-    background: rgba(255, 220, 100, 0.10); border-color: rgba(255, 220, 100, 0.5); color: rgba(255,240,200,0.95);
-    margin-top: -6px; /* nestle visually under GAS */
-  }
+  .tc-actions [data-code='KeyQ'] { width: 96px; height: 60px; border-radius: 32px;
+    background: rgba(255, 220, 100, 0.10); border-color: rgba(255, 220, 100, 0.5); color: rgba(255,240,200,0.95); }
   .tc-top {
     position: absolute; top: 16px; right: 16px;
     display: flex; gap: 7px;
@@ -184,10 +175,9 @@
     </div>
   </div>
   <div class="tc-actions">
-    <button class="tc-btn" data-code="KeyW">GAS</button>
-    <button class="tc-btn" data-code="KeyQ">SHOOT</button>
     <button class="tc-btn" data-code="KeyE">JUMP</button>
     <button class="tc-btn" data-code="KeyS">BRAKE</button>
+    <button class="tc-btn" data-code="KeyQ">SHOOT</button>
   </div>
 </div>
 
@@ -233,7 +223,7 @@ scene.add(sun);
 
 // ── PHYSICS ────────────────────────────────────────────────────────────────
 const world = new CANNON.World();
-world.gravity.set(0, -22, 0);
+world.gravity.set(0, -16, 0);  // arcade-y — gentler so cars climb hills easily
 world.broadphase = new CANNON.SAPBroadphase(world);
 world.allowSleep = true;
 
@@ -311,27 +301,14 @@ const dynBuildings = []; // kept for the existing sync loop (now empty)
 // Trimesh + RaycastVehicle wheels don't collide reliably.
 const HILL_COLOR = 0x303030;
 function makeHill(x, z, sigma, peakH) {
-  // ── Physics: stacked frustums sampling the Gaussian
-  const slices = 10;
-  const samples = [];
-  for (let i = 0; i <= slices; i++) {
-    const t = i / slices;          // 0 = base, 1 = apex
-    const h = peakH * t;
-    let r;
-    if (i === slices)      r = 0.05;
-    else if (i === 0)      r = sigma * 3;            // base extrapolation
-    else                   r = sigma * Math.sqrt(-2 * Math.log(t));
-    samples.push({ h, r });
-  }
-  for (let i = 0; i < slices; i++) {
-    const bot = samples[i], top = samples[i + 1];
-    const sliceH = top.h - bot.h;
-    const yMid   = (bot.h + top.h) / 2;
-    const body = new CANNON.Body({ mass: 0, material: matBldg });
-    body.addShape(new CANNON.Cylinder(top.r, bot.r, sliceH, 18));
-    body.position.set(x, yMid, z);
-    world.addBody(body);
-  }
+  // ── Physics: single smooth frustum. One continuous slope = no slice steps,
+  // cars roll up/down without snagging on transitions.
+  const physBaseR = sigma * 2.4;
+  const physTopR  = sigma * 0.35;
+  const body = new CANNON.Body({ mass: 0, material: matBldg });
+  body.addShape(new CANNON.Cylinder(physTopR, physBaseR, peakH, 28));
+  body.position.set(x, peakH / 2, z);
+  world.addBody(body);
 
   // ── Visual: LatheGeometry from the smooth Gaussian
   const profile = [];
@@ -801,12 +778,12 @@ function updateBadges() {
 }
 
 function makeCar(px, pz, color) {
-  // Physics chassis
-  const chassis = new CANNON.Body({ mass: 700 });
+  // Physics chassis — lighter so engine torque feels punchy on hills
+  const chassis = new CANNON.Body({ mass: 500 });
   chassis.addShape(new CANNON.Box(new CANNON.Vec3(1.85, 0.32, 0.92)));
   chassis.position.set(px, 1.4, pz);
   chassis.linearDamping = 0.05;
-  chassis.angularDamping = 0.6;
+  chassis.angularDamping = 0.7;
   world.addBody(chassis);
 
   // Visual group (filled by rebuildCarVisual)
@@ -821,18 +798,19 @@ function makeCar(px, pz, color) {
     indexForwardAxis: 0,
   });
 
+  // Soft suspension + long travel = visible spring on landings, no stalling
   const wBase = {
     radius: 0.37,
     directionLocal: new CANNON.Vec3(0, -1, 0),
-    suspensionStiffness: 55,
-    suspensionRestLength: 0.35,
-    frictionSlip: 5.5,
-    dampingRelaxation: 2.3,
-    dampingCompression: 4.4,
-    maxSuspensionForce: 300000,
-    rollInfluence: 0.015,
+    suspensionStiffness: 38,
+    suspensionRestLength: 0.42,
+    frictionSlip: 3.8,
+    dampingRelaxation: 1.8,
+    dampingCompression: 3.0,
+    maxSuspensionForce: 200000,
+    rollInfluence: 0.02,
     axleLocal: new CANNON.Vec3(0, 0, 1),
-    maxSuspensionTravel: 0.28,
+    maxSuspensionTravel: 0.55,
     customSlidingRotationalSpeed: -30,
     useCustomSlidingRotationalSpeed: true,
   };
@@ -1390,10 +1368,46 @@ const camPos = new THREE.Vector3(0, 9, -44);
 const camLook = new THREE.Vector3(0, 1, -32);
 
 // ── MAIN LOOP ──────────────────────────────────────────────────────────────
-const MAX_FORCE = 4600;
+const MAX_FORCE = 9500;  // boosted so cars hold speed up hills (arcade feel)
 const MAX_STEER = 0.47;
 
 let prevTime = performance.now();
+
+// ── GAMEPAD ────────────────────────────────────────────────────────────────
+// Web Gamepad API: any Bluetooth/USB controller paired at OS level shows up
+// here automatically. Mappings follow Xbox/standard layout. Polled each frame.
+const G = { gas: false, brake: false, shoot: false, jump: false,
+            steer: null, cam: false, mute: false, reset: false,
+            prevCam: false, prevMute: false, prevReset: false };
+
+function pollGamepad() {
+  const list = navigator.getGamepads ? navigator.getGamepads() : [];
+  let gp = null;
+  for (const g of list) if (g) { gp = g; break; }
+  if (!gp) {
+    G.gas = G.brake = G.shoot = G.jump = false;
+    G.steer = null;
+    return;
+  }
+  const sx = gp.axes[0] || 0;
+  G.steer = Math.abs(sx) > 0.10 ? sx : null;
+  // Standard mapping: 0=A 1=B 2=X 3=Y 4=LB 5=RB 6=LT 7=RT 8=Back 9=Start
+  G.gas    = (gp.buttons[7]?.value || 0) > 0.1 || gp.buttons[0]?.pressed;
+  G.brake  = (gp.buttons[6]?.value || 0) > 0.1 || gp.buttons[1]?.pressed;
+  G.shoot  = !!gp.buttons[5]?.pressed;
+  G.jump   = !!gp.buttons[2]?.pressed;
+  // One-shot buttons (camera/mute/reset) — fire on press edge
+  const cam = !!gp.buttons[3]?.pressed;
+  if (cam && !G.prevCam) camMode = (camMode + 1) % 4;
+  G.prevCam = cam;
+  const reset = !!gp.buttons[9]?.pressed;
+  if (reset && !G.prevReset) resetPlayer();
+  G.prevReset = reset;
+  const mute = !!gp.buttons[8]?.pressed;
+  if (mute && !G.prevMute) Synth.setMute(!Synth.isMuted());
+  G.prevMute = mute;
+  Synth.ensureRunning();
+}
 
 // Player stuck detection — flips, falls, or held against an obstacle for too long
 const respawnHintEl = document.getElementById('respawn-hint');
@@ -1424,26 +1438,31 @@ function loop() {
   const dt = Math.min((now - prevTime) / 1000, 0.05);
   prevTime = now;
 
+  // ── Gamepad polling (BT/USB) ──────────────────────────────────────────
+  pollGamepad();
+
   // ── Player input ──────────────────────────────────────────────────────
   const v = player.vehicle;
   let eng = 0, steer = 0;
 
   // On mobile / touch, holding STEER (slider), SHOOT, or DRIFT implies GAS so
-  // one finger is enough. Brake (S / ArrowDown) still wins below.
+  // one finger is enough. Gamepad gas works the same. Brake wins.
   const touchAssist = document.body.classList.contains('touch');
   const touchActiveDrive = touchAssist && (touchSteer !== null || K['KeyQ']);
-  const wantGas = K['ArrowUp'] || K['KeyW'] || touchActiveDrive;
+  const wantGas = K['ArrowUp'] || K['KeyW'] || G.gas || touchActiveDrive;
   if (wantGas) {
     eng = MAX_FORCE;
   }
-  if (K['ArrowDown'] || K['KeyS']) {
+  if (K['ArrowDown'] || K['KeyS'] || G.brake) {
     const vel = player.chassis.velocity;
     const spd = Math.sqrt(vel.x*vel.x + vel.z*vel.z);
     eng = spd > 0.8 ? -MAX_FORCE * 0.55 : -MAX_FORCE * 0.28;
   }
-  if (touchAssist && touchSteer !== null) {
-    // Analog touch steer: -1=left, +1=right. Keyboard convention: A→+steer.
-    steer = -touchSteer * MAX_STEER;
+  // Steer: gamepad analog wins, then touch slider, then keyboard
+  const analogSteer = (G.steer !== null) ? G.steer
+                    : (touchAssist && touchSteer !== null) ? touchSteer : null;
+  if (analogSteer !== null) {
+    steer = -analogSteer * MAX_STEER;
   } else {
     if (K['ArrowLeft']  || K['KeyA']) steer =  MAX_STEER;
     if (K['ArrowRight'] || K['KeyD']) steer = -MAX_STEER;
@@ -1461,7 +1480,7 @@ function loop() {
   v.setBrake(hb, 3);
 
   // ── Shoot — fires at the Popcorn melody's tempo (8th=204ms, 16ths=102ms)
-  if (K['KeyQ'] && now >= nextShotTime) {
+  if ((K['KeyQ'] || G.shoot) && now >= nextShotTime) {
     const dt = shoot(player);
     nextShotTime = now + (dt || 200);
   }
@@ -1469,11 +1488,41 @@ function loop() {
   // ── Engine sound (track player speed)
   Synth.setEngine(Math.sqrt(player.chassis.velocity.x ** 2 + player.chassis.velocity.z ** 2));
 
-  // ── Jump ──────────────────────────────────────────────────────────────
-  if (K['KeyE'] && now - lastJump > 1100) {
-    player.chassis.applyImpulse(new CANNON.Vec3(0, 6800, 0), new CANNON.Vec3(0, 0, 0));
-    Synth.jump();
-    lastJump = now;
+  // ── Jump / flip-righting ──────────────────────────────────────────────
+  // Detect orientation each frame; if the car is on its side / roof, JUMP
+  // instantly snaps it upright (keeping its yaw).  Otherwise normal hop.
+  {
+    const upL = new CANNON.Vec3(0, 1, 0);
+    const upW = new CANNON.Vec3();
+    player.chassis.quaternion.vmult(upL, upW);
+    const tilted = upW.y < 0.55;
+
+    // Slow auto-righting torque while tilted (GTA-style)
+    if (tilted) {
+      const target = new CANNON.Vec3(0, 1, 0);
+      const axis = new CANNON.Vec3();
+      upW.cross(target, axis);
+      const k = 70;
+      player.chassis.applyTorque(new CANNON.Vec3(axis.x * k, axis.y * k, axis.z * k));
+    }
+
+    if ((K['KeyE'] || G.jump) && now - lastJump > 800) {
+      if (tilted) {
+        // Snap upright preserving yaw + small upward boost
+        const fwd = new CANNON.Vec3(1, 0, 0);
+        const fwdW = new CANNON.Vec3();
+        player.chassis.quaternion.vmult(fwd, fwdW);
+        const yaw = Math.atan2(-fwdW.z, fwdW.x);
+        player.chassis.quaternion.setFromEuler(0, yaw, 0);
+        player.chassis.angularVelocity.set(0, 0, 0);
+        player.chassis.position.y += 1.2;
+        player.chassis.applyImpulse(new CANNON.Vec3(0, 3500, 0), new CANNON.Vec3(0, 0, 0));
+      } else {
+        player.chassis.applyImpulse(new CANNON.Vec3(0, 5000, 0), new CANNON.Vec3(0, 0, 0));
+      }
+      Synth.jump();
+      lastJump = now;
+    }
   }
 
   // ── AI ────────────────────────────────────────────────────────────────
