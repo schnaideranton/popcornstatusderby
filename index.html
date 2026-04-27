@@ -290,42 +290,61 @@ staticBox( -A, WH/2,  0, 4, WH, A*2+4, 0x3a4a5c, matWall);
 // Box bottom is sunk slightly into the ground so the leading edge isn't a wall.
 const dynBuildings = []; // kept for the existing sync loop (now empty)
 
-// Hills — static spheres half-buried in the ground. Cars roll over from any
-// direction (no flat face = nowhere to get stuck or wedge under).
-function makeHill(x, z, radius, color) {
-  const body = new CANNON.Body({ mass: 0, material: matBldg });
-  body.addShape(new CANNON.Sphere(radius));
-  // Sphere centred at ground level → top hemisphere protrudes, bottom hidden.
-  // Centre slightly below 0 so the very top isn't a knife-edge if the car
-  // happens to graze it perfectly perpendicular.
-  body.position.set(x, -radius * 0.05, z);
-  world.addBody(body);
+// Hills — Gaussian-profile mounds. Surface is built by revolving a profile
+// h(r) = peakH * exp(-r² / 2σ²) around the Y axis. The slope flattens
+// asymptotically toward the base, so cars drive up smoothly from any
+// direction with no leading edge to ram into. Physics uses CANNON.Trimesh
+// built from the same Three.js LatheGeometry vertices.
+function makeHill(x, z, charR, peakH, color) {
+  const sigma   = charR;             // characteristic radius (slope max here)
+  const totalR  = sigma * 3.2;       // outer fade — hill ≈0.6% of peak by here
+  const segs    = 22;
+  const radSegs = 28;
 
-  // Visual: top hemisphere only (saves polys + matches what's reachable)
-  const geom = new THREE.SphereGeometry(radius, 28, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+  // Gaussian profile from apex (r=0, h=peakH) outward to base (r=totalR, h≈0)
+  const profile = [];
+  for (let i = 0; i <= segs; i++) {
+    const r = (i / segs) * totalR;
+    const h = peakH * Math.exp(-(r * r) / (2 * sigma * sigma));
+    profile.push(new THREE.Vector2(r, h));
+  }
+
+  // Visual
+  const geom = new THREE.LatheGeometry(profile, radSegs);
   const mesh = new THREE.Mesh(
     geom,
-    new THREE.MeshLambertMaterial({ color })
+    new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide })
   );
-  mesh.position.set(x, -radius * 0.05, z);
+  mesh.position.set(x, 0, z);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   scene.add(mesh);
+
+  // Physics — same triangle mesh
+  const positions = Array.from(geom.attributes.position.array);
+  const indices = geom.index
+    ? Array.from(geom.index.array)
+    : Array.from({ length: positions.length / 3 }, (_, i) => i);
+  const trimesh = new CANNON.Trimesh(positions, indices);
+  const body = new CANNON.Body({ mass: 0, material: matBldg });
+  body.addShape(trimesh);
+  body.position.set(x, 0, z);
+  world.addBody(body);
 }
 
-// 8 hills — varied size, scattered so the arena always has rolling terrain
-// [x,    z,    radius, color]
+// 8 hills — varied size and height, scattered around the arena.
+// [x,    z,    charR, peakH, color]
 const hills = [
-  [-50, -45,  6, 0x6a8557],
-  [ 50,  45,  8, 0x7a8866],
-  [-50,  45,  4, 0x668877],
-  [ 50, -45,  9, 0x886677],
-  [   0,  55,  7, 0x556677],
-  [   0, -55,  5, 0x665544],
-  [-25,    0,  4, 0x756677],
-  [ 25,    0,  7, 0x778866],
+  [-50, -45,  4.0, 1.6, 0x6a8557],
+  [ 50,  45,  6.0, 2.6, 0x7a8866],
+  [-50,  45,  3.0, 1.0, 0x668877],
+  [ 50, -45,  7.0, 3.0, 0x886677],
+  [   0,  55,  5.0, 2.2, 0x556677],
+  [   0, -55,  3.5, 1.4, 0x665544],
+  [-25,    0,  3.0, 1.1, 0x756677],
+  [ 25,    0,  5.0, 1.8, 0x778866],
 ];
-hills.forEach(([x, z, r, c]) => makeHill(x, z, r, c));
+hills.forEach(([x, z, r, h, c]) => makeHill(x, z, r, h, c));
 
 // ── DYNAMIC OBJECTS ────────────────────────────────────────────────────────
 const dynamics = [];
