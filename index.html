@@ -28,6 +28,19 @@
     position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%);
     font-size: 10px; letter-spacing: 2px; opacity: 0.25; white-space: nowrap;
   }
+  #respawn-hint {
+    position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%);
+    color: #fff; font-family: 'Courier New', monospace; font-weight: bold;
+    font-size: 16px; letter-spacing: 2px; text-align: center; line-height: 1.4;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);
+    opacity: 0; transition: opacity 0.18s ease-out;
+    pointer-events: none; white-space: nowrap;
+  }
+  #respawn-hint.show { opacity: 1; }
+  #respawn-hint .kb { display: inline; }
+  #respawn-hint .tc { display: none; }
+  body.touch #respawn-hint .kb { display: none; }
+  body.touch #respawn-hint .tc { display: inline; }
 
   /* ── TOUCH CONTROLS — only shown on coarse pointer / no-hover devices ── */
   #touch-controls { display: none; pointer-events: none; }
@@ -52,15 +65,15 @@
      Slide finger left/right for analog steering. Slide UP into drift zone
      while still steering to engage handbrake (drift in current direction). */
   .tc-steer-pad {
-    position: absolute; bottom: 24px; left: 16px;
-    width: 180px; height: 144px;
+    position: absolute; bottom: 16px; left: 12px; right: 12px;
+    height: 132px;
     pointer-events: auto;
     user-select: none; -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
     touch-action: none;
   }
   .tc-drift-zone {
-    position: absolute; top: 0; left: 0; right: 0; height: 60px;
+    position: absolute; top: 0; left: 0; right: 0; height: 56px;
     border: 1.5px dashed rgba(255, 180, 80, 0.45);
     border-radius: 14px;
     background: rgba(255, 180, 80, 0.04);
@@ -76,9 +89,9 @@
     color: rgba(255, 220, 150, 0.95);
   }
   .tc-steer-track {
-    position: absolute; bottom: 0; left: 0; right: 0; height: 76px;
+    position: absolute; bottom: 0; left: 0; right: 0; height: 70px;
     border: 1.5px solid rgba(255, 255, 255, 0.30);
-    border-radius: 38px;
+    border-radius: 35px;
     background: rgba(255, 255, 255, 0.06);
     backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
   }
@@ -103,7 +116,8 @@
   /* Right-hand action stack: GAS (circle) on top → SHOOT (oval) directly
      beneath as one ergonomic thumb-track; JUMP/BRAKE on the left column. */
   .tc-actions {
-    position: absolute; bottom: 24px; right: 16px;
+    /* Sit above the full-width steering pad on mobile */
+    position: absolute; bottom: 156px; right: 16px;
     display: grid; grid-template-columns: 64px 80px;
     grid-template-areas:
       "jump  gas"
@@ -153,6 +167,7 @@
     <div id="unit">KM/H</div>
   </div>
   <div id="hint">W/↑ GAS &nbsp;·&nbsp; A/D STEER &nbsp;·&nbsp; SPACE HANDBRAKE &nbsp;·&nbsp; Q SHOOT &nbsp;·&nbsp; E JUMP &nbsp;·&nbsp; V CAMERA &nbsp;·&nbsp; M MUTE &nbsp;·&nbsp; R RESET</div>
+  <div id="respawn-hint"><span class="kb">PRESS R TO RESPAWN<br>(−5 LEVELS)</span><span class="tc">TAP RESET TO RESPAWN<br>(−5 LEVELS)</span></div>
 </div>
 
 <div id="touch-controls">
@@ -279,10 +294,10 @@ function staticBox(x, y, z, w, h, d, color, mat) {
 // ── ARENA WALLS ────────────────────────────────────────────────────────────
 const A = 78; // arena half-size (metres)
 const WH = 5; // wall height
-staticBox(  0, WH/2,  A, A*2+4, WH, 4, 0x3a4a5c, matWall);
-staticBox(  0, WH/2, -A, A*2+4, WH, 4, 0x3a4a5c, matWall);
-staticBox(  A, WH/2,  0, 4, WH, A*2+4, 0x3a4a5c, matWall);
-staticBox( -A, WH/2,  0, 4, WH, A*2+4, 0x3a4a5c, matWall);
+staticBox(  0, WH/2,  A, A*2+4, WH, 4, 0x404040, matWall);
+staticBox(  0, WH/2, -A, A*2+4, WH, 4, 0x404040, matWall);
+staticBox(  A, WH/2,  0, 4, WH, A*2+4, 0x404040, matWall);
+staticBox( -A, WH/2,  0, 4, WH, A*2+4, 0x404040, matWall);
 
 // ── RAMPS ──────────────────────────────────────────────────────────────────
 // Standalone wedge jumps — no square buildings. 8 of them, varied size + yaw.
@@ -290,61 +305,68 @@ staticBox( -A, WH/2,  0, 4, WH, A*2+4, 0x3a4a5c, matWall);
 // Box bottom is sunk slightly into the ground so the leading edge isn't a wall.
 const dynBuildings = []; // kept for the existing sync loop (now empty)
 
-// Hills — Gaussian-profile mounds. Surface is built by revolving a profile
-// h(r) = peakH * exp(-r² / 2σ²) around the Y axis. The slope flattens
-// asymptotically toward the base, so cars drive up smoothly from any
-// direction with no leading edge to ram into. Physics uses CANNON.Trimesh
-// built from the same Three.js LatheGeometry vertices.
-function makeHill(x, z, charR, peakH, color) {
-  const sigma   = charR;             // characteristic radius (slope max here)
-  const totalR  = sigma * 3.2;       // outer fade — hill ≈0.6% of peak by here
-  const segs    = 22;
-  const radSegs = 28;
+// Hills — Gaussian h(r) = peakH * exp(-r²/2σ²) revolved around the Y axis.
+// Visual: smooth Lathe geometry. Physics: stack of truncated cones (Cylinder
+// with different top/bottom radii) approximating the curve, because cannon-es
+// Trimesh + RaycastVehicle wheels don't collide reliably.
+const HILL_COLOR = 0x303030;
+function makeHill(x, z, sigma, peakH) {
+  // ── Physics: stacked frustums sampling the Gaussian
+  const slices = 10;
+  const samples = [];
+  for (let i = 0; i <= slices; i++) {
+    const t = i / slices;          // 0 = base, 1 = apex
+    const h = peakH * t;
+    let r;
+    if (i === slices)      r = 0.05;
+    else if (i === 0)      r = sigma * 3;            // base extrapolation
+    else                   r = sigma * Math.sqrt(-2 * Math.log(t));
+    samples.push({ h, r });
+  }
+  for (let i = 0; i < slices; i++) {
+    const bot = samples[i], top = samples[i + 1];
+    const sliceH = top.h - bot.h;
+    const yMid   = (bot.h + top.h) / 2;
+    const body = new CANNON.Body({ mass: 0, material: matBldg });
+    body.addShape(new CANNON.Cylinder(top.r, bot.r, sliceH, 18));
+    body.position.set(x, yMid, z);
+    world.addBody(body);
+  }
 
-  // Gaussian profile from apex (r=0, h=peakH) outward to base (r=totalR, h≈0)
+  // ── Visual: LatheGeometry from the smooth Gaussian
   const profile = [];
-  for (let i = 0; i <= segs; i++) {
-    const r = (i / segs) * totalR;
+  const profSegs = 26;
+  const totalR   = sigma * 3.2;
+  for (let i = 0; i <= profSegs; i++) {
+    const r = (i / profSegs) * totalR;
     const h = peakH * Math.exp(-(r * r) / (2 * sigma * sigma));
     profile.push(new THREE.Vector2(r, h));
   }
-
-  // Visual
-  const geom = new THREE.LatheGeometry(profile, radSegs);
+  const geom = new THREE.LatheGeometry(profile, 32);
   const mesh = new THREE.Mesh(
     geom,
-    new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide })
+    new THREE.MeshLambertMaterial({ color: HILL_COLOR, side: THREE.DoubleSide })
   );
   mesh.position.set(x, 0, z);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   scene.add(mesh);
-
-  // Physics — same triangle mesh
-  const positions = Array.from(geom.attributes.position.array);
-  const indices = geom.index
-    ? Array.from(geom.index.array)
-    : Array.from({ length: positions.length / 3 }, (_, i) => i);
-  const trimesh = new CANNON.Trimesh(positions, indices);
-  const body = new CANNON.Body({ mass: 0, material: matBldg });
-  body.addShape(trimesh);
-  body.position.set(x, 0, z);
-  world.addBody(body);
 }
 
-// 8 hills — varied size and height, scattered around the arena.
-// [x,    z,    charR, peakH, color]
+// 8 hills — same colour as ground (let the cars be the only colour).
+// Heights ×3 vs the previous spec for proper mounds.
+// [x,    z,    sigma, peakH]
 const hills = [
-  [-50, -45,  4.0, 1.6, 0x6a8557],
-  [ 50,  45,  6.0, 2.6, 0x7a8866],
-  [-50,  45,  3.0, 1.0, 0x668877],
-  [ 50, -45,  7.0, 3.0, 0x886677],
-  [   0,  55,  5.0, 2.2, 0x556677],
-  [   0, -55,  3.5, 1.4, 0x665544],
-  [-25,    0,  3.0, 1.1, 0x756677],
-  [ 25,    0,  5.0, 1.8, 0x778866],
+  [-50, -45,  4.5, 4.8],
+  [ 50,  45,  6.5, 7.5],
+  [-50,  45,  3.0, 3.0],
+  [ 50, -45,  7.0, 9.0],
+  [   0,  55,  5.0, 6.6],
+  [   0, -55,  3.5, 4.2],
+  [-25,    0,  3.0, 3.3],
+  [ 25,    0,  5.0, 5.4],
 ];
-hills.forEach(([x, z, r, h, c]) => makeHill(x, z, r, h, c));
+hills.forEach(([x, z, sig, h]) => makeHill(x, z, sig, h));
 
 // ── DYNAMIC OBJECTS ────────────────────────────────────────────────────────
 const dynamics = [];
@@ -377,15 +399,15 @@ function dynBarrel(x, z) {
 
   const mesh = new THREE.Mesh(
     new THREE.CylinderGeometry(0.44, 0.44, 1.1, 10),
-    new THREE.MeshLambertMaterial({ color: 0x993322 })
+    new THREE.MeshLambertMaterial({ color: 0x383838 })
   );
   mesh.castShadow = true;
   scene.add(mesh);
   dynamics.push({ body, mesh });
 }
 
-// Box clusters at cardinal + diagonal positions
-const BC = [0xcc7733, 0xddaa55, 0x88aacc, 0xcc9944, 0xaabb88, 0x99aadd];
+// Box clusters at cardinal + diagonal positions — all neutral grey, only cars carry colour
+const BC = [0x363636, 0x3a3a3a, 0x3e3e3e, 0x424242];
 const boxSpots = [
   [38,10],[38,-10],[-38,10],[-38,-10],
   [10,38],[-10,38],[10,-38],[-10,-38],
@@ -1373,6 +1395,28 @@ const MAX_STEER = 0.47;
 
 let prevTime = performance.now();
 
+// Player stuck detection — flips, falls, or held against an obstacle for too long
+const respawnHintEl = document.getElementById('respawn-hint');
+let playerStuckTime = 0;
+function updateStuckHint(dt) {
+  const upLocal = new CANNON.Vec3(0, 1, 0);
+  const upWorld = new CANNON.Vec3();
+  player.chassis.quaternion.vmult(upLocal, upWorld);
+  const flipped  = upWorld.y < 0.35;
+  const fellOut  = player.chassis.position.y < -3;
+  const v = player.chassis.velocity;
+  const slow = Math.sqrt(v.x*v.x + v.y*v.y + v.z*v.z) < 0.6;
+  const wantsToMove = K['KeyW'] || K['ArrowUp'] || K['KeyS'] || K['ArrowDown']
+                      || (touchSteer !== null) || K['KeyQ'];
+  const stalled = slow && wantsToMove;
+
+  if (flipped || fellOut || stalled) playerStuckTime += dt;
+  else playerStuckTime = 0;
+
+  const show = flipped || fellOut || playerStuckTime > 1.6;
+  respawnHintEl.classList.toggle('show', show);
+}
+
 function loop() {
   requestAnimationFrame(loop);
 
@@ -1438,6 +1482,7 @@ function loop() {
   // ── Physics step ──────────────────────────────────────────────────────
   world.step(1 / 60, dt, 3);
   updateProjectiles(dt);
+  updateStuckHint(dt);
 
   // ── Sync visuals ──────────────────────────────────────────────────────
   for (const car of allCars) {
