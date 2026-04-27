@@ -308,46 +308,59 @@ const HILL_COLOR = 0x303030;
 // climb a bit slower than on the plane, but they don't grind to a stop.
 // At speed: jump off the peak; slow: roll back down. Real physics, arcade
 // feel because the geometry itself is forgiving.
-function makeHill(x, z, _sigma, peakH) {
-  // Single sphere mostly buried — both physics AND visual use the same
-  // sphere so the car drives on the actual surface (no hovering above).
-  const R      = peakH * 20;          // ~18° slope at base
-  const burial = R - peakH;
-  const body = new CANNON.Body({ mass: 0, material: matBldg });
-  body.addShape(new CANNON.Sphere(R));
-  body.position.set(x, -burial, z);
-  world.addBody(body);
+// Hills are visual only — Gaussian lathe.  Cars never collide with them;
+// instead, the visual position of each car (and the camera target) is
+// lifted by the hill height at the car's XZ.  Result: smooth ride over
+// any shape, no physics weirdness.  A peak-crossing impulse handles the
+// "fly off the top" feel.
+const HILLS = []; // { x, z, sigma, peakH }
 
-  // Visual: top hemisphere of the same sphere, positioned identically.
-  // Ground plane occludes anything below y=0.
-  const geom = new THREE.SphereGeometry(R, 36, 22, 0, Math.PI * 2, 0, Math.PI / 2);
+function makeHill(x, z, sigma, peakH) {
+  HILLS.push({ x, z, sigma, peakH });
+
+  const profile = [];
+  const segs = 26;
+  const totalR = sigma * 3.2;
+  for (let i = 0; i <= segs; i++) {
+    const r = (i / segs) * totalR;
+    const h = peakH * Math.exp(-(r * r) / (2 * sigma * sigma));
+    profile.push(new THREE.Vector2(r, h));
+  }
+  const geom = new THREE.LatheGeometry(profile, 32);
   const mesh = new THREE.Mesh(
     geom,
-    new THREE.MeshLambertMaterial({ color: HILL_COLOR })
+    new THREE.MeshLambertMaterial({ color: HILL_COLOR, side: THREE.DoubleSide })
   );
-  mesh.position.set(x, -burial, z);
+  mesh.position.set(x, 0, z);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   scene.add(mesh);
 }
 
-// Stub kept for camera + sync — returns 0 since hills now have real physics.
-function hillHeightAt() { return 0; }
+function hillHeightAt(x, z) {
+  let h = 0;
+  for (const hl of HILLS) {
+    const dx = x - hl.x, dz = z - hl.z;
+    const r2 = dx * dx + dz * dz;
+    const sig2 = hl.sigma * hl.sigma;
+    const hh = hl.peakH * Math.exp(-r2 / (2 * sig2));
+    if (hh > h) h = hh;
+  }
+  return h;
+}
 
 // 8 hills — same colour as ground (let the cars be the only colour).
 // Heights ×3 vs the previous spec for proper mounds.
 // [x,    z,    sigma, peakH]
-// Bigger spheres need more room — keep peaks modest (R = peak*12 base width
-// ≈ peak*9, so a 3m hill is ~27m wide).
 const hills = [
-  [-55, -50,  4.0, 2.4],
-  [ 55,  50,  5.0, 3.2],
-  [-55,  50,  3.0, 1.8],
-  [ 55, -50,  5.5, 3.5],
-  [   0,  60,  4.0, 2.6],
-  [   0, -60,  3.0, 2.0],
-  [-30,    0,  3.0, 1.6],
-  [ 30,    0,  3.5, 2.2],
+  [-55, -50,  4.5, 3.5],
+  [ 55,  50,  6.0, 5.0],
+  [-55,  50,  3.5, 2.5],
+  [ 55, -50,  6.5, 6.0],
+  [   0,  60,  5.0, 4.0],
+  [   0, -60,  3.8, 3.0],
+  [-30,    0,  3.5, 2.4],
+  [ 30,    0,  4.5, 3.5],
 ];
 hills.forEach(([x, z, sig, h]) => makeHill(x, z, sig, h));
 
@@ -1418,6 +1431,38 @@ function pollGamepad() {
   Synth.ensureRunning();
 }
 
+// Per-car hill state — used to detect peak crossings for the launch effect.
+const hillState = new WeakMap();
+function applyHillJump(car) {
+  const cp = car.chassis.position;
+  const hHere = hillHeightAt(cp.x, cp.z);
+  if (hHere < 0.05) {
+    hillState.set(car, { prevH: 0, prevSlope: 0 });
+    return;
+  }
+  const fwdL = new CANNON.Vec3(1, 0, 0);
+  const fwdW = new CANNON.Vec3();
+  car.chassis.quaternion.vmult(fwdL, fwdW);
+  const dist = 1.6;
+  const hAhead = hillHeightAt(cp.x + fwdW.x * dist, cp.z + fwdW.z * dist);
+  const slope = (hAhead - hHere) / dist;
+
+  const v = car.chassis.velocity;
+  const fwdSpeed = v.x * fwdW.x + v.z * fwdW.z;
+
+  let s = hillState.get(car);
+  if (!s) { s = { prevSlope: 0 }; hillState.set(car, s); }
+
+  // Peak crossing: was going up, now going down, fast enough to fly
+  if (s.prevSlope > 0.04 && slope < -0.04 && fwdSpeed > 8) {
+    const pop = Math.min(14, fwdSpeed * 0.55);
+    if (car.chassis.velocity.y < pop) {
+      car.chassis.velocity.y = pop;
+    }
+  }
+  s.prevSlope = slope;
+}
+
 // Player stuck detection — flips, falls, or held against an obstacle for too long
 const respawnHintEl = document.getElementById('respawn-hint');
 let playerStuckTime = 0;
@@ -1484,22 +1529,6 @@ function loop() {
   v.applyEngineForce(ePer, 2);
   v.applyEngineForce(ePer, 3);
 
-  // Anti-gravity ascent boost — while climbing a hill, push along the car's
-  // horizontal forward axis so speed doesn't bleed away.  Triggers when the
-  // chassis is above flat ride height AND the throttle is on.
-  if (eng > 0 && player.chassis.position.y > 0.95) {
-    const fwdL = new CANNON.Vec3(1, 0, 0);
-    const fwdW = new CANNON.Vec3();
-    player.chassis.quaternion.vmult(fwdL, fwdW);
-    const len = Math.hypot(fwdW.x, fwdW.z);
-    if (len > 0.05) {
-      const boost = 4500;
-      player.chassis.applyForce(
-        new CANNON.Vec3(fwdW.x / len * boost, 0, fwdW.z / len * boost),
-        player.chassis.position
-      );
-    }
-  }
   v.setSteeringValue(steer, 0);
   v.setSteeringValue(steer, 1);
 
@@ -1581,13 +1610,19 @@ function loop() {
   world.step(1 / 60, dt, 3);
   updateProjectiles(dt);
   updateStuckHint(dt);
+  for (const c of allCars) applyHillJump(c);
 
-  // ── Sync visuals — cars are physically on the flat floor; we lift their
-  // visual + wheels by the hill profile at their XZ so they appear to ride
-  // hills, while driving feel stays as effortless as on the plane.
+  // ── Sync visuals — cars are physically on the flat floor.  We lift the
+  // visual to whichever is higher: the actual chassis Y (when the car is
+  // mid-jump above the hill) or the hill profile.  This way the car rides
+  // the hill smoothly going up/over, but real airtime above the hill still
+  // shows as the car flying.
   for (const car of allCars) {
-    const lift = hillHeightAt(car.chassis.position.x, car.chassis.position.z);
-    car.group.position.copy(car.chassis.position);
+    const cp = car.chassis.position;
+    const hillH = hillHeightAt(cp.x, cp.z);
+    const baseRide = 0.7;
+    const lift = Math.max(0, (hillH + baseRide) - cp.y);
+    car.group.position.copy(cp);
     car.group.position.y += lift;
     car.group.quaternion.copy(car.chassis.quaternion);
     car.vehicle.wheelInfos.forEach((info, i) => {
@@ -1597,11 +1632,7 @@ function loop() {
       car.wheels[i].quaternion.copy(info.worldTransform.quaternion);
     });
     if (car.badge) {
-      car.badge.sprite.position.set(
-        car.chassis.position.x,
-        car.chassis.position.y + 2.6 + lift,
-        car.chassis.position.z
-      );
+      car.badge.sprite.position.set(cp.x, cp.y + 2.6 + lift, cp.z);
     }
   }
   for (const { body, mesh } of dynamics) {
@@ -1619,8 +1650,9 @@ function loop() {
   // 5 bird's-eye top-down (map rotates with player heading)
   const cp   = player.chassis.position;
   const cq   = player.chassis.quaternion;
-  const cLift = hillHeightAt(cp.x, cp.z);
-  const cpY   = cp.y + cLift;            // visual world-Y of the car
+  // Visual y matches the sync above (max of physics y vs hill ride height)
+  const cHillH = hillHeightAt(cp.x, cp.z);
+  const cpY    = Math.max(cp.y, cHillH + 0.7);
 
   if (camMode === 5) {
     // Top-down. Camera high above; player forward = screen up.
