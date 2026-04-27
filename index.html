@@ -300,17 +300,14 @@ const dynBuildings = []; // kept for the existing sync loop (now empty)
 // with different top/bottom radii) approximating the curve, because cannon-es
 // Trimesh + RaycastVehicle wheels don't collide reliably.
 const HILL_COLOR = 0x303030;
-function makeHill(x, z, sigma, peakH) {
-  // ── Physics: single smooth frustum. One continuous slope = no slice steps,
-  // cars roll up/down without snagging on transitions.
-  const physBaseR = sigma * 2.4;
-  const physTopR  = sigma * 0.35;
-  const body = new CANNON.Body({ mass: 0, material: matBldg });
-  body.addShape(new CANNON.Cylinder(physTopR, physBaseR, peakH, 28));
-  body.position.set(x, peakH / 2, z);
-  world.addBody(body);
+// Hill data — no physics body. Cars ride hills via a visual lift in the
+// render loop (hillHeightAt). Driving feel = flat ground, no friction loss
+// or stalling on edges. Pure arcade.
+const HILLS = []; // { x, z, sigma, peakH }
 
-  // ── Visual: LatheGeometry from the smooth Gaussian
+function makeHill(x, z, sigma, peakH) {
+  HILLS.push({ x, z, sigma, peakH });
+  // Visual only — Gaussian lathe.
   const profile = [];
   const profSegs = 26;
   const totalR   = sigma * 3.2;
@@ -328,6 +325,19 @@ function makeHill(x, z, sigma, peakH) {
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   scene.add(mesh);
+}
+
+// Returns the maximum hill height at world XZ (sum of nearest hill peaks)
+function hillHeightAt(x, z) {
+  let h = 0;
+  for (const hl of HILLS) {
+    const dx = x - hl.x, dz = z - hl.z;
+    const r2 = dx * dx + dz * dz;
+    const sig2 = hl.sigma * hl.sigma;
+    const hh = hl.peakH * Math.exp(-r2 / (2 * sig2));
+    if (hh > h) h = hh;
+  }
+  return h;
 }
 
 // 8 hills — same colour as ground (let the cars be the only colour).
@@ -971,8 +981,11 @@ function tickAI(car, state, dt, now) {
   if (state.mode === 'reverse') force = -3500;
   else if (dot < -0.3) force = 1500;  // ease off when facing wrong way
 
-  car.vehicle.applyEngineForce(force, 2);
-  car.vehicle.applyEngineForce(force, 3);
+  const fPer = force / 2;
+  car.vehicle.applyEngineForce(fPer, 0);
+  car.vehicle.applyEngineForce(fPer, 1);
+  car.vehicle.applyEngineForce(fPer, 2);
+  car.vehicle.applyEngineForce(fPer, 3);
   car.vehicle.setSteeringValue(state.steer, 0);
   car.vehicle.setSteeringValue(state.steer, 1);
   [0, 1, 2, 3].forEach(i => car.vehicle.setBrake(0, i));
@@ -1234,14 +1247,14 @@ function updateProjectiles(dt) {
 
 // ── INPUT ──────────────────────────────────────────────────────────────────
 const K = {};
-let camMode = 0;             // 0=chase, 1=side-L, 2=side-R, 3=front
+let camMode = 0;  // 0 chase · 1 chase-close · 2 below · 3 front-left · 4 front-right · 5 birds-eye
 let nextShotTime = 0;
 let lastJump = 0;
 
 window.addEventListener('keydown', e => {
   K[e.code] = true;
   if (e.code === 'KeyR') resetPlayer();
-  if (e.code === 'KeyV') camMode = (camMode + 1) % 4;
+  if (e.code === 'KeyV') camMode = (camMode + 1) % 6;
   if (e.code === 'KeyM') Synth.setMute(!Synth.isMuted());
   Synth.ensureRunning();
   const block = ['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyQ','KeyE','KeyV','KeyM'];
@@ -1334,7 +1347,7 @@ document.querySelectorAll('.tc-btn').forEach(btn => {
     Synth.ensureRunning();
     if (isTap) {
       if (code === 'KeyR') resetPlayer();
-      else if (code === 'KeyV') camMode = (camMode + 1) % 4;
+      else if (code === 'KeyV') camMode = (camMode + 1) % 6;
       else if (code === 'KeyM') Synth.setMute(!Synth.isMuted());
     } else {
       K[code] = true;
@@ -1398,7 +1411,7 @@ function pollGamepad() {
   G.jump   = !!gp.buttons[2]?.pressed;
   // One-shot buttons (camera/mute/reset) — fire on press edge
   const cam = !!gp.buttons[3]?.pressed;
-  if (cam && !G.prevCam) camMode = (camMode + 1) % 4;
+  if (cam && !G.prevCam) camMode = (camMode + 1) % 6;
   G.prevCam = cam;
   const reset = !!gp.buttons[9]?.pressed;
   if (reset && !G.prevReset) resetPlayer();
@@ -1468,8 +1481,12 @@ function loop() {
     if (K['ArrowRight'] || K['KeyD']) steer = -MAX_STEER;
   }
 
-  v.applyEngineForce(eng, 2);
-  v.applyEngineForce(eng, 3);
+  // 4WD — distribute torque so the chassis doesn't rear up under hard accel
+  const ePer = eng / 2;
+  v.applyEngineForce(ePer, 0);
+  v.applyEngineForce(ePer, 1);
+  v.applyEngineForce(ePer, 2);
+  v.applyEngineForce(ePer, 3);
   v.setSteeringValue(steer, 0);
   v.setSteeringValue(steer, 1);
 
@@ -1533,19 +1550,24 @@ function loop() {
   updateProjectiles(dt);
   updateStuckHint(dt);
 
-  // ── Sync visuals ──────────────────────────────────────────────────────
+  // ── Sync visuals — cars are physically on the flat floor; we lift their
+  // visual + wheels by the hill profile at their XZ so they appear to ride
+  // hills, while driving feel stays as effortless as on the plane.
   for (const car of allCars) {
+    const lift = hillHeightAt(car.chassis.position.x, car.chassis.position.z);
     car.group.position.copy(car.chassis.position);
+    car.group.position.y += lift;
     car.group.quaternion.copy(car.chassis.quaternion);
     car.vehicle.wheelInfos.forEach((info, i) => {
       car.vehicle.updateWheelTransform(i);
       car.wheels[i].position.copy(info.worldTransform.position);
+      car.wheels[i].position.y += lift;
       car.wheels[i].quaternion.copy(info.worldTransform.quaternion);
     });
     if (car.badge) {
       car.badge.sprite.position.set(
         car.chassis.position.x,
-        car.chassis.position.y + 2.6,
+        car.chassis.position.y + 2.6 + lift,
         car.chassis.position.z
       );
     }
@@ -1560,28 +1582,51 @@ function loop() {
     b.roof.position.set(b.body.position.x, b.body.position.y + b.roofYLocal, b.body.position.z);
   }
 
-  // ── Camera (cycles via V) ─────────────────────────────────────────────
-  const cp = player.chassis.position;
-  const cq = player.chassis.quaternion;
+  // ── Camera (V cycles 6 modes) ─────────────────────────────────────────
+  // 0 chase | 1 chase-close | 2 below-floor | 3 front-left | 4 front-right
+  // 5 bird's-eye top-down (map rotates with player heading)
+  const cp   = player.chassis.position;
+  const cq   = player.chassis.quaternion;
+  const cLift = hillHeightAt(cp.x, cp.z);
+  const cpY   = cp.y + cLift;            // visual world-Y of the car
 
-  let localOff;
-  if      (camMode === 0) localOff = new CANNON.Vec3(-7.8, 3.4,  0);
-  else if (camMode === 1) localOff = new CANNON.Vec3( 0,   2.6, -7.5);
-  else if (camMode === 2) localOff = new CANNON.Vec3( 0,   2.6,  7.5);
-  else                    localOff = new CANNON.Vec3( 7.5, 2.8,  0);
+  if (camMode === 5) {
+    // Top-down. Camera high above; player forward = screen up.
+    const fwdL = new CANNON.Vec3(1, 0, 0);
+    const fwdW = new CANNON.Vec3();
+    cq.vmult(fwdL, fwdW);
+    const ALT = 70;
+    camPos.lerp(new THREE.Vector3(cp.x, cpY + ALT, cp.z), 0.15);
+    camLook.lerp(new THREE.Vector3(cp.x, cpY, cp.z), 0.20);
+    camera.position.copy(camPos);
+    // Re-orient camera so player heading maps to screen up
+    const upX = fwdW.x, upZ = fwdW.z;
+    const len = Math.hypot(upX, upZ) || 1;
+    camera.up.set(upX / len, 0, upZ / len);
+    camera.lookAt(camLook);
+  } else {
+    camera.up.set(0, 1, 0);                // restore default up
 
-  const worldOff = new CANNON.Vec3();
-  cq.vmult(localOff, worldOff);
+    let localOff;
+    if      (camMode === 0) localOff = new CANNON.Vec3(-7.8,  3.4,  0);   // chase
+    else if (camMode === 1) localOff = new CANNON.Vec3(-4.2,  2.0,  0);   // chase close
+    else if (camMode === 2) localOff = new CANNON.Vec3(-4.5, -1.6,  0);   // below floor
+    else if (camMode === 3) localOff = new CANNON.Vec3( 4.5,  2.5, -3.5); // front-left
+    else if (camMode === 4) localOff = new CANNON.Vec3( 4.5,  2.5,  3.5); // front-right
 
-  const lerpK = camMode === 0 ? 0.09 : 0.18;
-  camPos.lerp(
-    new THREE.Vector3(cp.x + worldOff.x, cp.y + worldOff.y, cp.z + worldOff.z),
-    lerpK
-  );
-  camLook.lerp(new THREE.Vector3(cp.x, cp.y + 0.7, cp.z), lerpK + 0.04);
+    const worldOff = new CANNON.Vec3();
+    cq.vmult(localOff, worldOff);
 
-  camera.position.copy(camPos);
-  camera.lookAt(camLook);
+    const lerpK = camMode === 0 ? 0.09 : 0.18;
+    camPos.lerp(
+      new THREE.Vector3(cp.x + worldOff.x, cpY + worldOff.y, cp.z + worldOff.z),
+      lerpK
+    );
+    camLook.lerp(new THREE.Vector3(cp.x, cpY + 0.7, cp.z), lerpK + 0.04);
+
+    camera.position.copy(camPos);
+    camera.lookAt(camLook);
+  }
 
   // ── HUD ───────────────────────────────────────────────────────────────
   const vel = player.chassis.velocity;
