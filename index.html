@@ -308,34 +308,24 @@ const HILL_COLOR = 0x303030;
 // climb a bit slower than on the plane, but they don't grind to a stop.
 // At speed: jump off the peak; slow: roll back down. Real physics, arcade
 // feel because the geometry itself is forgiving.
-function makeHill(x, z, sigma, peakH) {
-  // Sphere physics: huge radius so visible cap is shallow (~13° at base).
-  // Cars cross the hill ~80% of flat speed, fast enough to launch off the
-  // far side instead of grinding to a stop.
-  const R       = peakH * 22;       // sphere radius
-  const burial  = R - peakH;        // how deep the centre sits below ground
+function makeHill(x, z, _sigma, peakH) {
+  // Single sphere mostly buried — both physics AND visual use the same
+  // sphere so the car drives on the actual surface (no hovering above).
+  const R      = peakH * 20;          // ~18° slope at base
+  const burial = R - peakH;
   const body = new CANNON.Body({ mass: 0, material: matBldg });
   body.addShape(new CANNON.Sphere(R));
   body.position.set(x, -burial, z);
   world.addBody(body);
 
-  // Visual stays the smooth Gaussian lathe (it matches the sphere closely
-  // enough near the centre; outer fringe slightly oversells the slope but
-  // that just looks like the hill blends into the floor).
-  const profile = [];
-  const profSegs = 26;
-  const totalR   = sigma * 3.2;
-  for (let i = 0; i <= profSegs; i++) {
-    const r = (i / profSegs) * totalR;
-    const h = peakH * Math.exp(-(r * r) / (2 * sigma * sigma));
-    profile.push(new THREE.Vector2(r, h));
-  }
-  const geom = new THREE.LatheGeometry(profile, 32);
+  // Visual: top hemisphere of the same sphere, positioned identically.
+  // Ground plane occludes anything below y=0.
+  const geom = new THREE.SphereGeometry(R, 36, 22, 0, Math.PI * 2, 0, Math.PI / 2);
   const mesh = new THREE.Mesh(
     geom,
-    new THREE.MeshLambertMaterial({ color: HILL_COLOR, side: THREE.DoubleSide })
+    new THREE.MeshLambertMaterial({ color: HILL_COLOR })
   );
-  mesh.position.set(x, 0, z);
+  mesh.position.set(x, -burial, z);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   scene.add(mesh);
@@ -1493,6 +1483,23 @@ function loop() {
   v.applyEngineForce(ePer, 1);
   v.applyEngineForce(ePer, 2);
   v.applyEngineForce(ePer, 3);
+
+  // Anti-gravity ascent boost — while climbing a hill, push along the car's
+  // horizontal forward axis so speed doesn't bleed away.  Triggers when the
+  // chassis is above flat ride height AND the throttle is on.
+  if (eng > 0 && player.chassis.position.y > 0.95) {
+    const fwdL = new CANNON.Vec3(1, 0, 0);
+    const fwdW = new CANNON.Vec3();
+    player.chassis.quaternion.vmult(fwdL, fwdW);
+    const len = Math.hypot(fwdW.x, fwdW.z);
+    if (len > 0.05) {
+      const boost = 4500;
+      player.chassis.applyForce(
+        new CANNON.Vec3(fwdW.x / len * boost, 0, fwdW.z / len * boost),
+        player.chassis.position
+      );
+    }
+  }
   v.setSteeringValue(steer, 0);
   v.setSteeringValue(steer, 1);
 
