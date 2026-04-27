@@ -446,9 +446,7 @@ function rebuildCarVisual(car) {
     const wsW = p.cabinWidth, wsH = 0.32, wsT = 0.06;
     const ws = new THREE.Mesh(
       new THREE.BoxGeometry(wsT, wsH, wsW),
-      new THREE.MeshLambertMaterial({
-        color: 0x88aacc, transparent: true, opacity: 0.55,
-      })
+      new THREE.MeshLambertMaterial({ color: 0x445566 })  // opaque — transparency caused z-fighting
     );
     ws.position.set(p.cabinOffset + p.cabinLength * 0.4, cabinBaseY + wsH / 2, 0);
     ws.rotation.z = -0.3;
@@ -637,8 +635,7 @@ function applyTier(car, level) {
   // Wheel scale (visual only — physics radius stays at 0.37)
   p.wheelScale = lerp(0.78, 1.30, t) + rng(-0.04, 0.04);
 
-  // Style + colour
-  p.bodyColor      = pick(pickPalette(L));
+  // Style — colour is sticky (set once at car creation, kept across upgrades)
   p.headlightStyle = pick(unlockedHeadlights(L));
   p.accessory      = pick(unlockedAccessories(L));
 
