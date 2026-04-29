@@ -64,13 +64,8 @@
   #spec-tune label { display: flex; gap: 6px; align-items: center; }
   #spec-tune input[type=range] { width: 140px; }
   #spec-tune .v { width: 32px; text-align: right; opacity: 0.85; }
-  /* Wrap flash: brief white overlay when the player crosses an arena edge
-     in spectator mode (chase view is seamless via mirrored shadows). */
-  #wrap-flash {
-    position: fixed; inset: 0; background: #fff; opacity: 0;
-    pointer-events: none; z-index: 999; transition: opacity 180ms ease-out;
-  }
-  #wrap-flash.on { opacity: 0.55; transition: opacity 40ms ease-in; }
+  /* (wrap flash is now a 3-D sphere spawned around the car, not a fullscreen
+     overlay — old #wrap-flash CSS removed.) */
   /* Click target sitting on top of the iso preview — opens the constructor
      in a modal preloaded with the player's current design. */
   #preview-click {
@@ -223,7 +218,6 @@
     <label>DIST   <input id="spec-d" type="range" min="20" max="500" step="2"/><span class="v" id="spec-d-v"></span></label>
   </div>
 </div>
-<div id="wrap-flash"></div>
 
 <div id="inspector-modal">
   <iframe id="inspector-iframe" src="about:blank"></iframe>
@@ -265,7 +259,10 @@ document.body.appendChild(renderer.domElement);
 // ── SCENE ──────────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x4a6891);
-scene.fog = new THREE.FogExp2(0x4a6891, 0.0018);
+// Fog density tuned so mirror copies of cars in distant tiles fade
+// out naturally — only the ADJACENT-tile mirrors visible when player
+// is near an arena edge. Reads as "globe-style" emergence from haze.
+scene.fog = new THREE.FogExp2(0x4a6891, 0.0055);
 
 const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.1, 500);
 // Mini camera — 3/4 profile of the player car, drawn in the top-right HUD
@@ -1534,9 +1531,14 @@ function rebuildShadowsFor(car) {
   }
 }
 function syncShadows() {
+  // Mirrors are a CHASE-view trick. In bird's-eye (5) and spectator (6)
+  // they overlap into clutter, so hide them in those modes.
+  const showMirrors = camMode !== 5 && camMode !== 6;
   for (const car of allCars) {
     if (!car.shadowBodies) continue;
     for (const s of car.shadowBodies) {
+      s.visible = showMirrors;
+      if (!showMirrors) continue;
       const off = s.userData.off;
       s.position.set(
         car.group.position.x + off.dx * 2 * A,
@@ -1550,6 +1552,8 @@ function syncShadows() {
         const wheels = car.shadowWheelSets[oi];
         for (let i = 0; i < car.wheels.length; i++) {
           const w = car.wheels[i], sw = wheels[i];
+          sw.visible = showMirrors;
+          if (!showMirrors) continue;
           sw.position.set(
             w.position.x + off.dx * 2 * A,
             w.position.y,
@@ -1570,13 +1574,32 @@ applyDesignVisuals = function (car) {
   rebuildShadowsFor(car);
 };
 
-// ── Wrap flash overlay (spectator mode) ────────────────────────────────
-const wrapFlashEl = document.getElementById('wrap-flash');
-let _wrapFlashUntil = 0;
-function triggerWrapFlash(now) {
-  if (camMode !== 6) return;
-  wrapFlashEl.classList.add('on');
-  _wrapFlashUntil = now + 200;
+// ── Local wrap flash (3-D sphere around the car, not a fullscreen overlay).
+// Two flashes per wrap: one at the EXIT side (where the car disappears)
+// and one at the ENTRY side (where it pops back in).
+const _flashes = [];
+function spawnWrapFlash(x, y, z, now) {
+  const m = new THREE.Mesh(
+    new THREE.SphereGeometry(2.6, 14, 10),
+    new THREE.MeshBasicMaterial({ color: 0xfff0c8, transparent: true, opacity: 0.85 })
+  );
+  m.position.set(x, y + 0.6, z);
+  scene.add(m);
+  _flashes.push({ mesh: m, t0: now, dur: 260 });
+}
+function tickFlashes(now) {
+  for (let i = _flashes.length - 1; i >= 0; i--) {
+    const f = _flashes[i];
+    const t = (now - f.t0) / f.dur;
+    if (t >= 1) {
+      scene.remove(f.mesh);
+      f.mesh.geometry.dispose(); f.mesh.material.dispose();
+      _flashes.splice(i, 1);
+    } else {
+      f.mesh.material.opacity = (1 - t) * 0.85;
+      f.mesh.scale.setScalar(1 + t * 1.3);
+    }
+  }
 }
 
 // Player always has visible turn signals so the blinker effect works.
@@ -2425,23 +2448,23 @@ function loop() {
   // ── AI ────────────────────────────────────────────────────────────────
   aiCars.forEach((car, i) => tickAI(car, aiState[i], dt, now));
 
-  // ── Pac-man wrap: any car that drives off one edge is teleported to
-  // the opposite edge. In chase view the world looks SEAMLESS because we
-  // also render 8 mirror copies of every car at neighbouring tiles. In
-  // spectator view we flash the screen briefly (see triggerWrapFlash).
+  // ── Pac-man wrap: any car that drives off one edge is teleported to the
+  // opposite edge. Spawn a local sparkle flash at the exit point AND the
+  // entry point so the player reads it as "popped through a portal".
   for (const c of allCars) {
     const pos = c.chassis.position;
+    const exitX = pos.x, exitZ = pos.z;
     let wrapped = false;
     if (pos.x >  A) { pos.x -= 2 * A; wrapped = true; }
     else if (pos.x < -A) { pos.x += 2 * A; wrapped = true; }
     if (pos.z >  A) { pos.z -= 2 * A; wrapped = true; }
     else if (pos.z < -A) { pos.z += 2 * A; wrapped = true; }
-    if (wrapped && c === player) triggerWrapFlash(now);
+    if (wrapped) {
+      spawnWrapFlash(exitX, pos.y, exitZ, now);   // where it left
+      spawnWrapFlash(pos.x,  pos.y, pos.z,  now); // where it arrived
+    }
   }
-  // Clear the wrap flash after its window expires.
-  if (wrapFlashEl.classList.contains('on') && now > _wrapFlashUntil) {
-    wrapFlashEl.classList.remove('on');
-  }
+  tickFlashes(now);
 
   // ── Anti-launch: clamp every car's upward velocity so no collision can
   // fling them into the sky.
