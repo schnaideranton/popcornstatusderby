@@ -66,8 +66,54 @@
   #spec-tune label { display: flex; gap: 6px; align-items: center; }
   #spec-tune input[type=range] { width: 140px; }
   #spec-tune .v { width: 32px; text-align: right; opacity: 0.85; }
-  /* (wrap flash is now a 3-D sphere spawned around the car, not a fullscreen
-     overlay — old #wrap-flash CSS removed.) */
+  /* Settings drawer + gear button. Default hidden — open via ⚙. */
+  #gear-btn {
+    position: absolute; top: 14px; right: 320px;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(0,0,0,0.55); color: #ddd;
+    border: 1px solid rgba(255,255,255,0.25);
+    font-size: 18px; cursor: pointer; pointer-events: auto;
+    z-index: 6; line-height: 32px; text-align: center;
+  }
+  #gear-btn:hover { background: rgba(255,255,255,0.10); }
+  body.touch #gear-btn { display: none; }
+  #settings-drawer {
+    display: none; position: absolute; top: 60px; right: 14px;
+    width: 320px; max-height: calc(100vh - 80px); overflow-y: auto;
+    padding: 14px 16px; border-radius: 8px;
+    background: rgba(0,0,0,0.78); color: #ddd;
+    font-family: 'Courier New', monospace; font-size: 11px;
+    letter-spacing: 1px;
+    border: 1px solid rgba(255,255,255,0.20);
+    z-index: 6; pointer-events: auto;
+  }
+  #settings-drawer.open { display: block; }
+  #settings-drawer h3 {
+    font-size: 10px; letter-spacing: 3px; opacity: 0.6;
+    margin: 8px 0 6px; text-transform: uppercase; font-weight: normal;
+  }
+  #settings-drawer .row {
+    display: grid; grid-template-columns: 80px 1fr 42px;
+    gap: 6px; align-items: center; margin: 3px 0;
+  }
+  #settings-drawer .row label { opacity: 0.85; font-size: 10px; }
+  #settings-drawer .row .v { text-align: right; font-size: 10px; opacity: 0.75; }
+  #settings-drawer input[type=range] { width: 100%; }
+  #settings-drawer select {
+    background: #2a2d34; color: #ddd;
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 3px 5px; font-family: inherit; font-size: 11px;
+    width: 100%; border-radius: 3px;
+  }
+  #settings-drawer button {
+    width: 100%; margin-top: 8px;
+    background: rgba(220,80,80,0.18);
+    border: 1px solid rgba(220,80,80,0.55); color: #fcc;
+    padding: 6px; border-radius: 4px;
+    font-family: inherit; font-size: 10px; letter-spacing: 2px;
+    cursor: pointer;
+  }
+  #settings-drawer button:hover { background: rgba(220,80,80,0.30); }
   /* Click target sitting on top of the iso preview — opens the constructor
      in a modal preloaded with the player's current design. */
   #preview-click {
@@ -215,6 +261,38 @@
     🛠 CONSTRUCTOR
   </a>
   <div id="preview-click" title="Open this design in the constructor (game pauses)"></div>
+  <button id="gear-btn" title="Tune cameras, sun, clouds, fog…">⚙</button>
+  <div id="settings-drawer">
+    <h3>Camera</h3>
+    <div class="row"><label>Mode</label><select id="set-cam-mode">
+      <option value="0">0 chase</option><option value="1">1 chase-close</option>
+      <option value="2">2 below</option><option value="3">3 front-left</option>
+      <option value="4">4 front-right</option><option value="5">5 birds-eye</option>
+    </select><span class="v"></span></div>
+    <div class="row"><label>X (fwd)</label><input type="range" id="set-cam-x" min="-15" max="15" step="0.1"/><span class="v" id="set-cam-x-v"></span></div>
+    <div class="row"><label>Y (up)</label><input type="range" id="set-cam-y" min="-8" max="20" step="0.1"/><span class="v" id="set-cam-y-v"></span></div>
+    <div class="row"><label>Z (right)</label><input type="range" id="set-cam-z" min="-12" max="12" step="0.1"/><span class="v" id="set-cam-z-v"></span></div>
+    <div class="row"><label>Birds alt</label><input type="range" id="set-be" min="20" max="160" step="2"/><span class="v" id="set-be-v"></span></div>
+
+    <h3>Sun &amp; sky</h3>
+    <div class="row"><label>Sun pwr</label><input type="range" id="set-sun" min="0" max="3" step="0.05"/><span class="v" id="set-sun-v"></span></div>
+    <div class="row"><label>Ambient</label><input type="range" id="set-amb" min="0" max="1.2" step="0.02"/><span class="v" id="set-amb-v"></span></div>
+    <div class="row"><label>Sun X</label><input type="range" id="set-sx" min="-200" max="200" step="2"/><span class="v" id="set-sx-v"></span></div>
+    <div class="row"><label>Sun Y</label><input type="range" id="set-sy" min="40" max="250" step="2"/><span class="v" id="set-sy-v"></span></div>
+    <div class="row"><label>Sun Z</label><input type="range" id="set-sz" min="-200" max="200" step="2"/><span class="v" id="set-sz-v"></span></div>
+
+    <h3>Clouds</h3>
+    <div class="row"><label>Count</label><input type="range" id="set-cl-n" min="0" max="120" step="1"/><span class="v" id="set-cl-n-v"></span></div>
+    <div class="row"><label>Altitude</label><input type="range" id="set-cl-h" min="20" max="180" step="2"/><span class="v" id="set-cl-h-v"></span></div>
+    <div class="row"><label>Alt spread</label><input type="range" id="set-cl-as" min="0" max="120" step="2"/><span class="v" id="set-cl-as-v"></span></div>
+    <div class="row"><label>Spread</label><input type="range" id="set-cl-sp" min="200" max="1400" step="20"/><span class="v" id="set-cl-sp-v"></span></div>
+    <div class="row"><label>Size</label><input type="range" id="set-cl-sz" min="0.4" max="3" step="0.05"/><span class="v" id="set-cl-sz-v"></span></div>
+
+    <h3>Track</h3>
+    <div class="row"><label>Marking</label><input type="range" id="set-tr" min="1" max="10" step="0.5"/><span class="v" id="set-tr-v"></span></div>
+
+    <button id="set-reset">↻ RESET DEFAULTS</button>
+  </div>
   <div id="spec-tune">
     <label class="spec-only">HEIGHT <input id="spec-h" type="range" min="20" max="400" step="2"/><span class="v" id="spec-h-v"></span></label>
     <label class="spec-only">DIST   <input id="spec-d" type="range" min="20" max="500" step="2"/><span class="v" id="spec-d-v"></span></label>
@@ -331,27 +409,52 @@ sun.shadow.camera.near = 1;
 sun.shadow.camera.far = 350;
 scene.add(sun);
 
-// ── CLOUDS — small puffy cumulus clusters ─────────────────────────────
-{
-  const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
-  for (let i = 0; i < 24; i++) {
+// ── CLOUDS — regenerable puffy cumulus clusters ───────────────────────
+let cloudGroup = new THREE.Group();
+scene.add(cloudGroup);
+const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+function regenerateClouds(opts) {
+  scene.remove(cloudGroup);
+  cloudGroup.children.forEach(g => {
+    g.children.forEach(m => m.geometry?.dispose());
+  });
+  cloudGroup = new THREE.Group();
+  scene.add(cloudGroup);
+  const N      = opts.count;
+  const altMid = opts.altitude;
+  const altSpread = opts.altSpread;
+  const spread = opts.spread;
+  const sizeMul = opts.size;
+  for (let i = 0; i < N; i++) {
     const cluster = new THREE.Group();
     cluster.position.set(
-      (Math.random() - 0.5) * 700,
-      80 + Math.random() * 60,
-      (Math.random() - 0.5) * 700
+      (Math.random() - 0.5) * spread,
+      altMid + (Math.random() - 0.5) * altSpread,
+      (Math.random() - 0.5) * spread
     );
-    const puffs = 4 + Math.floor(Math.random() * 4);
+    cluster.userData.seed = Math.random();          // unique morphology
+    const puffs = 5 + Math.floor(Math.random() * 5);
     for (let j = 0; j < puffs; j++) {
-      const r = 4 + Math.random() * 5;
+      const r = (3 + Math.random() * 5) * sizeMul;
       const s = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), cloudMat);
-      s.position.set((Math.random()-0.5)*8, (Math.random()-0.5)*2.5, (Math.random()-0.5)*8);
+      s.position.set(
+        (Math.random()-0.5) * 10 * sizeMul,
+        (Math.random()-0.5) *  3 * sizeMul,
+        (Math.random()-0.5) * 10 * sizeMul);
       s.scale.y = 0.55;
       cluster.add(s);
     }
-    scene.add(cluster);
+    cloudGroup.add(cluster);
   }
 }
+const cloudOpts = {
+  count:     parseInt(localStorage.getItem('cloudN'), 10)  || 30,
+  altitude:  parseInt(localStorage.getItem('cloudH'), 10)  || 55,
+  altSpread: parseInt(localStorage.getItem('cloudAS'), 10) || 30,
+  spread:    parseInt(localStorage.getItem('cloudSP'), 10) || 700,
+  size:      parseFloat(localStorage.getItem('cloudSZ'))   || 1.0,
+};
+regenerateClouds(cloudOpts);
 
 // ── SKY background — bright daytime blue (swapped to floor-grey in
 // birds-eye mode so the horizon disappears).
@@ -396,61 +499,111 @@ groundBody.addShape(new CANNON.Plane());
 groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
 world.addBody(groundBody);
 
-// Procedural canvas with race-track-ish markings: lanes, dashed lines,
-// crosswalks, dashed circles, pit-stop boxes. Purely decorative.
+// Procedural canvas with abstract racing-track markings — curves,
+// dashed centre lines, pit boxes, sweeping spline arcs, dashed turns.
+// Tile repeats more so the markings read smaller next to the cars.
 function makeTrackTexture() {
   const c = document.createElement('canvas');
   c.width = c.height = 2048;
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#242424';
   ctx.fillRect(0, 0, 2048, 2048);
-  ctx.strokeStyle = 'rgba(255,255,255,0.45)';
-  ctx.lineWidth = 5;
-  // Solid border lanes
-  for (const x of [200, 208, 1840, 1848]) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 2048); ctx.stroke();
-  }
-  for (const y of [200, 208, 1840, 1848]) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(2048, y); ctx.stroke();
-  }
-  // Dashed centre lines
-  ctx.setLineDash([60, 40]); ctx.lineWidth = 5;
-  ctx.beginPath(); ctx.moveTo(1024, 0); ctx.lineTo(1024, 2048); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0, 1024); ctx.lineTo(2048, 1024); ctx.stroke();
+  // Helper
+  const W = 'rgba(255,255,255,0.45)';
+  const Wf = 'rgba(255,255,255,0.55)';
+  // Outer track border (sweeping rounded square)
+  ctx.strokeStyle = W; ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(280, 120);
+  ctx.lineTo(1768, 120);
+  ctx.quadraticCurveTo(1928, 120, 1928, 280);
+  ctx.lineTo(1928, 1768);
+  ctx.quadraticCurveTo(1928, 1928, 1768, 1928);
+  ctx.lineTo(280, 1928);
+  ctx.quadraticCurveTo(120, 1928, 120, 1768);
+  ctx.lineTo(120, 280);
+  ctx.quadraticCurveTo(120, 120, 280, 120);
+  ctx.stroke();
+  // Inner track border (mirrored, smaller)
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(380, 220);
+  ctx.lineTo(1668, 220);
+  ctx.quadraticCurveTo(1828, 220, 1828, 380);
+  ctx.lineTo(1828, 1668);
+  ctx.quadraticCurveTo(1828, 1828, 1668, 1828);
+  ctx.lineTo(380, 1828);
+  ctx.quadraticCurveTo(220, 1828, 220, 1668);
+  ctx.lineTo(220, 380);
+  ctx.quadraticCurveTo(220, 220, 380, 220);
+  ctx.stroke();
+  // Dashed mid line following the track
+  ctx.setLineDash([42, 30]); ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(330, 170);
+  ctx.lineTo(1718, 170);
+  ctx.quadraticCurveTo(1878, 170, 1878, 330);
+  ctx.lineTo(1878, 1718);
+  ctx.quadraticCurveTo(1878, 1878, 1718, 1878);
+  ctx.lineTo(330, 1878);
+  ctx.quadraticCurveTo(170, 1878, 170, 1718);
+  ctx.lineTo(170, 330);
+  ctx.quadraticCurveTo(170, 170, 330, 170);
+  ctx.stroke();
   ctx.setLineDash([]);
-  // Crosswalks (zebras)
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  for (const [cx, cy] of [[1024, 320], [1024, 1728], [320, 1024], [1728, 1024]]) {
+  // Two extra sweeping spline curves crossing the inner area
+  ctx.lineWidth = 3; ctx.setLineDash([24, 18]);
+  ctx.beginPath();
+  ctx.moveTo(280, 1024);
+  ctx.bezierCurveTo(680, 380, 1368, 1668, 1768, 1024);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(1024, 280);
+  ctx.bezierCurveTo(380, 680, 1668, 1368, 1024, 1768);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // Crosswalks (zebras) at 4 cardinal points on the outer border
+  ctx.fillStyle = Wf;
+  for (const [cx, cy, vert] of [
+    [1024, 200, false], [1024, 1848, false],
+    [200, 1024, true],  [1848, 1024, true]
+  ]) {
     for (let i = 0; i < 14; i++) {
-      ctx.fillRect(cx - 280 + i * 42, cy - 24, 28, 48);
+      const o = -260 + i * 38;
+      if (vert) ctx.fillRect(cx - 24, cy + o, 48, 26);
+      else      ctx.fillRect(cx + o, cy - 24, 26, 48);
     }
   }
-  // Pit-stop boxes
-  ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 4;
-  for (const [bx, by] of [[420, 920], [420, 1080], [1556, 920], [1556, 1080]]) {
-    ctx.strokeRect(bx, by, 70, 160);
+  // Pit-stop boxes lining one side
+  ctx.strokeStyle = Wf; ctx.lineWidth = 3;
+  for (let i = 0; i < 6; i++) {
+    ctx.strokeRect(290 + i * 240, 240, 60, 130);
   }
-  // Dashed circles
+  // Dashed turn-radius circles (corners)
   ctx.setLineDash([18, 14]); ctx.lineWidth = 3;
-  for (const [cx, cy, r] of [[600, 600, 120], [1450, 600, 90], [600, 1450, 100], [1450, 1450, 130]]) {
+  for (const [cx, cy, r] of [
+    [380, 380, 220], [1668, 380, 220], [380, 1668, 220], [1668, 1668, 220]
+  ]) {
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
   }
   ctx.setLineDash([]);
-  // Big "START / FINISH" stripe across centre
-  ctx.fillStyle = 'rgba(255,255,255,0.40)';
-  for (let i = 0; i < 28; i++) {
-    if (i % 2 === 0) ctx.fillRect(900, i * 36, 30, 20);
+  // Start/finish stripe
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  for (let i = 0; i < 16; i++) {
+    if (i % 2 === 0) ctx.fillRect(990, 200 + i * 24, 28, 18);
+    else             ctx.fillRect(1018, 200 + i * 24, 28, 18);
   }
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(2, 2);
   tex.anisotropy = 4;
   return tex;
 }
 
+const trackTex = makeTrackTexture();
+trackTex.repeat.set(4, 4);   // smaller markings
 const groundMesh = new THREE.Mesh(
   new THREE.PlaneGeometry(800, 800),
-  new THREE.MeshLambertMaterial({ map: makeTrackTexture() })
+  new THREE.MeshLambertMaterial({ map: trackTex })
 );
 groundMesh.rotation.x = -Math.PI / 2;
 groundMesh.receiveShadow = true;
@@ -1345,6 +1498,7 @@ function applyTier(car, level) {
 function applyDesignVisuals(car) {
   const p = car.design;
   rebuildCarVisual(car);
+  if (typeof rebuildShadowsFor === 'function') rebuildShadowsFor(car);
   if (!car.wheels) return;
   const s = p.wheelScale;
   car.wheels.forEach(w => w.scale.set(s, s, s));
@@ -1573,6 +1727,26 @@ const aiCars = [
   makeCar( 2, -38, 0xe9c46a),
 ];
 const allCars = [player, ...aiCars];
+
+// ── Camera per-mode offsets (chassis-local). Tunable from settings drawer.
+const CAM_OFF_DEFAULTS = [
+  [-7.8,  3.4,  0],    // 0 chase
+  [-4.2,  2.0,  0],    // 1 chase-close
+  [-4.5, -1.6,  0],    // 2 below
+  [ 4.5,  2.5, -3.5],  // 3 front-left
+  [ 4.5,  2.5,  3.5],  // 4 front-right
+  [ 0,    0,    0],    // 5 birds-eye placeholder
+  [ 0,    0,    0],    // 6 spectator placeholder
+];
+const camOff = (() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('camOff') || 'null');
+    if (Array.isArray(saved) && saved.length === 7) return saved;
+  } catch (e) { /* fall through */ }
+  return CAM_OFF_DEFAULTS.map(a => a.slice());
+})();
+let birdsEyeAlt = parseInt(localStorage.getItem('birdsEyeAlt'), 10) || 70;
+
 // ── Spectator camera live-tuning + persistence ──────────────────────────
 const specCam = {
   height: parseInt(localStorage.getItem('specH'), 10) || Math.round(A * 0.55),
@@ -1693,12 +1867,89 @@ function syncShadows() {
 }
 // Wire every car
 allCars.forEach(c => makeShadows(c));
-// Patch applyDesignVisuals to also rebuild shadows.
-const _applyDesignVisuals = applyDesignVisuals;
-applyDesignVisuals = function (car) {
-  _applyDesignVisuals(car);
-  rebuildShadowsFor(car);
-};
+
+// ── Settings drawer wiring ─────────────────────────────────────────────
+const drawer = document.getElementById('settings-drawer');
+document.getElementById('gear-btn').addEventListener('click', () => {
+  drawer.classList.toggle('open');
+});
+function bindRange(id, valId, init, onInput, key, parse) {
+  const el = document.getElementById(id);
+  const lbl = document.getElementById(valId);
+  el.value = init;
+  lbl.textContent = init;
+  el.addEventListener('input', () => {
+    const v = parse ? parse(el.value) : parseFloat(el.value);
+    lbl.textContent = el.value;
+    onInput(v);
+    if (key) localStorage.setItem(key, String(v));
+  });
+}
+// Camera per-mode tuning
+const setCamMode = document.getElementById('set-cam-mode');
+function loadCamRow() {
+  const m = +setCamMode.value;
+  const off = camOff[m];
+  document.getElementById('set-cam-x').value = off[0]; document.getElementById('set-cam-x-v').textContent = off[0];
+  document.getElementById('set-cam-y').value = off[1]; document.getElementById('set-cam-y-v').textContent = off[1];
+  document.getElementById('set-cam-z').value = off[2]; document.getElementById('set-cam-z-v').textContent = off[2];
+}
+setCamMode.value = '0';
+loadCamRow();
+setCamMode.addEventListener('change', loadCamRow);
+['x','y','z'].forEach((axis, i) => {
+  const el = document.getElementById('set-cam-' + axis);
+  const lbl = document.getElementById('set-cam-' + axis + '-v');
+  el.addEventListener('input', () => {
+    const m = +setCamMode.value;
+    camOff[m][i] = parseFloat(el.value);
+    lbl.textContent = el.value;
+    localStorage.setItem('camOff', JSON.stringify(camOff));
+  });
+});
+bindRange('set-be', 'set-be-v', birdsEyeAlt, v => { birdsEyeAlt = v; }, 'birdsEyeAlt');
+// Lighting
+const ambLight = scene.children.find(o => o.isAmbientLight);
+bindRange('set-sun', 'set-sun-v', sun.intensity,    v => { sun.intensity = v; },    'sunI');
+bindRange('set-amb', 'set-amb-v', ambLight.intensity, v => { ambLight.intensity = v; }, 'ambI');
+bindRange('set-sx',  'set-sx-v',  sun.position.x,   v => { sun.position.x = v; },   'sunX');
+bindRange('set-sy',  'set-sy-v',  sun.position.y,   v => { sun.position.y = v; },   'sunY');
+bindRange('set-sz',  'set-sz-v',  sun.position.z,   v => { sun.position.z = v; },   'sunZ');
+// Clouds
+function rerollClouds(field, value) {
+  cloudOpts[field] = value;
+  regenerateClouds(cloudOpts);
+}
+bindRange('set-cl-n', 'set-cl-n-v', cloudOpts.count,     v => rerollClouds('count', v),     'cloudN');
+bindRange('set-cl-h', 'set-cl-h-v', cloudOpts.altitude,  v => rerollClouds('altitude', v),  'cloudH');
+bindRange('set-cl-as','set-cl-as-v',cloudOpts.altSpread, v => rerollClouds('altSpread', v), 'cloudAS');
+bindRange('set-cl-sp','set-cl-sp-v',cloudOpts.spread,    v => rerollClouds('spread', v),    'cloudSP');
+bindRange('set-cl-sz','set-cl-sz-v',cloudOpts.size,      v => rerollClouds('size', v),      'cloudSZ');
+// Track marking scale (texture repeat)
+const trackRepeatInit = trackTex.repeat.x;
+bindRange('set-tr', 'set-tr-v', trackRepeatInit, v => { trackTex.repeat.set(v, v); }, 'trackR');
+// Restore saved sun on load (sun.intensity etc.)
+sun.intensity     = parseFloat(localStorage.getItem('sunI')) || sun.intensity;
+ambLight.intensity= parseFloat(localStorage.getItem('ambI')) || ambLight.intensity;
+sun.position.x    = parseFloat(localStorage.getItem('sunX')) || sun.position.x;
+sun.position.y    = parseFloat(localStorage.getItem('sunY')) || sun.position.y;
+sun.position.z    = parseFloat(localStorage.getItem('sunZ')) || sun.position.z;
+const savedTR = parseFloat(localStorage.getItem('trackR'));
+if (!isNaN(savedTR)) trackTex.repeat.set(savedTR, savedTR);
+// Sync slider initial values to whatever was loaded
+document.getElementById('set-sun').value = sun.intensity;     document.getElementById('set-sun-v').textContent = sun.intensity;
+document.getElementById('set-amb').value = ambLight.intensity;document.getElementById('set-amb-v').textContent = ambLight.intensity;
+document.getElementById('set-sx').value = sun.position.x;     document.getElementById('set-sx-v').textContent = sun.position.x;
+document.getElementById('set-sy').value = sun.position.y;     document.getElementById('set-sy-v').textContent = sun.position.y;
+document.getElementById('set-sz').value = sun.position.z;     document.getElementById('set-sz-v').textContent = sun.position.z;
+if (!isNaN(savedTR)) { document.getElementById('set-tr').value = savedTR; document.getElementById('set-tr-v').textContent = savedTR; }
+document.getElementById('set-reset').addEventListener('click', () => {
+  ['camOff','birdsEyeAlt','sunI','ambI','sunX','sunY','sunZ',
+   'cloudN','cloudH','cloudAS','cloudSP','cloudSZ','trackR',
+   'specH','specD','fogD']
+    .forEach(k => localStorage.removeItem(k));
+  location.reload();
+});
 
 // ── Local wrap flash (3-D sphere around the car, not a fullscreen overlay).
 // Two flashes per wrap: one at the EXIT side (where the car disappears)
@@ -2213,7 +2464,7 @@ function updateProjectiles(dt) {
 
 // ── INPUT ──────────────────────────────────────────────────────────────────
 const K = {};
-let camMode = 0;  // 0 chase · 1 chase-close · 2 below · 3 front-left · 4 front-right · 5 birds-eye · 6 spectator
+let camMode = 0;  // see camOff array declared earlier in the script.
 let nextShotTime = 0;
 let lastJump = 0;        // legacy — kept for AI state struct
 let lastJTurn = 0;       // E-key police J-turn cooldown
@@ -2714,7 +2965,7 @@ function loop() {
     const fwdL = new CANNON.Vec3(1, 0, 0);
     const fwdW = new CANNON.Vec3();
     cq.vmult(fwdL, fwdW);
-    const ALT = 70;
+    const ALT = birdsEyeAlt;
     camPos.lerp(new THREE.Vector3(cp.x, cpY + ALT, cp.z), 0.15);
     camLook.lerp(new THREE.Vector3(cp.x, cpY, cp.z), 0.20);
     camera.position.copy(camPos);
@@ -2726,12 +2977,7 @@ function loop() {
   } else {
     camera.up.set(0, 1, 0);                // restore default up
 
-    let localOff;
-    if      (camMode === 0) localOff = new CANNON.Vec3(-7.8,  3.4,  0);   // chase
-    else if (camMode === 1) localOff = new CANNON.Vec3(-4.2,  2.0,  0);   // chase close
-    else if (camMode === 2) localOff = new CANNON.Vec3(-4.5, -1.6,  0);   // below floor
-    else if (camMode === 3) localOff = new CANNON.Vec3( 4.5,  2.5, -3.5); // front-left
-    else if (camMode === 4) localOff = new CANNON.Vec3( 4.5,  2.5,  3.5); // front-right
+    let localOff = new CANNON.Vec3(...camOff[camMode]);
 
     const worldOff = new CANNON.Vec3();
     cq.vmult(localOff, worldOff);
