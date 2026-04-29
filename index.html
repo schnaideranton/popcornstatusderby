@@ -458,6 +458,9 @@ function regenerateClouds(opts) {
     cloudGroup.add(cluster);
   }
 }
+// ── ARENA WALLS (moved up so A is available to regenerateClouds) ──────────
+const A = 109; // arena half-size (metres) — 156 × 0.7
+
 const cloudOpts = {
   count:     parseInt(localStorage.getItem('cloudN'), 10)  || 77,
   altitude:  parseInt(localStorage.getItem('cloudH'), 10)  || 42,
@@ -638,8 +641,7 @@ function staticBox(x, y, z, w, h, d, color, mat) {
   return mesh;
 }
 
-// ── ARENA WALLS ────────────────────────────────────────────────────────────
-const A = 109; // arena half-size (metres) — 156 × 0.7
+// ── ARENA WALLS (A already declared above) ─────────────────────────────────
 const WH = 5; // wall height
 // Pac-man arena: no perimeter walls. Cars that drive past one edge are
 // teleported to the opposite edge in the main loop.
