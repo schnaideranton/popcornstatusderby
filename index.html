@@ -1191,48 +1191,106 @@ function applyTier(car, level) {
     p.rimDish = -1 * rng(0.08, 0.16);   // always concave when crazy
   }
 
-  rebuildCarVisual(car);
-  if (car.wheels) {
-    const s = p.wheelScale;
-    car.wheels.forEach(w => w.scale.set(s, s, s));
-    // Re-skin the hubcaps with the rolled rim colour + convex/concave hint.
-    car.wheels.forEach(wg => {
-      if (wg.userData.hubMat) wg.userData.hubMat.color.setHex(p.rimColor || 0xc8ccd0);
-      const dishSign = Math.sign(p.rimDish || 0);    // -1 concave or 0 flat
-      const sz = p.rimSize ? (p.rimSize / 0.62) : 1;
-      // innerHub is the dark disc inside the hub. When the rim is concave
-      // we GROW it (looks like a recessed hole); flat keeps it small.
-      const innerScale = dishSign < 0 ? 1.6 : 0.65;
-      wg.children.forEach(c => {
-        if (!c.userData.role) return;
-        const baseZ = c.userData.baseZ || 0;
-        // Hubs always stay flush with the wheel face. No outward float.
-        c.position.z = baseZ;
-        if (c.userData.role === 'hub') c.scale.set(sz, sz, 1);
-        if (c.userData.role === 'innerHub') c.scale.set(sz * innerScale, sz * innerScale, 1);
-      });
-    });
-  }
+  applyDesignVisuals(car);
   if (car === player) {
-    // Player keeps turn signals always-on so the blinker effect works.
     if (!p.turnSignal.enabled) {
       p.turnSignal.enabled = true;
-      rebuildCarVisual(car);
+      applyDesignVisuals(car);
     }
     rebuildPlayerPreview();
   }
 }
 
+// Pull the body / cabin / lights / wheels into sync with car.design. Used
+// by applyTier on level change and by the morph ticker every frame during
+// a transition so the player car can morph between two designs smoothly.
+function applyDesignVisuals(car) {
+  const p = car.design;
+  rebuildCarVisual(car);
+  if (!car.wheels) return;
+  const s = p.wheelScale;
+  car.wheels.forEach(w => w.scale.set(s, s, s));
+  car.wheels.forEach(wg => {
+    if (wg.userData.hubMat) wg.userData.hubMat.color.setHex(p.rimColor || 0xc8ccd0);
+    const dishSign = Math.sign(p.rimDish || 0);
+    const sz = p.rimSize ? (p.rimSize / 0.62) : 1;
+    const innerScale = dishSign < 0 ? 1.6 : 0.65;
+    wg.children.forEach(c => {
+      if (!c.userData.role) return;
+      const baseZ = c.userData.baseZ || 0;
+      c.position.z = baseZ;
+      if (c.userData.role === 'hub') c.scale.set(sz, sz, 1);
+      if (c.userData.role === 'innerHub') c.scale.set(sz * innerScale, sz * innerScale, 1);
+    });
+  });
+}
+
+// ── Design morph (player-only) ──────────────────────────────────────────
+const MORPH_NUMERIC = [
+  'bodyLength','bodyWidth','bodyHeight','bodyLift',
+  'cabinLength','cabinWidth','cabinHeight','cabinOffset',
+  'cabinSlopeFront','cabinSlopeRear','cabinSlopeSides',
+  'bodyRound','cabinRound','cabinSink',
+  'wheelScale',
+  'headlightX','headlightY','headlightW','headlightH','headlightSpread',
+  'taillightX','taillightY','taillightW','taillightH','taillightSpread',
+  'spoilerHeight','scoopRise','scoopX','scoopZ',
+  'roofboxLength','roofboxWidth','roofboxHeight','roofboxRound',
+  'rimSize','rimDish',
+];
+const MORPH_COLOR = ['bodyColor', 'rimColor'];
+
+function _lerp(a, b, t) { return a + (b - a) * t; }
+function _lerpHex(a, b, t) {
+  const ar=(a>>16)&255, ag=(a>>8)&255, ab=a&255;
+  const br=(b>>16)&255, bg=(b>>8)&255, bb=b&255;
+  return (Math.round(_lerp(ar,br,t))<<16) | (Math.round(_lerp(ag,bg,t))<<8) | Math.round(_lerp(ab,bb,t));
+}
+function _clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+function lerpDesign(a, b, t) {
+  // Discrete fields snap at the midpoint; numeric & colour fields lerp.
+  const out = _clone(t < 0.5 ? a : b);
+  for (const k of MORPH_NUMERIC) {
+    if (typeof a[k] === 'number' && typeof b[k] === 'number') out[k] = _lerp(a[k], b[k], t);
+  }
+  for (const k of MORPH_COLOR) {
+    if (typeof a[k] === 'number' && typeof b[k] === 'number') out[k] = _lerpHex(a[k], b[k], t);
+  }
+  if (a.turnSignal && b.turnSignal) {
+    out.turnSignal = { ...(t < 0.5 ? a.turnSignal : b.turnSignal) };
+    for (const k of ['x','y','w','h']) {
+      out.turnSignal[k] = _lerp(a.turnSignal[k], b.turnSignal[k], t);
+    }
+  }
+  return out;
+}
+
+let morphState = null;     // { from, to, t0, dur } — null when idle
+function startMorph(from, to, dur) {
+  morphState = { from, to, t0: performance.now(), dur: dur || 900 };
+}
+// Wrap applyTier so player-only changes morph between old and new design.
+function applyTierMaybeMorph(car, level) {
+  if (car !== player) { applyTier(car, level); return; }
+  const old = _clone(player.design);
+  applyTier(car, level);
+  const next = _clone(player.design);
+  player.design = old;
+  applyDesignVisuals(player);
+  startMorph(old, next);
+}
+
 // Damage: shooter +1 level (unbounded), victim -1 level (floor 1)
 function damage(victim, attacker) {
   if (victim === attacker) return;
-  applyTier(attacker, attacker.level + 1);
+  applyTierMaybeMorph(attacker, attacker.level + 1);
   if (victim.level <= 1) {
     // KO — victim is at the bottom; teleport away so it can't be farmed
     respawnCar(victim);
     Synth.respawn();
   } else {
-    applyTier(victim, victim.level - 1);
+    applyTierMaybeMorph(victim, victim.level - 1);
   }
   updateBadges();
   Synth.mutate();
@@ -1410,9 +1468,12 @@ document.getElementById('inspector-resume').addEventListener('click', () => {
     if (!ev.data || ev.data.type !== 'apply-design') return;
     replied = true;
     window.removeEventListener('message', onReply);
+    const old = _clone(player.design);
     Object.assign(player.design, ev.data.design);
-    rebuildCarVisual(player);
-    rebuildPlayerPreview();
+    const next = _clone(player.design);
+    player.design = old;
+    applyDesignVisuals(player);
+    startMorph(old, next);
     inspectorModal.classList.remove('open');
     inspectorIframe.src = 'about:blank';
     gamePaused = false;
@@ -1436,9 +1497,12 @@ document.getElementById('inspector-resume').addEventListener('click', () => {
 window.addEventListener('message', (ev) => {
   if (!ev.data || ev.data.type !== 'apply-design') return;
   if (!inspectorModal.classList.contains('open')) return;
+  const old = _clone(player.design);
   Object.assign(player.design, ev.data.design);
-  rebuildCarVisual(player);
-  rebuildPlayerPreview();
+  const next = _clone(player.design);
+  player.design = old;
+  applyDesignVisuals(player);
+  startMorph(old, next);
   inspectorModal.classList.remove('open');
   inspectorIframe.src = 'about:blank';
   gamePaused = false;
@@ -1944,7 +2008,7 @@ document.querySelectorAll('.tc-btn').forEach(btn => {
 
 function resetPlayer() {
   // Manual respawn costs 5 levels (floor 1)
-  applyTier(player, Math.max(1, player.level - 5));
+  applyTierMaybeMorph(player, Math.max(1, player.level - 5));
   respawnCar(player);
   updateBadges();
   Synth.respawn();
@@ -2293,6 +2357,20 @@ function loop() {
   const vel = player.chassis.velocity;
   const kmh = Math.round(Math.sqrt(vel.x*vel.x + vel.y*vel.y + vel.z*vel.z) * 3.6);
   document.getElementById('spd').textContent = kmh;
+
+  // ── Morph tick: lerp the player's design over the morph duration. ───
+  if (morphState) {
+    const tRaw = Math.min(1, (now - morphState.t0) / morphState.dur);
+    const t = tRaw < 0.5 ? 2*tRaw*tRaw : 1 - Math.pow(-2*tRaw + 2, 2)/2;  // ease in-out
+    player.design = lerpDesign(morphState.from, morphState.to, t);
+    applyDesignVisuals(player);
+    if (tRaw >= 1) {
+      player.design = morphState.to;
+      applyDesignVisuals(player);
+      rebuildPlayerPreview();
+      morphState = null;
+    }
+  }
 
   renderer.render(scene, camera);
 
