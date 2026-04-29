@@ -1850,21 +1850,22 @@ const driftZoneEl = document.getElementById('tc-drift-zone');
 const steerTrackEl = document.getElementById('tc-steer-track');
 
 function readSteerTouch(clientX, clientY) {
-  const padR   = steerPadEl.getBoundingClientRect();
-  const trackR = steerTrackEl.getBoundingClientRect();
-  // Steering value: based on X across the whole pad
-  const knobR = 32;  // half of knob
-  const usableW = trackR.width - knobR * 2;
-  const x = clientX - trackR.left - knobR;
-  let s = Math.max(-1, Math.min(1, x / (usableW / 2) - 1));
-  // Easier centre: small dead zone
-  if (Math.abs(s) < 0.06) s = 0;
+  const padR = steerPadEl.getBoundingClientRect();
+  // Steering value: position relative to the centre of the WHOLE pad, then
+  // saturated so the outer ~30% of the slider already gives full lock —
+  // matches what desktop's keyboard does (instant ±MAX_STEER on press).
+  const halfW = padR.width / 2;
+  const xFromCentre = clientX - padR.left - halfW;
+  let raw = xFromCentre / halfW;            // -1..+1 across the pad
+  // Saturate at 70% so finger doesn't need to reach the absolute edge.
+  let s = Math.max(-1, Math.min(1, raw / 0.70));
+  // Tiny centre dead zone (no jitter).
+  if (Math.abs(s) < 0.05) s = 0;
   touchSteer = s;
   steerKnobEl.style.left = ((s * 0.5 + 0.5) * 100) + '%';
-  // Drift zone: top portion of the pad (the dashed box). If finger is up there
-  // the steering value is preserved AND handbrake engages.
+  // Drift zone: top portion of the pad. Slide up while steering = handbrake.
   const localY = clientY - padR.top;
-  touchDrifting = localY < 78;  // matches drift-zone height + small overlap
+  touchDrifting = localY < 78;
   driftZoneEl.classList.toggle('pressed', touchDrifting);
   steerKnobEl.classList.add('pressed');
 }
