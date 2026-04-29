@@ -2994,18 +2994,13 @@ function loop() {
     const worldOff = new CANNON.Vec3();
     cq.vmult(localOff, worldOff);
 
-    // Tight follow — camera snaps to the chassis so the car stays
-    // centred regardless of acceleration. Mode 0 keeps the smallest bit
-    // of smoothing for cinematic feel; other modes lock 1:1 every frame.
-    if (camMode === 0) {
-      camPos.lerp(
-        new THREE.Vector3(cp.x + worldOff.x, cpY + worldOff.y, cp.z + worldOff.z),
-        0.35);
-    } else {
-      camPos.set(cp.x + worldOff.x, cpY + worldOff.y, cp.z + worldOff.z);
-    }
-    // LookAt always snaps directly at the chassis — no lag → car never
-    // slides out of frame.
+    // Tight follow without jitter: high lerp factor on position,
+    // direct snap on lookAt (so the car never drifts off centre).
+    const lerpK = camMode === 0 ? 0.30 : 0.55;
+    camPos.lerp(
+      new THREE.Vector3(cp.x + worldOff.x, cpY + worldOff.y, cp.z + worldOff.z),
+      lerpK
+    );
     camLook.set(cp.x, cpY + 0.7, cp.z);
 
     camera.position.copy(camPos);
