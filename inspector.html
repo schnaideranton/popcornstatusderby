@@ -1245,10 +1245,46 @@ document.getElementById('save').addEventListener('click', async () => {
     a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
   }
+  // If we were opened from inside the racing game, also push the design
+  // back so the player car gets the saved version applied immediately.
+  if (inIframe) {
+    window.parent.postMessage({ type: 'apply-design', design: { ...design } }, '*');
+  }
 });
 
 // ── INITIAL ────────────────────────────────────────────────────────────────
-randomizeCar('sedan');
+// If we were opened from the racing game (inside an iframe with ?design=…),
+// hydrate the editor with that car's design instead of rolling a fresh sedan.
+const inIframe = window.parent && window.parent !== window;
+const _params = new URLSearchParams(location.search);
+const _designParam = _params.get('design');
+if (_designParam) {
+  try {
+    const incoming = JSON.parse(decodeURIComponent(_designParam));
+    if (incoming && typeof incoming === 'object') {
+      Object.assign(design, incoming);
+      currentType = incoming.type || currentType || 'sedan';
+      currentSeed = incoming.seed || 'from-game';
+      document.getElementById('seed').textContent = currentSeed;
+      syncControlsFromDesign();
+      rebuildCar();
+    } else throw new Error('not an object');
+  } catch (e) {
+    console.error('design param parse failed', e);
+    randomizeCar('sedan');
+  }
+} else {
+  randomizeCar('sedan');
+}
+
+// When parent (racing game) asks for our current design before closing the
+// modal, post it back so the player car gets the latest tweaks.
+window.addEventListener('message', (ev) => {
+  if (ev.data && ev.data.type === 'request-design') {
+    window.parent.postMessage({ type: 'apply-design', design: { ...design } }, '*');
+  }
+});
+
 updateCamera();
 
 (function loop() {

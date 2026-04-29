@@ -50,6 +50,31 @@
   }
   #inspector-btn:hover { background: rgba(255,255,255,0.10); }
   body.touch #inspector-btn { display: none; }
+  /* Click target sitting on top of the iso preview — opens the constructor
+     in a modal preloaded with the player's current design. */
+  #preview-click {
+    position: absolute; top: 14px; right: 14px;
+    cursor: pointer; pointer-events: auto;
+    border: 2px solid transparent; border-radius: 6px;
+    transition: border-color 0.15s; z-index: 5;
+  }
+  #preview-click:hover { border-color: rgba(255,255,255,0.55); }
+  body.touch #preview-click { display: none; }
+  /* Inspector modal: covers the whole game while open. Game loop pauses. */
+  #inspector-modal {
+    display: none; position: fixed; inset: 0;
+    background: rgba(8, 10, 14, 0.95); z-index: 1000;
+  }
+  #inspector-modal.open { display: block; }
+  #inspector-iframe { width: 100%; height: 100%; border: none; display: block; }
+  #inspector-resume {
+    position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+    background: rgba(120, 200, 140, 0.18);
+    border: 1px solid rgba(120, 200, 140, 0.6); color: #cfe;
+    font-family: 'Courier New', monospace; font-size: 13px; letter-spacing: 2px;
+    padding: 12px 26px; border-radius: 6px; cursor: pointer; z-index: 1001;
+  }
+  #inspector-resume:hover { background: rgba(120, 200, 140, 0.32); }
 
   /* ── TOUCH CONTROLS — only shown on coarse pointer / no-hover devices ── */
   #touch-controls { display: none; pointer-events: none; }
@@ -171,6 +196,12 @@
   <a id="inspector-btn" href="inspector.html" target="_blank" title="Open the car constructor in a new tab">
     🛠 CONSTRUCTOR
   </a>
+  <div id="preview-click" title="Open this design in the constructor (game pauses)"></div>
+</div>
+
+<div id="inspector-modal">
+  <iframe id="inspector-iframe" src="about:blank"></iframe>
+  <button id="inspector-resume">▶ APPLY &amp; RESUME</button>
 </div>
 
 <div id="touch-controls">
@@ -1344,6 +1375,68 @@ player.design.turnSignal.enabled = true;
 rebuildCarVisual(player);
 rebuildPlayerPreview();
 
+// ── Click-to-edit: clicking the iso preview pauses the game and opens the
+// constructor preloaded with the player's current design. The constructor
+// posts the (possibly tweaked) design back; we apply it to the player.
+let gamePaused = false;
+const previewClickEl  = document.getElementById('preview-click');
+const inspectorModal  = document.getElementById('inspector-modal');
+const inspectorIframe = document.getElementById('inspector-iframe');
+function syncPreviewClick() {
+  const cssW = Math.min(320, Math.floor(window.innerWidth / 2.6));
+  const cssH = Math.floor(cssW * 0.62);
+  previewClickEl.style.width  = cssW + 'px';
+  previewClickEl.style.height = cssH + 'px';
+}
+syncPreviewClick();
+window.addEventListener('resize', syncPreviewClick);
+previewClickEl.addEventListener('click', () => {
+  const json = JSON.stringify(player.design);
+  inspectorIframe.src = 'inspector.html?design=' + encodeURIComponent(json);
+  inspectorModal.classList.add('open');
+  gamePaused = true;
+});
+document.getElementById('inspector-resume').addEventListener('click', () => {
+  // Ask the constructor for its current design before we close the modal.
+  let replied = false;
+  const onReply = (ev) => {
+    if (!ev.data || ev.data.type !== 'apply-design') return;
+    replied = true;
+    window.removeEventListener('message', onReply);
+    Object.assign(player.design, ev.data.design);
+    rebuildCarVisual(player);
+    rebuildPlayerPreview();
+    inspectorModal.classList.remove('open');
+    inspectorIframe.src = 'about:blank';
+    gamePaused = false;
+  };
+  window.addEventListener('message', onReply);
+  try {
+    inspectorIframe.contentWindow.postMessage({ type: 'request-design' }, '*');
+  } catch (e) { /* ignore */ }
+  // Fallback: if no reply within 250ms (e.g. iframe still loading), just close.
+  setTimeout(() => {
+    if (!replied) {
+      window.removeEventListener('message', onReply);
+      inspectorModal.classList.remove('open');
+      inspectorIframe.src = 'about:blank';
+      gamePaused = false;
+    }
+  }, 250);
+});
+// Also handle the case where the user clicks Save in the inspector — the
+// inspector pushes a design unprompted; apply it and close the modal.
+window.addEventListener('message', (ev) => {
+  if (!ev.data || ev.data.type !== 'apply-design') return;
+  if (!inspectorModal.classList.contains('open')) return;
+  Object.assign(player.design, ev.data.design);
+  rebuildCarVisual(player);
+  rebuildPlayerPreview();
+  inspectorModal.classList.remove('open');
+  inspectorIframe.src = 'about:blank';
+  gamePaused = false;
+});
+
 // ── AI ─────────────────────────────────────────────────────────────────────
 const aiState = aiCars.map(() => ({
   steer: 0, stuckTime: 0, lastShot: 0, lastJump: 0, mode: 'chase', modeUntil: 0,
@@ -1468,13 +1561,7 @@ function tickAI(car, state, dt, now) {
     state.lastShot = now;
   }
 
-  // Jumping: random with cooldown when moving forward at speed
-  if (spd > 6 && state.mode === 'chase'
-      && now - state.lastJump > 2200 + Math.random() * 2000) {
-    car.chassis.applyImpulse(new CANNON.Vec3(0, 6800, 0), new CANNON.Vec3(0, 0, 0));
-    Synth.jump();
-    state.lastJump = now;
-  }
+  // Jumping disabled per request — no cars jump anymore.
 }
 
 // ── SYNTH ──────────────────────────────────────────────────────────────────
@@ -1610,9 +1697,17 @@ const Synth = (() => {
 // ── PROJECTILES ────────────────────────────────────────────────────────────
 const projectiles = [];
 
-function makeProjectileMesh(style) {
+// Projectile = exact viz geometry of THIS car's headlight, scaled up so it
+// reads as a flying lamp. Mirrors the per-car headlightW / headlightH so a
+// wide-bar lamp fires a wide-bar bullet, four small dots fire four small
+// dots, etc.
+function makeProjectileMesh(style, design) {
   const def = HL[style] || HL.box;
-  return new THREE.Mesh(def.proj(), projMatLight);
+  const g = def.viz();
+  const w = (design && design.headlightW) || 1;
+  const h = (design && design.headlightH) || 1;
+  g.scale(2.2, 2.2 * h, 2.2 * w);
+  return new THREE.Mesh(g, projMatLight);
 }
 
 // For a given car, return the local-space spawn points of every headlight.
@@ -1676,11 +1771,11 @@ function shoot(car) {
     world.addBody(body);
 
     // Visual: a copy of the headlight, oriented with the car at firing time
-    const mesh = makeProjectileMesh(spawn.style);
+    const mesh = makeProjectileMesh(spawn.style, car.design);
     mesh.quaternion.copy(car.chassis.quaternion);
     scene.add(mesh);
 
-    const proj = { body, mesh, life: 3, dead: false, owner: car };
+    const proj = { body, mesh, life: 6, dead: false, owner: car };
     body.addEventListener('collide', (e) => {
       if (proj.dead) return;
       // Ignore brushes against the firing car itself (spawn-overlap on short
@@ -1915,13 +2010,7 @@ function applyHillJump(car) {
   let s = hillState.get(car);
   if (!s) { s = { prevSlope: 0 }; hillState.set(car, s); }
 
-  // Peak crossing: was going up, now going down, fast enough to fly
-  if (s.prevSlope > 0.04 && slope < -0.04 && fwdSpeed > 8) {
-    const pop = Math.min(14, fwdSpeed * 0.55);
-    if (car.chassis.velocity.y < pop) {
-      car.chassis.velocity.y = pop;
-    }
-  }
+  // Peak-crossing jump impulse REMOVED — no cars fly off hill peaks now.
   s.prevSlope = slope;
 }
 
@@ -1953,6 +2042,9 @@ function loop() {
   const now = performance.now();
   const dt = Math.min((now - prevTime) / 1000, 0.05);
   prevTime = now;
+
+  // Inspector modal is open → freeze game logic. Skip input, physics, AI.
+  if (gamePaused) return;
 
   // ── Gamepad polling (BT/USB) ──────────────────────────────────────────
   pollGamepad();
