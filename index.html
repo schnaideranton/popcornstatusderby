@@ -166,7 +166,7 @@
     <div id="spd">0</div>
     <div id="unit">KM/H</div>
   </div>
-  <div id="hint">W/↑ GAS &nbsp;·&nbsp; A/D STEER &nbsp;·&nbsp; SPACE HANDBRAKE &nbsp;·&nbsp; Q SHOOT &nbsp;·&nbsp; E JUMP &nbsp;·&nbsp; V CAMERA &nbsp;·&nbsp; M MUTE &nbsp;·&nbsp; R RESET</div>
+  <div id="hint">W/↑ GAS &nbsp;·&nbsp; S/↓ BRAKE/REVERSE &nbsp;·&nbsp; A/D STEER &nbsp;·&nbsp; SPACE HANDBRAKE &nbsp;·&nbsp; Q SHOOT &nbsp;·&nbsp; V CAMERA &nbsp;·&nbsp; M MUTE &nbsp;·&nbsp; R RESET</div>
   <div id="respawn-hint"><span class="kb">PRESS R TO RESPAWN<br>(−5 LEVELS)</span><span class="tc">TAP RESET TO RESPAWN<br>(−5 LEVELS)</span></div>
   <a id="inspector-btn" href="inspector.html" target="_blank" title="Open the car constructor in a new tab">
     🛠 CONSTRUCTOR
@@ -187,7 +187,6 @@
     </div>
   </div>
   <div class="tc-actions">
-    <button class="tc-btn" data-code="KeyE">JUMP</button>
     <button class="tc-btn" data-code="KeyS">BRAKE</button>
     <button class="tc-btn" data-code="KeyQ">SHOOT</button>
   </div>
@@ -724,8 +723,10 @@ function rebuildCarVisual(car) {
     [-zSideHL, zSideHL].forEach(z => placeHL(xFront, hlBaseY, z));
   }
 
-  // Tail lights
-  const tlMat = new THREE.MeshBasicMaterial({ color: 0xff2200 });
+  // Tail lights — per-car material so we can flash bright red on brake.
+  if (!car.tailMat) car.tailMat = new THREE.MeshBasicMaterial({ color: 0x660000 });
+  const tlMat = car.tailMat;
+  tlMat.color.setHex(0x660000);          // reset to dim on every rebuild
   const tlDef = HL[p.taillightStyle] || HL['box-h'];
   const xRear = -p.bodyLength / 2 - 0.01 - (p.taillightX || 0);
   const tlBaseY = bodyCenterY + (p.taillightY || 0);
@@ -1968,10 +1969,23 @@ function loop() {
   if (wantGas) {
     eng = MAX_FORCE;
   }
-  if (K['ArrowDown'] || K['KeyS'] || G.brake) {
+  // Reverse / brake: full backwards force (= as quick as forward) once the
+  // car is at low speed or already going backwards. While still rolling
+  // forward, slam a hard reverse to brake AND skid.
+  const brakeHeld = K['ArrowDown'] || K['KeyS'] || G.brake;
+  let brakeSkid = false;       // signal handbrake-style rear skid + tail flash
+  if (brakeHeld) {
     const vel = player.chassis.velocity;
-    const spd = Math.sqrt(vel.x*vel.x + vel.z*vel.z);
-    eng = spd > 0.8 ? -MAX_FORCE * 0.55 : -MAX_FORCE * 0.28;
+    const fwdL = new CANNON.Vec3(1, 0, 0);
+    const fwdW = new CANNON.Vec3();
+    player.chassis.quaternion.vmult(fwdL, fwdW);
+    const fwdSpeed = vel.x * fwdW.x + vel.z * fwdW.z;
+    if (fwdSpeed > 1.5) {
+      eng = -MAX_FORCE;        // hard brake while moving forward → skid
+      brakeSkid = true;
+    } else {
+      eng = -MAX_FORCE;        // full reverse acceleration once stopped
+    }
   }
   // Steer: gamepad analog wins, then touch slider, then keyboard
   const analogSteer = (G.steer !== null) ? G.steer
@@ -1983,10 +1997,10 @@ function loop() {
     if (K['ArrowRight'] || K['KeyD']) steer = -MAX_STEER;
   }
 
-  // Turn-signal blink — dim orange at idle, bright orange flashing on the
-  // side currently being steered. (steer > 0 = left, < 0 = right.)
+  // Turn-signal blink — 2 cycles/sec (4 Hz toggle). Dim at idle, bright
+  // flashing on the side currently being steered. (steer > 0 = left.)
   if (player.turnSignals && (player.turnSignals.left || player.turnSignals.right)) {
-    const blinkOn = (Math.floor(now * 3) % 2) === 0;
+    const blinkOn = (Math.floor(now / 1000 * 4) % 2) === 0;
     const dim = 0x884400, bright = 0xff8c00, off = 0x331100;
     const dz = MAX_STEER * 0.05;
     let lc = dim, rc = dim;
@@ -2006,11 +2020,18 @@ function loop() {
   v.setSteeringValue(steer, 0);
   v.setSteeringValue(steer, 1);
 
-  const hb = (K['Space'] || (touchAssist && touchDrifting)) ? 85 : 0;
+  // Space = handbrake. Brake key while still moving forward also locks
+  // the rear wheels for a tail-out skid.
+  const hb = (K['Space'] || (touchAssist && touchDrifting) || brakeSkid) ? 85 : 0;
   v.setBrake(0,  0);
   v.setBrake(0,  1);
   v.setBrake(hb, 2);
   v.setBrake(hb, 3);
+
+  // Tail-lights: dim red by default, bright red on brake/reverse intent.
+  if (player.tailMat) {
+    player.tailMat.color.setHex(brakeHeld ? 0xff2200 : 0x660000);
+  }
 
   // ── Shoot — fires at the Popcorn melody's tempo (8th=204ms, 16ths=102ms)
   if ((K['KeyQ'] || G.shoot) && now >= nextShotTime) {
@@ -2040,40 +2061,19 @@ function loop() {
     }
   }
 
-  // ── Jump / flip-righting ──────────────────────────────────────────────
-  // Detect orientation each frame; if the car is on its side / roof, JUMP
-  // instantly snaps it upright (keeping its yaw).  Otherwise normal hop.
+  // ── Auto-righting only (jump removed per request) ─────────────────────
+  // Continuous gentle torque so a tipped-over car rolls back upright on
+  // its own — no manual jump key.
   {
     const upL = new CANNON.Vec3(0, 1, 0);
     const upW = new CANNON.Vec3();
     player.chassis.quaternion.vmult(upL, upW);
-    const tilted = upW.y < 0.55;
-
-    // Slow auto-righting torque while tilted (GTA-style)
-    if (tilted) {
+    if (upW.y < 0.55) {
       const target = new CANNON.Vec3(0, 1, 0);
       const axis = new CANNON.Vec3();
       upW.cross(target, axis);
       const k = 70;
       player.chassis.applyTorque(new CANNON.Vec3(axis.x * k, axis.y * k, axis.z * k));
-    }
-
-    if ((K['KeyE'] || G.jump) && now - lastJump > 800) {
-      if (tilted) {
-        // Snap upright preserving yaw + small upward boost
-        const fwd = new CANNON.Vec3(1, 0, 0);
-        const fwdW = new CANNON.Vec3();
-        player.chassis.quaternion.vmult(fwd, fwdW);
-        const yaw = Math.atan2(-fwdW.z, fwdW.x);
-        player.chassis.quaternion.setFromEuler(0, yaw, 0);
-        player.chassis.angularVelocity.set(0, 0, 0);
-        player.chassis.position.y += 1.2;
-        player.chassis.applyImpulse(new CANNON.Vec3(0, 3500, 0), new CANNON.Vec3(0, 0, 0));
-      } else {
-        player.chassis.applyImpulse(new CANNON.Vec3(0, 5000, 0), new CANNON.Vec3(0, 0, 0));
-      }
-      Synth.jump();
-      lastJump = now;
     }
   }
 
