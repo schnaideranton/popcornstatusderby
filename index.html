@@ -191,7 +191,7 @@
     <div id="spd">0</div>
     <div id="unit">KM/H</div>
   </div>
-  <div id="hint">W/↑ GAS &nbsp;·&nbsp; S/↓ BRAKE/REVERSE &nbsp;·&nbsp; A/D STEER &nbsp;·&nbsp; SPACE HANDBRAKE &nbsp;·&nbsp; Q SHOOT &nbsp;·&nbsp; V CAMERA &nbsp;·&nbsp; M MUTE &nbsp;·&nbsp; R RESET</div>
+  <div id="hint">W/↑ GAS &nbsp;·&nbsp; S/↓ BRAKE/REVERSE &nbsp;·&nbsp; A/D STEER &nbsp;·&nbsp; SPACE HANDBRAKE &nbsp;·&nbsp; Q SHOOT &nbsp;·&nbsp; E J-TURN &nbsp;·&nbsp; V CAMERA &nbsp;·&nbsp; M MUTE &nbsp;·&nbsp; R RESET</div>
   <div id="respawn-hint"><span class="kb">PRESS R TO RESPAWN<br>(−5 LEVELS)</span><span class="tc">TAP RESET TO RESPAWN<br>(−5 LEVELS)</span></div>
   <a id="inspector-btn" href="inspector.html" target="_blank" title="Open the car constructor in a new tab">
     🛠 CONSTRUCTOR
@@ -218,6 +218,7 @@
     </div>
   </div>
   <div class="tc-actions">
+    <button class="tc-btn" data-code="KeyE">↺ FLIP</button>
     <button class="tc-btn" data-code="KeyS">BRAKE</button>
     <button class="tc-btn" data-code="KeyQ">SHOOT</button>
   </div>
@@ -1703,16 +1704,15 @@ const Synth = (() => {
 // ── PROJECTILES ────────────────────────────────────────────────────────────
 const projectiles = [];
 
-// Projectile = exact viz geometry of THIS car's headlight, scaled up so it
-// reads as a flying lamp. Mirrors the per-car headlightW / headlightH so a
-// wide-bar lamp fires a wide-bar bullet, four small dots fire four small
-// dots, etc.
+// Projectile = exact same lamp geometry as on the car, at the EXACT same
+// size (no upscaling). It looks like a copy of the headlight detaching
+// and flying off. Range tuned via .life, not size.
 function makeProjectileMesh(style, design) {
   const def = HL[style] || HL.box;
   const g = def.viz();
   const w = (design && design.headlightW) || 1;
   const h = (design && design.headlightH) || 1;
-  g.scale(2.2, 2.2 * h, 2.2 * w);
+  g.scale(1, h, w);
   return new THREE.Mesh(g, projMatLight);
 }
 
@@ -1821,7 +1821,8 @@ function updateProjectiles(dt) {
 const K = {};
 let camMode = 0;  // 0 chase · 1 chase-close · 2 below · 3 front-left · 4 front-right · 5 birds-eye
 let nextShotTime = 0;
-let lastJump = 0;
+let lastJump = 0;        // legacy — kept for AI state struct
+let lastJTurn = 0;       // E-key police J-turn cooldown
 
 window.addEventListener('keydown', e => {
   K[e.code] = true;
@@ -2094,6 +2095,19 @@ function loop() {
   } else {
     if (K['ArrowLeft']  || K['KeyA']) steer =  MAX_STEER;
     if (K['ArrowRight'] || K['KeyD']) steer = -MAX_STEER;
+  }
+
+  // ── E key: police J-turn (instant 180° yaw flip around world Y) ──────
+  // Velocity is preserved so the car keeps moving in the same world
+  // direction but is now facing the opposite way — classic handbrake spin.
+  if ((K['KeyE'] || G.jump) && now - lastJTurn > 700) {
+    const rot180 = new CANNON.Quaternion();
+    rot180.setFromEuler(0, Math.PI, 0);
+    const newQ = new CANNON.Quaternion();
+    rot180.mult(player.chassis.quaternion, newQ);
+    player.chassis.quaternion.copy(newQ);
+    player.chassis.angularVelocity.set(0, 0, 0);
+    lastJTurn = now;
   }
 
   // Turn-signal blink — 2 cycles/sec (4 Hz toggle). Dim at idle, bright
