@@ -262,10 +262,8 @@ document.body.appendChild(renderer.domElement);
 // ── SCENE ──────────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x4a6891);
-// Fog density tuned so mirror copies of cars in distant tiles fade
-// out naturally — only the ADJACENT-tile mirrors visible when player
-// is near an arena edge. Reads as "globe-style" emergence from haze.
-scene.fog = new THREE.FogExp2(0x4a6891, 0.0055);
+// Fog disabled by default. Slider in the tuning panel can re-enable it.
+scene.fog = new THREE.FogExp2(0x4a6891, 0);
 
 const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.1, 500);
 // Mini camera — 3/4 profile of the player car, drawn in the top-right HUD
@@ -319,10 +317,10 @@ window.addEventListener('orientationchange', () => {
 });
 
 // ── LIGHTING ───────────────────────────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-
-const sun = new THREE.DirectionalLight(0xfff8e8, 1.1);
-sun.position.set(70, 110, 50);
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+// Bright sunny day — sharp directional sun, low colour temp.
+const sun = new THREE.DirectionalLight(0xfff5d4, 1.7);
+sun.position.set(70, 130, 50);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.camera.left = -150;
@@ -332,6 +330,34 @@ sun.shadow.camera.bottom = -150;
 sun.shadow.camera.near = 1;
 sun.shadow.camera.far = 350;
 scene.add(sun);
+
+// ── CLOUDS — small puffy cumulus clusters ─────────────────────────────
+{
+  const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  for (let i = 0; i < 24; i++) {
+    const cluster = new THREE.Group();
+    cluster.position.set(
+      (Math.random() - 0.5) * 700,
+      80 + Math.random() * 60,
+      (Math.random() - 0.5) * 700
+    );
+    const puffs = 4 + Math.floor(Math.random() * 4);
+    for (let j = 0; j < puffs; j++) {
+      const r = 4 + Math.random() * 5;
+      const s = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), cloudMat);
+      s.position.set((Math.random()-0.5)*8, (Math.random()-0.5)*2.5, (Math.random()-0.5)*8);
+      s.scale.y = 0.55;
+      cluster.add(s);
+    }
+    scene.add(cluster);
+  }
+}
+
+// ── SKY background — bright daytime blue (swapped to floor-grey in
+// birds-eye mode so the horizon disappears).
+const SKY_BG    = new THREE.Color(0x9ec6e6);
+const FLAT_BG   = new THREE.Color(0x242424);
+scene.background = SKY_BG;
 
 // ── PHYSICS ────────────────────────────────────────────────────────────────
 const world = new CANNON.World();
@@ -370,18 +396,65 @@ groundBody.addShape(new CANNON.Plane());
 groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
 world.addBody(groundBody);
 
+// Procedural canvas with race-track-ish markings: lanes, dashed lines,
+// crosswalks, dashed circles, pit-stop boxes. Purely decorative.
+function makeTrackTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 2048;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#242424';
+  ctx.fillRect(0, 0, 2048, 2048);
+  ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+  ctx.lineWidth = 5;
+  // Solid border lanes
+  for (const x of [200, 208, 1840, 1848]) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 2048); ctx.stroke();
+  }
+  for (const y of [200, 208, 1840, 1848]) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(2048, y); ctx.stroke();
+  }
+  // Dashed centre lines
+  ctx.setLineDash([60, 40]); ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.moveTo(1024, 0); ctx.lineTo(1024, 2048); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, 1024); ctx.lineTo(2048, 1024); ctx.stroke();
+  ctx.setLineDash([]);
+  // Crosswalks (zebras)
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  for (const [cx, cy] of [[1024, 320], [1024, 1728], [320, 1024], [1728, 1024]]) {
+    for (let i = 0; i < 14; i++) {
+      ctx.fillRect(cx - 280 + i * 42, cy - 24, 28, 48);
+    }
+  }
+  // Pit-stop boxes
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 4;
+  for (const [bx, by] of [[420, 920], [420, 1080], [1556, 920], [1556, 1080]]) {
+    ctx.strokeRect(bx, by, 70, 160);
+  }
+  // Dashed circles
+  ctx.setLineDash([18, 14]); ctx.lineWidth = 3;
+  for (const [cx, cy, r] of [[600, 600, 120], [1450, 600, 90], [600, 1450, 100], [1450, 1450, 130]]) {
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  // Big "START / FINISH" stripe across centre
+  ctx.fillStyle = 'rgba(255,255,255,0.40)';
+  for (let i = 0; i < 28; i++) {
+    if (i % 2 === 0) ctx.fillRect(900, i * 36, 30, 20);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2, 2);
+  tex.anisotropy = 4;
+  return tex;
+}
+
 const groundMesh = new THREE.Mesh(
   new THREE.PlaneGeometry(800, 800),
-  new THREE.MeshLambertMaterial({ color: 0x242424 })
+  new THREE.MeshLambertMaterial({ map: makeTrackTexture() })
 );
 groundMesh.rotation.x = -Math.PI / 2;
 groundMesh.receiveShadow = true;
 scene.add(groundMesh);
-
-// Faint grid
-const grid = new THREE.GridHelper(600, 100, 0x303030, 0x303030);
-grid.position.y = 0.01;
-scene.add(grid);
 
 // ── HELPER: static box ────────────────────────────────────────────────────
 function staticBox(x, y, z, w, h, d, color, mat) {
@@ -519,6 +592,33 @@ function dynBarrel(x, z) {
   dynamics.push({ body, mesh });
 }
 
+// Traffic cone: orange cone with two white reflective bands. Same physics
+// budget as a barrel — flies off the bumper at any decent speed.
+function dynCone(x, z) {
+  const body = new CANNON.Body({ mass: 1.6 });
+  body.addShape(new CANNON.Cylinder(0.10, 0.36, 0.78, 10));
+  body.position.set(x, 0.39, z);
+  body.linearDamping = 0.05;
+  body.angularDamping = 0.1;
+  world.addBody(body);
+
+  const grp = new THREE.Group();
+  const orange = new THREE.MeshLambertMaterial({ color: 0xff7a1a });
+  const white  = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  const cone = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.36, 0.78, 14), orange);
+  cone.castShadow = true; grp.add(cone);
+  // Two narrow white stripes, slightly larger radius so they're visible.
+  const stripe1 = new THREE.Mesh(new THREE.CylinderGeometry(0.255, 0.295, 0.06, 14), white);
+  stripe1.position.y = -0.10; grp.add(stripe1);
+  const stripe2 = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.20, 0.06, 14), white);
+  stripe2.position.y = 0.16; grp.add(stripe2);
+  // Square base
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.06, 0.78), orange);
+  base.position.y = -0.36; grp.add(base);
+  scene.add(grp);
+  dynamics.push({ body, mesh: grp });
+}
+
 // Box clusters at cardinal + diagonal positions — all neutral grey, only cars carry colour
 const BC = [0x363636, 0x3a3a3a, 0x3e3e3e, 0x424242];
 const boxSpots = [
@@ -534,12 +634,21 @@ boxSpots.forEach(([x,z], i) => {
   dynBox(x + 0.2, z + 0.2, 1.15, BC[(i+4) % BC.length]);
 });
 
-// Barrel pairs at corners of arena
+// Mix of barrels and traffic cones at corners of arena. Cones come in
+// 5-cone rows so they fly off when a car ploughs through.
 [[55,42],[55,-42],[-55,42],[-55,-42],
- [42,55],[-42,55],[42,-55],[-42,-55]].forEach(([x,z]) => {
-  dynBarrel(x,     z);
-  dynBarrel(x+2.3, z);
+ [42,55],[-42,55],[42,-55],[-42,-55]].forEach(([x,z], i) => {
+  if (i % 2 === 0) {
+    dynBarrel(x,     z);
+    dynBarrel(x+2.3, z);
+  } else {
+    for (let k = 0; k < 5; k++) dynCone(x + k * 1.0, z);
+  }
 });
+// Extra cone cluster lines along the arena lanes (purely decorative).
+for (let z of [-30, 30]) {
+  for (let i = -3; i <= 3; i++) dynCone(i * 6, z);
+}
 
 // ── CAR FACTORY ────────────────────────────────────────────────────────────
 function darkenHex(hex, f) {
@@ -1491,7 +1600,7 @@ function refreshSpecTuneVisibility() {
 const fogD  = document.getElementById('fog-d');
 const fogV  = document.getElementById('fog-v');
 const savedFog = parseFloat(localStorage.getItem('fogD'));
-const initialFog = !isNaN(savedFog) ? savedFog : scene.fog.density;
+const initialFog = !isNaN(savedFog) ? savedFog : 0;
 fogD.value = initialFog;
 fogV.textContent = initialFog.toFixed(4);
 scene.fog.density = initialFog;
@@ -1627,6 +1736,7 @@ function tickFlashes(now) {
 // car ricochets across portals until it bleeds off speed.
 const RAM_KMH = 400;
 const RAM_MS  = RAM_KMH / 3.6;          // ≈ 111 m/s
+let _ramHitThisFrame = false;
 player.chassis.addEventListener('collide', (event) => {
   if (!event.body) return;
   const otherCar = allCars.find(c => c.chassis === event.body);
@@ -1636,12 +1746,13 @@ player.chassis.addEventListener('collide', (event) => {
   if (speed < RAM_MS) return;
   const flatLen = Math.max(0.01, Math.sqrt(v.x*v.x + v.z*v.z));
   const dx = v.x / flatLen, dz = v.z / flatLen;
-  const mag = 2200 * (speed / RAM_MS);   // harder when even faster
+  const mag = 2200 * (speed / RAM_MS);
   otherCar.chassis.applyImpulse(
     new CANNON.Vec3(dx * mag, 1400, dz * mag),
     new CANNON.Vec3(0, 0, 0)
   );
   otherCar._rammedUntil = performance.now() + 2800;
+  _ramHitThisFrame = true;          // signal main loop to preserve player velocity
   if (Synth.hit) Synth.hit();
 });
 
@@ -2523,8 +2634,18 @@ function loop() {
     if (av.z >  max) av.z =  max; if (av.z < -max) av.z = -max;
   }
 
+  // ── Bowling-ball: save player velocity right before the physics step.
+  // If a high-speed ram fires during the step, we restore the saved
+  // velocity afterwards — player ploughs through unaffected.
+  const _preStepVel = (player.chassis.velocity.lengthSquared() > RAM_MS * RAM_MS)
+    ? new CANNON.Vec3().copy(player.chassis.velocity) : null;
+
   // ── Physics step ──────────────────────────────────────────────────────
   world.step(1 / 60, dt, 3);
+  if (_ramHitThisFrame && _preStepVel) {
+    player.chassis.velocity.copy(_preStepVel);
+  }
+  _ramHitThisFrame = false;
   updateProjectiles(dt);
   updateStuckHint(dt);
   for (const c of allCars) applyHillJump(c);
@@ -2575,6 +2696,10 @@ function loop() {
   // Visual y matches the sync above (max of physics y vs hill ride height)
   const cHillH = hillHeightAt(cp.x, cp.z);
   const cpY    = Math.max(cp.y, cHillH + 0.7);
+
+  // Bird's-eye flips the sky to floor grey so the horizon disappears
+  // and the world reads as a flat tabletop. All other modes use sky.
+  scene.background = (camMode === 5) ? FLAT_BG : SKY_BG;
 
   if (camMode === 6) {
     // Spectator: fixed camera viewing the whole arena. Height + distance
