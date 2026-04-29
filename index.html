@@ -239,7 +239,7 @@ document.body.appendChild(renderer.domElement);
 // ── SCENE ──────────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x4a6891);
-scene.fog = new THREE.FogExp2(0x4a6891, 0.007);
+scene.fog = new THREE.FogExp2(0x4a6891, 0.0018);
 
 const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.1, 500);
 // Mini camera — 3/4 profile of the player car, drawn in the top-right HUD
@@ -378,15 +378,10 @@ function staticBox(x, y, z, w, h, d, color, mat) {
 // ── ARENA WALLS ────────────────────────────────────────────────────────────
 const A = 156; // arena half-size (metres) — doubled from 78
 const WH = 5; // wall height
-const WALL_GROUP = 4;       // collision-filter group used by perimeter walls
-staticBox(  0, WH/2,  A, A*2+4, WH, 4, 0x404040, matWall);
-staticBox(  0, WH/2, -A, A*2+4, WH, 4, 0x404040, matWall);
-staticBox(  A, WH/2,  0, 4, WH, A*2+4, 0x404040, matWall);
-staticBox( -A, WH/2,  0, 4, WH, A*2+4, 0x404040, matWall);
-// Tag the four walls (the last four bodies added) with the WALL_GROUP so
-// player can be filtered against them.
-const wallBodies = world.bodies.slice(-4);
-wallBodies.forEach(b => { b.collisionFilterGroup = WALL_GROUP; });
+// Pac-man arena: no perimeter walls. Cars that drive past one edge are
+// teleported to the opposite edge in the main loop.
+const WALL_GROUP = 4;       // unused now (kept so existing code still runs)
+const wallBodies = [];
 
 // ── RAMPS ──────────────────────────────────────────────────────────────────
 // Standalone wedge jumps — no square buildings. 8 of them, varied size + yaw.
@@ -2289,20 +2284,28 @@ function loop() {
   // ── AI ────────────────────────────────────────────────────────────────
   aiCars.forEach((car, i) => tickAI(car, aiState[i], dt, now));
 
-  // ── One-way arena wall: when the player is OUTSIDE the arena, drop the
-  // wall group from their collision mask so they can drive back in through
-  // the wall. While inside, the wall blocks them as before. AI keep the
-  // default mask so they always collide.
-  {
-    const px = player.chassis.position.x, pz = player.chassis.position.z;
-    const inside = Math.abs(px) < A - 0.5 && Math.abs(pz) < A - 0.5;
-    player.chassis.collisionFilterMask = inside ? -1 : (-1 ^ WALL_GROUP);
+  // ── Pac-man wrap: any car (player or AI) that drives off one edge is
+  // teleported to the opposite edge. Velocity preserved, so motion is
+  // continuous. Avoids "stuck on wall" / "launched at wall corner" bugs
+  // because the perimeter walls are gone entirely.
+  for (const c of allCars) {
+    const pos = c.chassis.position;
+    if (pos.x >  A) pos.x -= 2 * A;
+    else if (pos.x < -A) pos.x += 2 * A;
+    if (pos.z >  A) pos.z -= 2 * A;
+    else if (pos.z < -A) pos.z += 2 * A;
   }
 
   // ── Anti-launch: clamp every car's upward velocity so no collision can
-  // fling them into the sky (used to happen on bouncy ramp/wall corners).
+  // fling them into the sky.
   for (const c of allCars) {
-    if (c.chassis.velocity.y > 9) c.chassis.velocity.y = 9;
+    if (c.chassis.velocity.y > 6) c.chassis.velocity.y = 6;
+    // Also clamp angular velocity so spin-outs don't go crazy.
+    const av = c.chassis.angularVelocity;
+    const max = 8;
+    if (av.x >  max) av.x =  max; if (av.x < -max) av.x = -max;
+    if (av.y >  max) av.y =  max; if (av.y < -max) av.y = -max;
+    if (av.z >  max) av.z =  max; if (av.z < -max) av.z = -max;
   }
 
   // ── Physics step ──────────────────────────────────────────────────────
@@ -2357,7 +2360,7 @@ function loop() {
     // Spectator: fixed camera high above one corner of the arena, looking at
     // the centre. Doesn't track or rotate with the player. Whole arena visible.
     camera.up.set(0, 1, 0);
-    camPos.lerp(new THREE.Vector3(0, A * 1.10, A * 1.45), 0.10);
+    camPos.lerp(new THREE.Vector3(0, A * 0.55, A * 0.75), 0.10);
     camLook.lerp(new THREE.Vector3(0, 0, 0), 0.10);
     camera.position.copy(camPos);
     camera.lookAt(camLook);
