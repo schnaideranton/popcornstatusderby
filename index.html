@@ -214,8 +214,10 @@ const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerH
 // Mini camera — 3/4 profile of the player car, drawn in the top-right HUD
 // during birds-eye mode so you can still see what your car looks like.
 // Iso (orthographic) camera for the frozen preview — no fisheye, no perspective
-// distortion, classic 3/4 hero shot from the FRONT-RIGHT side of the car.
-const miniCam = new THREE.OrthographicCamera(-3.6, 3.6, 2.7, -2.7, 0.1, 60);
+// distortion, classic 3/4 hero shot. Frustum dimensions are reset every
+// frame to match the on-screen aspect of the inset so the car never gets
+// squashed.
+const miniCam = new THREE.OrthographicCamera(-3.5, 3.5, 2.2, -2.2, 0.1, 60);
 
 // ── ISO PREVIEW (always-on, frozen, top-right) ─────────────────────────────
 // A clone of the player car visuals lives at y = +250 (above the arena),
@@ -744,16 +746,19 @@ function rebuildCarVisual(car) {
     [-zSideTL, zSideTL].forEach(z => placeTL(xRear, tlBaseY, z));
   }
 
-  // Side turn signals
+  // Side turn signals — one mesh per side with its own material so we can
+  // blink them independently from the main loop.
+  car.turnSignals = { left: null, right: null };
   if (p.turnSignal && p.turnSignal.enabled) {
     const ts = p.turnSignal;
-    const tsMat = new THREE.MeshBasicMaterial({ color: 0xff8c00 });
     const tw = ts.orient === 'h' ? ts.w : ts.h;
     const th = ts.orient === 'h' ? ts.h : ts.w;
     for (const side of [-1, 1]) {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(tw, th, 0.018), tsMat);
+      const mat = new THREE.MeshBasicMaterial({ color: 0x884400 }); // dim orange (idle)
+      const m = new THREE.Mesh(new THREE.BoxGeometry(tw, th, 0.018), mat);
       m.position.set(ts.x, bodyCenterY + ts.y, side * (p.bodyWidth / 2 + 0.005));
       g.add(m);
+      if (side > 0) car.turnSignals.right = m; else car.turnSignals.left = m;
     }
   }
 
@@ -1063,34 +1068,41 @@ function applyTier(car, level) {
   }
   p.headlightStyle = pick(cfg.headlights);
   p.accessory      = pick(cfg.accessories);   // legacy field for projectile lookups
-  // Wide headlight = body-spanning bar (±5%). Override the W multiplier so
-  // the geometry actually reaches edge-to-edge.
-  if (p.headlightStyle === 'wide') {
-    p.headlightW = (p.bodyWidth / 0.60) * rng(0.92, 1.05);
-  }
-  // Rim look variety — randomized per car. Hub colour plus dish sign so the
-  // wheels aren't all identical white discs.
+  // Rim look variety — concave or flat only (convex rims float visually
+  // because the simple wheel mesh can't hide a protruding plug).
   p.rimColor   = pick([0xc8ccd0, 0x222222, 0x55585e, 0xffd700, 0xff3366,
                        0xeeeeee, 0x39ff14, 0x00e5ff, 0xb8b8b8, 0x8a6e3c]);
-  p.rimDish    = pick([-1, 0, 1]) * rng(0.04, 0.16);   // -1 concave, 0 flat, +1 convex
+  p.rimDish    = pick([-1, -1, 0]) * rng(0.05, 0.14);  // 2/3 concave, 1/3 flat
   p.rimSize    = rng(0.50, 0.78);
 
   // ── New design fields ────────────────────────────────────────────────
   // Per-type rounding hint (jeep / pickup stay sharp, hyper / sedan rounder)
+  // Bumped per-type rounding ranges so cars look softer and more varied
+  // even in the classic envelope (was way too boxy across the arena).
   const ROUND = {
-    sedan:[0.04,0.10], coupe:[0.06,0.13], hatch:[0.05,0.11], sports:[0.06,0.15],
-    suv:[0.03,0.09],   wagon:[0.03,0.08], pickup:[0.02,0.05], van:[0.03,0.08],
-    jeep:[0.02,0.05],  kei:[0.05,0.10],
+    sedan:[0.06,0.18], coupe:[0.08,0.22], hatch:[0.07,0.18], sports:[0.08,0.24],
+    suv:[0.04,0.14],   wagon:[0.04,0.12], pickup:[0.03,0.08], van:[0.04,0.12],
+    jeep:[0.03,0.08],  kei:[0.07,0.18],
   };
-  const rb = ROUND[typeKey] || [0.03, 0.09];
+  const rb = ROUND[typeKey] || [0.05, 0.14];
   p.bodyRound  = rng(rb[0], rb[1]);
   p.cabinRound = rng(rb[0], rb[1]);
   p.cabinSink  = 0;
 
-  // Headlights / taillights — neutral defaults (random taillight style).
+  // Headlights / taillights — neutral defaults.
   p.headlightX = 0; p.headlightY = 0; p.headlightW = 1; p.headlightH = 1; p.headlightSpread = 0;
   p.taillightStyle = pick(cfg.headlights);
   p.taillightX = 0; p.taillightY = 0; p.taillightW = 1; p.taillightH = 1; p.taillightSpread = 0;
+  // Wide-style overrides (must come AFTER the reset above) — body-width
+  // bar with vertical-position variety. Same treatment for tail wide.
+  if (p.headlightStyle === 'wide') {
+    p.headlightW = (p.bodyWidth / 0.60) * rng(0.95, 1.10);
+    p.headlightY = pick([0, 0, p.bodyHeight * 0.30, -p.bodyHeight * 0.30]);
+  }
+  if (p.taillightStyle === 'wide') {
+    p.taillightW = (p.bodyWidth / 0.60) * rng(0.95, 1.10);
+    p.taillightY = pick([0, 0, p.bodyHeight * 0.30, -p.bodyHeight * 0.30]);
+  }
 
   // Turn signals (~40%): in front of front wheel, upper body band.
   const wbHalf = wheelbase / 2;
@@ -1121,23 +1133,23 @@ function applyTier(car, level) {
     p.cabinOffset = -length / 2 + p.cabinLength / 2;
   }
 
-  // First 10 levels: classic only. Beyond that: 60% chance of a "crazy"
+  // First 10 levels: classic only. Beyond that: 70% chance of a "crazy"
   // pass that bends every cosmetic axis hard. Big rounding, deep sink,
   // wild spread, fat spoilers, monster wheels, weird cabin offsets.
-  if (L >= 10 && Math.random() < 0.60) {
-    p.bodyRound       = rng(0.06, 0.40);
-    p.cabinRound      = rng(0.06, 0.45);
-    p.cabinSink       = rng(-0.30, 0.05);
-    p.cabinOffset    += rng(-0.40, 0.40);
-    p.headlightSpread = rng(-0.35, 0.25);
-    p.taillightSpread = rng(-0.35, 0.25);
-    p.bodyHeight     *= rng(0.85, 1.20);
-    if (Math.random() < 0.40) p.wheelScale = Math.min(1.6, p.wheelScale * rng(1.10, 1.40));
-    if (Math.random() < 0.50 && !p.accessories.spoiler) p.accessories.spoiler = true;
-    if (p.accessories.spoiler) p.spoilerHeight = rng(0.25, 0.70);
-    if (Math.random() < 0.30) p.accessories.scoop = true;
-    if (Math.random() < 0.20) p.accessories.antenna = true;
-    p.rimDish = pick([-1, 1]) * rng(0.08, 0.18);
+  if (L >= 10 && Math.random() < 0.70) {
+    p.bodyRound       = rng(0.10, 0.45);
+    p.cabinRound      = rng(0.10, 0.50);
+    p.cabinSink       = rng(-0.35, 0.05);
+    p.cabinOffset    += rng(-0.50, 0.50);
+    p.headlightSpread = rng(-0.40, 0.25);
+    p.taillightSpread = rng(-0.40, 0.25);
+    p.bodyHeight     *= rng(0.80, 1.30);
+    if (Math.random() < 0.55) p.wheelScale = Math.min(1.6, p.wheelScale * rng(1.10, 1.45));
+    if (Math.random() < 0.60 && !p.accessories.spoiler) p.accessories.spoiler = true;
+    if (p.accessories.spoiler) p.spoilerHeight = rng(0.25, 0.75);
+    if (Math.random() < 0.40) p.accessories.scoop = true;
+    if (Math.random() < 0.30) p.accessories.antenna = true;
+    p.rimDish = -1 * rng(0.08, 0.16);   // always concave when crazy
   }
 
   rebuildCarVisual(car);
@@ -1147,20 +1159,29 @@ function applyTier(car, level) {
     // Re-skin the hubcaps with the rolled rim colour + convex/concave hint.
     car.wheels.forEach(wg => {
       if (wg.userData.hubMat) wg.userData.hubMat.color.setHex(p.rimColor || 0xc8ccd0);
-      const dishSign = Math.sign(p.rimDish || 0);
-      const dishAbs  = Math.abs(p.rimDish || 0);
-      const sz = p.rimSize ? (p.rimSize / 0.62) : 1;       // hub disc radius scaler
+      const dishSign = Math.sign(p.rimDish || 0);    // -1 concave or 0 flat
+      const sz = p.rimSize ? (p.rimSize / 0.62) : 1;
+      // innerHub is the dark disc inside the hub. When the rim is concave
+      // we GROW it (looks like a recessed hole); flat keeps it small.
+      const innerScale = dishSign < 0 ? 1.6 : 0.65;
       wg.children.forEach(c => {
         if (!c.userData.role) return;
         const baseZ = c.userData.baseZ || 0;
-        // dishSign +1 (convex) → push hub OUTWARD on each side; −1 (concave) → pull inward.
-        const push = dishSign * dishAbs * (baseZ > 0 ? 1 : -1);
-        c.position.z = baseZ + push;
+        // Hubs always stay flush with the wheel face. No outward float.
+        c.position.z = baseZ;
         if (c.userData.role === 'hub') c.scale.set(sz, sz, 1);
+        if (c.userData.role === 'innerHub') c.scale.set(sz * innerScale, sz * innerScale, 1);
       });
     });
   }
-  if (car === player) rebuildPlayerPreview();
+  if (car === player) {
+    // Player keeps turn signals always-on so the blinker effect works.
+    if (!p.turnSignal.enabled) {
+      p.turnSignal.enabled = true;
+      rebuildCarVisual(car);
+    }
+    rebuildPlayerPreview();
+  }
 }
 
 // Damage: shooter +1 level (unbounded), victim -1 level (floor 1)
@@ -1317,6 +1338,9 @@ const aiCars = [
   makeCar( 2, -38, 0xe9c46a),
 ];
 const allCars = [player, ...aiCars];
+// Player always has visible turn signals so the blinker effect works.
+player.design.turnSignal.enabled = true;
+rebuildCarVisual(player);
 rebuildPlayerPreview();
 
 // ── AI ─────────────────────────────────────────────────────────────────────
@@ -1959,6 +1983,19 @@ function loop() {
     if (K['ArrowRight'] || K['KeyD']) steer = -MAX_STEER;
   }
 
+  // Turn-signal blink — dim orange at idle, bright orange flashing on the
+  // side currently being steered. (steer > 0 = left, < 0 = right.)
+  if (player.turnSignals && (player.turnSignals.left || player.turnSignals.right)) {
+    const blinkOn = (Math.floor(now * 3) % 2) === 0;
+    const dim = 0x884400, bright = 0xff8c00, off = 0x331100;
+    const dz = MAX_STEER * 0.05;
+    let lc = dim, rc = dim;
+    if (steer > dz)      lc = blinkOn ? bright : off;
+    else if (steer < -dz) rc = blinkOn ? bright : off;
+    if (player.turnSignals.left)  player.turnSignals.left.material.color.setHex(lc);
+    if (player.turnSignals.right) player.turnSignals.right.material.color.setHex(rc);
+  }
+
   // 4WD — distribute torque so the chassis doesn't rear up under hard accel
   const ePer = eng / 2;
   v.applyEngineForce(ePer, 0);
@@ -2147,31 +2184,51 @@ function loop() {
   renderer.render(scene, camera);
 
   // ── Frozen iso preview (top-right, always on) — orthographic 3/4 hero
-  // shot of the player's CURRENT design. Camera sits front-right of car
-  // (+X is the front), so windshield + headlights face the viewer.
+  // shot of the player's CURRENT design. Camera sits front-LEFT of car
+  // (so the car FACES LEFT in the image — windshield + headlights point
+  // toward the left edge of the inset). Background is suppressed so the
+  // car floats over the game without a square sky tile behind it.
   {
-    miniCam.position.set(6, PREVIEW_Y + 4.0, 6);
-    miniCam.lookAt(0, PREVIEW_Y + 0.4, 0);
-    miniCam.updateProjectionMatrix();
-
     const dpr = renderer.getPixelRatio();
     const W = renderer.domElement.width;
     const H = renderer.domElement.height;
-    const sizeCss = Math.min(260, Math.floor(Math.min(window.innerWidth, window.innerHeight) / 3.2));
-    const size = Math.floor(sizeCss * dpr);
+    // Wider-than-tall inset so the car silhouette (4-5m long, ~1.5m tall)
+    // fits without empty rails of sky on the sides.
+    const cssW = Math.min(320, Math.floor(window.innerWidth / 2.6));
+    const cssH = Math.floor(cssW * 0.62);
+    const w = Math.floor(cssW * dpr), h = Math.floor(cssH * dpr);
     const margin = Math.floor(14 * dpr);
-    const x = W - size - margin;
-    const y = H - size - margin;
+    const x = W - w - margin;
+    const y = H - h - margin;
+
+    // Match the ortho frustum to the inset aspect so the car keeps its
+    // real proportions (no vertical stretch).
+    const aspect = w / h;
+    const halfH = 1.9;                       // ~3.8 vertical world units fit
+    const halfW = halfH * aspect;
+    miniCam.left  = -halfW; miniCam.right =  halfW;
+    miniCam.top   =  halfH; miniCam.bottom = -halfH;
+    // Camera at front-left of the car. +X is forward; -Z is the left side.
+    miniCam.position.set(6, PREVIEW_Y + 4.0, -6);
+    miniCam.lookAt(0, PREVIEW_Y + 0.4, 0);
+    miniCam.updateProjectionMatrix();
+
+    // Suppress the scene background so the inset is transparent — viewer
+    // sees the game underneath, with only the car overlaid on top.
+    const savedBg = scene.background;
+    scene.background = null;
 
     renderer.autoClear = false;
     renderer.setScissorTest(true);
-    renderer.setViewport(x, y, size, size);
-    renderer.setScissor(x, y, size, size);
+    renderer.setViewport(x, y, w, h);
+    renderer.setScissor(x, y, w, h);
     renderer.clearDepth();
     renderer.render(scene, miniCam);
     renderer.setScissorTest(false);
     renderer.autoClear = true;
     renderer.setViewport(0, 0, W, H);
+
+    scene.background = savedBg;
   }
 }
 
