@@ -279,10 +279,16 @@ function rebuildPlayerPreview() {
   }
 }
 
-window.addEventListener('resize', () => {
+function fitToViewport() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+}
+window.addEventListener('resize', fitToViewport);
+window.addEventListener('orientationchange', () => {
+  // iOS reports the wrong size for a few frames after rotation — re-fit a bit later.
+  setTimeout(fitToViewport, 100);
+  setTimeout(fitToViewport, 400);
 });
 
 // ── LIGHTING ───────────────────────────────────────────────────────────────
@@ -2280,7 +2286,8 @@ function loop() {
   // (so the car FACES LEFT in the image — windshield + headlights point
   // toward the left edge of the inset). Background is suppressed so the
   // car floats over the game without a square sky tile behind it.
-  {
+  // Skipped on touch devices so it doesn't crowd a small mobile viewport.
+  if (!document.body.classList.contains('touch')) {
     const dpr = renderer.getPixelRatio();
     const W = renderer.domElement.width;
     const H = renderer.domElement.height;
