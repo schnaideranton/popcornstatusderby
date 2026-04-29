@@ -50,6 +50,27 @@
   }
   #inspector-btn:hover { background: rgba(255,255,255,0.10); }
   body.touch #inspector-btn { display: none; }
+  /* Spectator-camera tuning panel — visible only in cam mode 6. */
+  #spec-tune {
+    display: none; position: absolute; top: 14px; left: 50%;
+    transform: translateX(-50%); padding: 10px 16px;
+    background: rgba(0, 0, 0, 0.55); color: #ddd;
+    font-family: 'Courier New', monospace; font-size: 11px;
+    letter-spacing: 1.5px; border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.15); z-index: 6;
+    pointer-events: auto;
+  }
+  #spec-tune.show { display: flex; gap: 16px; align-items: center; }
+  #spec-tune label { display: flex; gap: 6px; align-items: center; }
+  #spec-tune input[type=range] { width: 140px; }
+  #spec-tune .v { width: 32px; text-align: right; opacity: 0.85; }
+  /* Wrap flash: brief white overlay when the player crosses an arena edge
+     in spectator mode (chase view is seamless via mirrored shadows). */
+  #wrap-flash {
+    position: fixed; inset: 0; background: #fff; opacity: 0;
+    pointer-events: none; z-index: 999; transition: opacity 180ms ease-out;
+  }
+  #wrap-flash.on { opacity: 0.55; transition: opacity 40ms ease-in; }
   /* Click target sitting on top of the iso preview — opens the constructor
      in a modal preloaded with the player's current design. */
   #preview-click {
@@ -197,7 +218,12 @@
     🛠 CONSTRUCTOR
   </a>
   <div id="preview-click" title="Open this design in the constructor (game pauses)"></div>
+  <div id="spec-tune">
+    <label>HEIGHT <input id="spec-h" type="range" min="20" max="400" step="2"/><span class="v" id="spec-h-v"></span></label>
+    <label>DIST   <input id="spec-d" type="range" min="20" max="500" step="2"/><span class="v" id="spec-d-v"></span></label>
+  </div>
 </div>
+<div id="wrap-flash"></div>
 
 <div id="inspector-modal">
   <iframe id="inspector-iframe" src="about:blank"></iframe>
@@ -1438,6 +1464,121 @@ const aiCars = [
   makeCar( 2, -38, 0xe9c46a),
 ];
 const allCars = [player, ...aiCars];
+// ── Spectator camera live-tuning + persistence ──────────────────────────
+const specCam = {
+  height: parseInt(localStorage.getItem('specH'), 10) || Math.round(A * 0.55),
+  dist:   parseInt(localStorage.getItem('specD'), 10) || Math.round(A * 0.75),
+};
+const specTuneEl = document.getElementById('spec-tune');
+const specH  = document.getElementById('spec-h');
+const specD  = document.getElementById('spec-d');
+const specHv = document.getElementById('spec-h-v');
+const specDv = document.getElementById('spec-d-v');
+specH.value = specCam.height; specHv.textContent = specCam.height;
+specD.value = specCam.dist;   specDv.textContent = specCam.dist;
+specH.addEventListener('input', () => {
+  specCam.height = +specH.value; specHv.textContent = specH.value;
+  localStorage.setItem('specH', specH.value);
+});
+specD.addEventListener('input', () => {
+  specCam.dist = +specD.value; specDv.textContent = specD.value;
+  localStorage.setItem('specD', specD.value);
+});
+function refreshSpecTuneVisibility() {
+  specTuneEl.classList.toggle('show', camMode === 6);
+}
+
+// ── Pac-man visual mirroring ───────────────────────────────────────────
+// Every car is rendered EIGHT extra times at the surrounding arena tiles
+// so the world reads as seamlessly tiled. Mirrors clone car.group's body
+// children plus the wheel children, and follow position/rotation/scale
+// every frame. Rebuilt whenever applyDesignVisuals(car) runs.
+const SHADOW_OFFSETS = [];
+for (const dx of [-1, 0, 1]) for (const dz of [-1, 0, 1]) {
+  if (dx === 0 && dz === 0) continue;
+  SHADOW_OFFSETS.push({ dx, dz });
+}
+function makeShadows(car) {
+  car.shadowBodies = SHADOW_OFFSETS.map(off => {
+    const g = new THREE.Group();
+    g.userData.off = off;
+    scene.add(g);
+    return g;
+  });
+  if (car.wheels) {
+    car.shadowWheelSets = SHADOW_OFFSETS.map(off => {
+      return car.wheels.map(() => {
+        const g = new THREE.Group();
+        g.userData.off = off;
+        scene.add(g);
+        return g;
+      });
+    });
+  }
+}
+function rebuildShadowsFor(car) {
+  if (!car.shadowBodies) return;
+  for (const s of car.shadowBodies) {
+    while (s.children.length) s.remove(s.children[0]);
+    for (const child of car.group.children) s.add(child.clone());
+  }
+  if (car.wheels && car.shadowWheelSets) {
+    for (let oi = 0; oi < SHADOW_OFFSETS.length; oi++) {
+      const wheels = car.shadowWheelSets[oi];
+      for (let i = 0; i < car.wheels.length; i++) {
+        const sw = wheels[i];
+        while (sw.children.length) sw.remove(sw.children[0]);
+        for (const c of car.wheels[i].children) sw.add(c.clone());
+      }
+    }
+  }
+}
+function syncShadows() {
+  for (const car of allCars) {
+    if (!car.shadowBodies) continue;
+    for (const s of car.shadowBodies) {
+      const off = s.userData.off;
+      s.position.set(
+        car.group.position.x + off.dx * 2 * A,
+        car.group.position.y,
+        car.group.position.z + off.dz * 2 * A);
+      s.quaternion.copy(car.group.quaternion);
+    }
+    if (car.wheels && car.shadowWheelSets) {
+      for (let oi = 0; oi < SHADOW_OFFSETS.length; oi++) {
+        const off = SHADOW_OFFSETS[oi];
+        const wheels = car.shadowWheelSets[oi];
+        for (let i = 0; i < car.wheels.length; i++) {
+          const w = car.wheels[i], sw = wheels[i];
+          sw.position.set(
+            w.position.x + off.dx * 2 * A,
+            w.position.y,
+            w.position.z + off.dz * 2 * A);
+          sw.quaternion.copy(w.quaternion);
+          sw.scale.copy(w.scale);
+        }
+      }
+    }
+  }
+}
+// Wire every car
+allCars.forEach(c => makeShadows(c));
+// Patch applyDesignVisuals to also rebuild shadows.
+const _applyDesignVisuals = applyDesignVisuals;
+applyDesignVisuals = function (car) {
+  _applyDesignVisuals(car);
+  rebuildShadowsFor(car);
+};
+
+// ── Wrap flash overlay (spectator mode) ────────────────────────────────
+const wrapFlashEl = document.getElementById('wrap-flash');
+let _wrapFlashUntil = 0;
+function triggerWrapFlash(now) {
+  if (camMode !== 6) return;
+  wrapFlashEl.classList.add('on');
+  _wrapFlashUntil = now + 200;
+}
+
 // Player always has visible turn signals so the blinker effect works.
 player.design.turnSignal.enabled = true;
 rebuildCarVisual(player);
@@ -2284,16 +2425,22 @@ function loop() {
   // ── AI ────────────────────────────────────────────────────────────────
   aiCars.forEach((car, i) => tickAI(car, aiState[i], dt, now));
 
-  // ── Pac-man wrap: any car (player or AI) that drives off one edge is
-  // teleported to the opposite edge. Velocity preserved, so motion is
-  // continuous. Avoids "stuck on wall" / "launched at wall corner" bugs
-  // because the perimeter walls are gone entirely.
+  // ── Pac-man wrap: any car that drives off one edge is teleported to
+  // the opposite edge. In chase view the world looks SEAMLESS because we
+  // also render 8 mirror copies of every car at neighbouring tiles. In
+  // spectator view we flash the screen briefly (see triggerWrapFlash).
   for (const c of allCars) {
     const pos = c.chassis.position;
-    if (pos.x >  A) pos.x -= 2 * A;
-    else if (pos.x < -A) pos.x += 2 * A;
-    if (pos.z >  A) pos.z -= 2 * A;
-    else if (pos.z < -A) pos.z += 2 * A;
+    let wrapped = false;
+    if (pos.x >  A) { pos.x -= 2 * A; wrapped = true; }
+    else if (pos.x < -A) { pos.x += 2 * A; wrapped = true; }
+    if (pos.z >  A) { pos.z -= 2 * A; wrapped = true; }
+    else if (pos.z < -A) { pos.z += 2 * A; wrapped = true; }
+    if (wrapped && c === player) triggerWrapFlash(now);
+  }
+  // Clear the wrap flash after its window expires.
+  if (wrapFlashEl.classList.contains('on') && now > _wrapFlashUntil) {
+    wrapFlashEl.classList.remove('on');
   }
 
   // ── Anti-launch: clamp every car's upward velocity so no collision can
@@ -2347,6 +2494,11 @@ function loop() {
     b.roof.position.set(b.body.position.x, b.body.position.y + b.roofYLocal, b.body.position.z);
   }
 
+  // Pac-man mirrors track every car at 8 surrounding tiles.
+  syncShadows();
+  // Spectator-cam tuning panel auto-shows / hides with cam mode.
+  refreshSpecTuneVisibility();
+
   // ── Camera (V cycles 6 modes) ─────────────────────────────────────────
   // 0 chase | 1 chase-close | 2 below-floor | 3 front-left | 4 front-right
   // 5 bird's-eye top-down (map rotates with player heading)
@@ -2357,10 +2509,10 @@ function loop() {
   const cpY    = Math.max(cp.y, cHillH + 0.7);
 
   if (camMode === 6) {
-    // Spectator: fixed camera high above one corner of the arena, looking at
-    // the centre. Doesn't track or rotate with the player. Whole arena visible.
+    // Spectator: fixed camera viewing the whole arena. Height + distance
+    // tuned live via the on-screen panel (and persisted in localStorage).
     camera.up.set(0, 1, 0);
-    camPos.lerp(new THREE.Vector3(0, A * 0.55, A * 0.75), 0.10);
+    camPos.lerp(new THREE.Vector3(0, specCam.height, specCam.dist), 0.10);
     camLook.lerp(new THREE.Vector3(0, 0, 0), 0.10);
     camera.position.copy(camPos);
     camera.lookAt(camLook);
