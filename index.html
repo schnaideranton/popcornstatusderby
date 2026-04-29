@@ -60,7 +60,9 @@
     border: 1px solid rgba(255,255,255,0.15); z-index: 6;
     pointer-events: auto;
   }
-  #spec-tune.show { display: flex; gap: 16px; align-items: center; }
+  #spec-tune { display: flex; gap: 16px; align-items: center; }
+  #spec-tune.spec-active .spec-only { display: flex; }
+  #spec-tune .spec-only { display: none; }
   #spec-tune label { display: flex; gap: 6px; align-items: center; }
   #spec-tune input[type=range] { width: 140px; }
   #spec-tune .v { width: 32px; text-align: right; opacity: 0.85; }
@@ -214,8 +216,9 @@
   </a>
   <div id="preview-click" title="Open this design in the constructor (game pauses)"></div>
   <div id="spec-tune">
-    <label>HEIGHT <input id="spec-h" type="range" min="20" max="400" step="2"/><span class="v" id="spec-h-v"></span></label>
-    <label>DIST   <input id="spec-d" type="range" min="20" max="500" step="2"/><span class="v" id="spec-d-v"></span></label>
+    <label class="spec-only">HEIGHT <input id="spec-h" type="range" min="20" max="400" step="2"/><span class="v" id="spec-h-v"></span></label>
+    <label class="spec-only">DIST   <input id="spec-d" type="range" min="20" max="500" step="2"/><span class="v" id="spec-d-v"></span></label>
+    <label>FOG <input id="fog-d" type="range" min="0" max="0.020" step="0.0005"/><span class="v" id="fog-v"></span></label>
   </div>
 </div>
 
@@ -399,7 +402,7 @@ function staticBox(x, y, z, w, h, d, color, mat) {
 }
 
 // ── ARENA WALLS ────────────────────────────────────────────────────────────
-const A = 156; // arena half-size (metres) — doubled from 78
+const A = 109; // arena half-size (metres) — 156 × 0.7
 const WH = 5; // wall height
 // Pac-man arena: no perimeter walls. Cars that drive past one edge are
 // teleported to the opposite edge in the main loop.
@@ -1482,8 +1485,22 @@ specD.addEventListener('input', () => {
   localStorage.setItem('specD', specD.value);
 });
 function refreshSpecTuneVisibility() {
-  specTuneEl.classList.toggle('show', camMode === 6);
+  specTuneEl.classList.toggle('spec-active', camMode === 6);
 }
+// Fog slider — persisted, applied immediately to scene.fog.density.
+const fogD  = document.getElementById('fog-d');
+const fogV  = document.getElementById('fog-v');
+const savedFog = parseFloat(localStorage.getItem('fogD'));
+const initialFog = !isNaN(savedFog) ? savedFog : scene.fog.density;
+fogD.value = initialFog;
+fogV.textContent = initialFog.toFixed(4);
+scene.fog.density = initialFog;
+fogD.addEventListener('input', () => {
+  const v = parseFloat(fogD.value);
+  scene.fog.density = v;
+  fogV.textContent = v.toFixed(4);
+  localStorage.setItem('fogD', String(v));
+});
 
 // ── Pac-man visual mirroring ───────────────────────────────────────────
 // Every car is rendered EIGHT extra times at the surrounding arena tiles
