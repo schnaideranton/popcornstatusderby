@@ -329,6 +329,14 @@ world.addContactMaterial(new CANNON.ContactMaterial(matBldg, matWall, {
 world.addContactMaterial(new CANNON.ContactMaterial(matBldg, matBldg, {
   friction: 0.3, restitution: 0.2
 }));
+// Cars never bounce. The bouncy bldg+wall pair was launching cars into orbit
+// when they clipped a corner — a dedicated low-restitution car material
+// keeps everything firmly on the ground.
+const matCar = new CANNON.Material('car');
+world.addContactMaterial(new CANNON.ContactMaterial(matCar, matBldg,   { friction: 0.45, restitution: 0.05 }));
+world.addContactMaterial(new CANNON.ContactMaterial(matCar, matWall,   { friction: 0.40, restitution: 0.05 }));
+world.addContactMaterial(new CANNON.ContactMaterial(matCar, matCar,    { friction: 0.30, restitution: 0.05 }));
+world.addContactMaterial(new CANNON.ContactMaterial(matCar, matGround, { friction: 0.55, restitution: 0.00 }));
 
 // ── GROUND ─────────────────────────────────────────────────────────────────
 const groundBody = new CANNON.Body({ mass: 0, material: matGround });
@@ -337,7 +345,7 @@ groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
 world.addBody(groundBody);
 
 const groundMesh = new THREE.Mesh(
-  new THREE.PlaneGeometry(400, 400),
+  new THREE.PlaneGeometry(800, 800),
   new THREE.MeshLambertMaterial({ color: 0x242424 })
 );
 groundMesh.rotation.x = -Math.PI / 2;
@@ -345,7 +353,7 @@ groundMesh.receiveShadow = true;
 scene.add(groundMesh);
 
 // Faint grid
-const grid = new THREE.GridHelper(300, 50, 0x303030, 0x303030);
+const grid = new THREE.GridHelper(600, 100, 0x303030, 0x303030);
 grid.position.y = 0.01;
 scene.add(grid);
 
@@ -368,7 +376,7 @@ function staticBox(x, y, z, w, h, d, color, mat) {
 }
 
 // ── ARENA WALLS ────────────────────────────────────────────────────────────
-const A = 78; // arena half-size (metres)
+const A = 156; // arena half-size (metres) — doubled from 78
 const WH = 5; // wall height
 const WALL_GROUP = 4;       // collision-filter group used by perimeter walls
 staticBox(  0, WH/2,  A, A*2+4, WH, 4, 0x404040, matWall);
@@ -1339,7 +1347,7 @@ function updateBadges() {
 
 function makeCar(px, pz, color) {
   // Physics chassis
-  const chassis = new CANNON.Body({ mass: 650 });
+  const chassis = new CANNON.Body({ mass: 650, material: matCar });
   chassis.addShape(new CANNON.Box(new CANNON.Vec3(1.85, 0.32, 0.92)));
   chassis.position.set(px, 1.4, pz);
   chassis.linearDamping = 0.05;
@@ -1563,8 +1571,17 @@ function tickAI(car, state, dt, now) {
     return;
   }
 
-  // Vector to player
-  const tp = player.chassis.position;
+  // Pick the NEAREST other car as the chase target — keeps the arena lively
+  // and stops every AI from dog-piling the player.
+  let target = player, bestD = Infinity;
+  for (const other of allCars) {
+    if (other === car) continue;
+    const ox = other.chassis.position.x - p.x;
+    const oz = other.chassis.position.z - p.z;
+    const od = ox*ox + oz*oz;
+    if (od < bestD) { bestD = od; target = other; }
+  }
+  const tp = target.chassis.position;
   const dx = tp.x - p.x;
   const dz = tp.z - p.z;
   const dist = Math.max(0.1, Math.sqrt(dx * dx + dz * dz));
@@ -1883,15 +1900,16 @@ function updateProjectiles(dt) {
 
 // ── INPUT ──────────────────────────────────────────────────────────────────
 const K = {};
-let camMode = 0;  // 0 chase · 1 chase-close · 2 below · 3 front-left · 4 front-right · 5 birds-eye
+let camMode = 0;  // 0 chase · 1 chase-close · 2 below · 3 front-left · 4 front-right · 5 birds-eye · 6 spectator
 let nextShotTime = 0;
 let lastJump = 0;        // legacy — kept for AI state struct
 let lastJTurn = 0;       // E-key police J-turn cooldown
+let jturnState = null;   // { fromQ, toQ, t0, dur } during the spin animation
 
 window.addEventListener('keydown', e => {
   K[e.code] = true;
   if (e.code === 'KeyR') resetPlayer();
-  if (e.code === 'KeyV') camMode = (camMode + 1) % 6;
+  if (e.code === 'KeyV') camMode = (camMode + 1) % 7;
   if (e.code === 'KeyM') Synth.setMute(!Synth.isMuted());
   Synth.ensureRunning();
   const block = ['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyQ','KeyE','KeyV','KeyM'];
@@ -1985,7 +2003,7 @@ document.querySelectorAll('.tc-btn').forEach(btn => {
     Synth.ensureRunning();
     if (isTap) {
       if (code === 'KeyR') resetPlayer();
-      else if (code === 'KeyV') camMode = (camMode + 1) % 6;
+      else if (code === 'KeyV') camMode = (camMode + 1) % 7;
       else if (code === 'KeyM') Synth.setMute(!Synth.isMuted());
     } else {
       K[code] = true;
@@ -2049,7 +2067,7 @@ function pollGamepad() {
   G.jump   = !!gp.buttons[2]?.pressed;
   // One-shot buttons (camera/mute/reset) — fire on press edge
   const cam = !!gp.buttons[3]?.pressed;
-  if (cam && !G.prevCam) camMode = (camMode + 1) % 6;
+  if (cam && !G.prevCam) camMode = (camMode + 1) % 7;
   G.prevCam = cam;
   const reset = !!gp.buttons[9]?.pressed;
   if (reset && !G.prevReset) resetPlayer();
@@ -2161,17 +2179,31 @@ function loop() {
     if (K['ArrowRight'] || K['KeyD']) steer = -MAX_STEER;
   }
 
-  // ── E key: police J-turn (instant 180° yaw flip around world Y) ──────
-  // Velocity is preserved so the car keeps moving in the same world
-  // direction but is now facing the opposite way — classic handbrake spin.
-  if ((K['KeyE'] || G.jump) && now - lastJTurn > 700) {
+  // ── E key: police J-turn — smooth 180° spin (~600 ms) with rear-wheel
+  // handbrake so it reads as a drift, not a teleport. Velocity is
+  // preserved so the car keeps moving in the same world direction.
+  if ((K['KeyE'] || G.jump) && now - lastJTurn > 1200 && !jturnState) {
+    const fromQ = new CANNON.Quaternion().copy(player.chassis.quaternion);
     const rot180 = new CANNON.Quaternion();
     rot180.setFromEuler(0, Math.PI, 0);
-    const newQ = new CANNON.Quaternion();
-    rot180.mult(player.chassis.quaternion, newQ);
-    player.chassis.quaternion.copy(newQ);
-    player.chassis.angularVelocity.set(0, 0, 0);
+    const toQ = new CANNON.Quaternion();
+    rot180.mult(fromQ, toQ);
+    jturnState = { fromQ, toQ, t0: now, dur: 600 };
     lastJTurn = now;
+  }
+  // Animate active J-turn — slerp the chassis quaternion frame-by-frame.
+  if (jturnState) {
+    const tRaw = Math.min(1, (now - jturnState.t0) / jturnState.dur);
+    const t = tRaw < 0.5 ? 2*tRaw*tRaw : 1 - Math.pow(-2*tRaw + 2, 2)/2;
+    // Slerp via three.js (cannon's quaternion API doesn't have a clean slerp).
+    const fromT = new THREE.Quaternion(
+      jturnState.fromQ.x, jturnState.fromQ.y, jturnState.fromQ.z, jturnState.fromQ.w);
+    const toT = new THREE.Quaternion(
+      jturnState.toQ.x, jturnState.toQ.y, jturnState.toQ.z, jturnState.toQ.w);
+    fromT.slerp(toT, t);
+    player.chassis.quaternion.set(fromT.x, fromT.y, fromT.z, fromT.w);
+    player.chassis.angularVelocity.set(0, 0, 0);
+    if (tRaw >= 1) jturnState = null;
   }
 
   // Turn-signal blink — 2 cycles/sec (4 Hz toggle). Dim at idle, bright
@@ -2199,7 +2231,7 @@ function loop() {
 
   // Space = handbrake. Brake key while still moving forward also locks
   // the rear wheels for a tail-out skid.
-  const hb = (K['Space'] || (touchAssist && touchDrifting) || brakeSkid) ? 85 : 0;
+  const hb = (K['Space'] || (touchAssist && touchDrifting) || brakeSkid || jturnState) ? 85 : 0;
   v.setBrake(0,  0);
   v.setBrake(0,  1);
   v.setBrake(hb, 2);
@@ -2267,6 +2299,12 @@ function loop() {
     player.chassis.collisionFilterMask = inside ? -1 : (-1 ^ WALL_GROUP);
   }
 
+  // ── Anti-launch: clamp every car's upward velocity so no collision can
+  // fling them into the sky (used to happen on bouncy ramp/wall corners).
+  for (const c of allCars) {
+    if (c.chassis.velocity.y > 9) c.chassis.velocity.y = 9;
+  }
+
   // ── Physics step ──────────────────────────────────────────────────────
   world.step(1 / 60, dt, 3);
   updateProjectiles(dt);
@@ -2315,7 +2353,15 @@ function loop() {
   const cHillH = hillHeightAt(cp.x, cp.z);
   const cpY    = Math.max(cp.y, cHillH + 0.7);
 
-  if (camMode === 5) {
+  if (camMode === 6) {
+    // Spectator: fixed camera high above one corner of the arena, looking at
+    // the centre. Doesn't track or rotate with the player. Whole arena visible.
+    camera.up.set(0, 1, 0);
+    camPos.lerp(new THREE.Vector3(0, A * 1.10, A * 1.45), 0.10);
+    camLook.lerp(new THREE.Vector3(0, 0, 0), 0.10);
+    camera.position.copy(camPos);
+    camera.lookAt(camLook);
+  } else if (camMode === 5) {
     // Top-down. Camera high above; player forward = screen up.
     const fwdL = new CANNON.Vec3(1, 0, 0);
     const fwdW = new CANNON.Vec3();
