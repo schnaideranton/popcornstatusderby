@@ -1619,6 +1619,32 @@ function tickFlashes(now) {
   }
 }
 
+// ── Bowling-ball mode ──────────────────────────────────────────────────
+// At ≥ 400 km/h the player car becomes a wrecking ball: any AI it hits
+// is launched along the player's velocity vector. The struck car gets
+// a temporary "rammed" window during which the global up-velocity clamp
+// is skipped so it can actually fly. With Pac-man wrap, the launched
+// car ricochets across portals until it bleeds off speed.
+const RAM_KMH = 400;
+const RAM_MS  = RAM_KMH / 3.6;          // ≈ 111 m/s
+player.chassis.addEventListener('collide', (event) => {
+  if (!event.body) return;
+  const otherCar = allCars.find(c => c.chassis === event.body);
+  if (!otherCar || otherCar === player) return;
+  const v = player.chassis.velocity;
+  const speed = Math.sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
+  if (speed < RAM_MS) return;
+  const flatLen = Math.max(0.01, Math.sqrt(v.x*v.x + v.z*v.z));
+  const dx = v.x / flatLen, dz = v.z / flatLen;
+  const mag = 2200 * (speed / RAM_MS);   // harder when even faster
+  otherCar.chassis.applyImpulse(
+    new CANNON.Vec3(dx * mag, 1400, dz * mag),
+    new CANNON.Vec3(0, 0, 0)
+  );
+  otherCar._rammedUntil = performance.now() + 2800;
+  if (Synth.hit) Synth.hit();
+});
+
 // Player always has visible turn signals so the blinker effect works.
 player.design.turnSignal.enabled = true;
 rebuildCarVisual(player);
@@ -2483,11 +2509,13 @@ function loop() {
   }
   tickFlashes(now);
 
-  // ── Anti-launch: clamp every car's upward velocity so no collision can
-  // fling them into the sky.
+  // ── Anti-launch: clamp upward velocity so collisions don't flip cars
+  // into orbit. SKIPPED for any car flagged "rammed" by the bowling-ball
+  // hit so the ramp-launch effect can actually play out.
   for (const c of allCars) {
-    if (c.chassis.velocity.y > 6) c.chassis.velocity.y = 6;
-    // Also clamp angular velocity so spin-outs don't go crazy.
+    const ramming = c._rammedUntil && c._rammedUntil > now;
+    if (!ramming && c.chassis.velocity.y > 6) c.chassis.velocity.y = 6;
+    // Angular clamp always applies — keeps spins in check.
     const av = c.chassis.angularVelocity;
     const max = 8;
     if (av.x >  max) av.x =  max; if (av.x < -max) av.x = -max;
