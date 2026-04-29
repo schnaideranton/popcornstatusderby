@@ -335,6 +335,10 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// ACESFilmic tone mapping: S-curve that compresses highlights so bright/white
+// surfaces retain their shading detail instead of clipping to flat white.
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.92;
 document.body.appendChild(renderer.domElement);
 
 // ── SCENE ──────────────────────────────────────────────────────────────────
@@ -2180,6 +2184,14 @@ function tickAI(car, state, dt, now) {
     } else if (state.mode === 'flank') {
       state.mode = 'chase';
       state.modeUntil = now + 1500;
+    } else if (state.mode === 'chase' && spd > 6 && Math.random() < 0.03) {
+      // Police J-turn: full handbrake + steer to spin 180° in place, then chase.
+      state.mode = 'jturn';
+      state.jturnSign = Math.random() < 0.5 ? 1 : -1;
+      state.modeUntil = now + 350 + Math.random() * 250;
+    } else if (state.mode === 'jturn') {
+      state.mode = 'chase';
+      state.modeUntil = now + 1200;
     }
   }
 
@@ -2202,6 +2214,22 @@ function tickAI(car, state, dt, now) {
 
   const cross = fwd.x * tz - fwd.z * tx;
   const dot   = fwd.x * tx + fwd.z * tz;
+
+  // J-turn (police/bootlegger): full rear handbrake + hard counter-steer
+  // to snap the car 180°. No engine — let momentum + friction do the work.
+  if (state.mode === 'jturn') {
+    const jSteer = state.jturnSign * 0.50;
+    car.vehicle.applyEngineForce(0, 0);
+    car.vehicle.applyEngineForce(0, 1);
+    car.vehicle.applyEngineForce(0, 2);
+    car.vehicle.applyEngineForce(0, 3);
+    car.vehicle.setSteeringValue(jSteer, 0);
+    car.vehicle.setSteeringValue(jSteer, 1);
+    // Lock rear wheels hard, leave fronts free so the nose can pivot
+    car.vehicle.setBrake(0,   0); car.vehicle.setBrake(0,   1);
+    car.vehicle.setBrake(900, 2); car.vehicle.setBrake(900, 3);
+    return;
+  }
 
   let steerSign = state.mode === 'reverse' ? 1 : -1;
   let targetSteer = Math.max(-0.5, Math.min(0.5, steerSign * cross * 3));
@@ -2870,6 +2898,8 @@ function loop() {
   // ── Pac-man wrap: any car that drives off one edge is teleported to the
   // opposite edge. Spawn a local sparkle flash at the exit point AND the
   // entry point so the player reads it as "popped through a portal".
+  // Track player wrap delta so the camera can snap instantly (no lerp jump).
+  let playerWrapDX = 0, playerWrapDZ = 0;
   for (const c of allCars) {
     const pos = c.chassis.position;
     const exitX = pos.x, exitZ = pos.z;
@@ -2881,7 +2911,17 @@ function loop() {
     if (wrapped) {
       spawnWrapFlash(exitX, pos.y, exitZ, now);   // where it left
       spawnWrapFlash(pos.x,  pos.y, pos.z,  now); // where it arrived
+      if (c === player) {
+        playerWrapDX = pos.x - exitX;  // ±2*A
+        playerWrapDZ = pos.z - exitZ;
+      }
     }
+  }
+  // Snap camPos by the same offset so the lerp target doesn't teleport across
+  // the arena — camera feels seamless, no visible cut.
+  if (playerWrapDX !== 0 || playerWrapDZ !== 0) {
+    camPos.x += playerWrapDX;
+    camPos.z += playerWrapDZ;
   }
   tickFlashes(now);
 
@@ -2890,7 +2930,19 @@ function loop() {
   // hit so the ramp-launch effect can actually play out.
   for (const c of allCars) {
     const ramming = c._rammedUntil && c._rammedUntil > now;
-    if (!ramming && c.chassis.velocity.y > 6) c.chassis.velocity.y = 6;
+    if (!ramming) {
+      // Y-clamp: no flying into orbit
+      if (c.chassis.velocity.y > 6) c.chassis.velocity.y = 6;
+      // Full 3D speed clamp: prevents penetration-recovery impulses from
+      // catapulting cars across the arena at collision seams.
+      const vel = c.chassis.velocity;
+      const spd2 = vel.x*vel.x + vel.z*vel.z;
+      const maxSpd = 52; // ~187 km/h hard cap
+      if (spd2 > maxSpd * maxSpd) {
+        const scale = maxSpd / Math.sqrt(spd2);
+        vel.x *= scale; vel.z *= scale;
+      }
+    }
     // Angular clamp always applies — keeps spins in check.
     const av = c.chassis.angularVelocity;
     const max = 8;
