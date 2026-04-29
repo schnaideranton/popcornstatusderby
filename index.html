@@ -213,7 +213,9 @@ scene.fog = new THREE.FogExp2(0x4a6891, 0.007);
 const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.1, 500);
 // Mini camera — 3/4 profile of the player car, drawn in the top-right HUD
 // during birds-eye mode so you can still see what your car looks like.
-const miniCam = new THREE.PerspectiveCamera(34, 1, 0.1, 60);
+// Iso (orthographic) camera for the frozen preview — no fisheye, no perspective
+// distortion, classic 3/4 hero shot from the FRONT-RIGHT side of the car.
+const miniCam = new THREE.OrthographicCamera(-3.6, 3.6, 2.7, -2.7, 0.1, 60);
 
 // ── ISO PREVIEW (always-on, frozen, top-right) ─────────────────────────────
 // A clone of the player car visuals lives at y = +250 (above the arena),
@@ -329,10 +331,15 @@ function staticBox(x, y, z, w, h, d, color, mat) {
 // ── ARENA WALLS ────────────────────────────────────────────────────────────
 const A = 78; // arena half-size (metres)
 const WH = 5; // wall height
+const WALL_GROUP = 4;       // collision-filter group used by perimeter walls
 staticBox(  0, WH/2,  A, A*2+4, WH, 4, 0x404040, matWall);
 staticBox(  0, WH/2, -A, A*2+4, WH, 4, 0x404040, matWall);
 staticBox(  A, WH/2,  0, 4, WH, A*2+4, 0x404040, matWall);
 staticBox( -A, WH/2,  0, 4, WH, A*2+4, 0x404040, matWall);
+// Tag the four walls (the last four bodies added) with the WALL_GROUP so
+// player can be filtered against them.
+const wallBodies = world.bodies.slice(-4);
+wallBodies.forEach(b => { b.collisionFilterGroup = WALL_GROUP; });
 
 // ── RAMPS ──────────────────────────────────────────────────────────────────
 // Standalone wedge jumps — no square buildings. 8 of them, varied size + yaw.
@@ -691,8 +698,16 @@ function rebuildCarVisual(car) {
   const hlDef  = HL[p.headlightStyle] || HL.box;
   const xFront = p.bodyLength / 2 + 0.01 + (p.headlightX || 0);
   const hlBaseY = bodyCenterY + (p.headlightY || 0);
-  const zSideHL = Math.min(p.bodyWidth / 2 - 0.05,
-                           Math.max(0.05, p.bodyWidth / 2 - 0.25 + (p.headlightSpread || 0)));
+  // Per-style half-Z extent (so we can clamp the OUTER edge of a round / oval /
+  // box light to the body silhouette + 5%, instead of the centre).
+  const HL_HALFZ = {
+    box:0.15, 'box-h':0.17, tall:0.05, round:0.14, oval:0.119, 'pill-v':0.0455,
+    wide:0.30, split:0.09, 'split-tall':0.035, 'split-round':0.08, 'split-oval':0.072,
+  };
+  const halfZ = (HL_HALFZ[p.headlightStyle] || 0.15) * (p.headlightW || 1);
+  const maxOuter = p.bodyWidth / 2 + p.bodyWidth * 0.05;
+  const zSideHLraw = Math.max(0.05, p.bodyWidth / 2 - 0.25 + (p.headlightSpread || 0));
+  const zSideHL = Math.min(zSideHLraw, maxOuter - halfZ);
   const placeHL = (x, y, z) => {
     const hl = new THREE.Mesh(hlDef.viz(), hlMat);
     hl.position.set(x, y, z);
@@ -712,8 +727,9 @@ function rebuildCarVisual(car) {
   const tlDef = HL[p.taillightStyle] || HL['box-h'];
   const xRear = -p.bodyLength / 2 - 0.01 - (p.taillightX || 0);
   const tlBaseY = bodyCenterY + (p.taillightY || 0);
-  const zSideTL = Math.min(p.bodyWidth / 2 - 0.05,
-                           Math.max(0.05, p.bodyWidth / 2 - 0.25 + (p.taillightSpread || 0)));
+  const halfZTL = (HL_HALFZ[p.taillightStyle] || 0.15) * (p.taillightW || 1);
+  const zSideTLraw = Math.max(0.05, p.bodyWidth / 2 - 0.25 + (p.taillightSpread || 0));
+  const zSideTL = Math.min(zSideTLraw, maxOuter - halfZTL);
   const placeTL = (x, y, z) => {
     const tl = new THREE.Mesh(tlDef.viz(), tlMat);
     tl.position.set(x, y, z);
@@ -975,7 +991,10 @@ function applyTier(car, level) {
   const lenMm  = rng(cfg.realLength[0], cfg.realLength[1]);
   const length = lenMm / 1000;                            // m
   const wheelD = length * rng(cfg.wheelOnLength[0], cfg.wheelOnLength[1]);
-  const clearance = wheelD * rng(cfg.clearanceOnWheel[0], cfg.clearanceOnWheel[1]);
+  // Physics wheel radius is fixed at 0.37 m; base clearance off the PHYSICS
+  // wheel so the body never sinks below the actual contact patch (was
+  // dragging on the ground when wheelScale < 1).
+  const clearance = 0.74 * rng(cfg.clearanceOnWheel[0], cfg.clearanceOnWheel[1]);
   const roofH  = length * rng(cfg.roofOnLength[0], cfg.roofOnLength[1]);
   const hoodH  = roofH * rng(cfg.hoodOnRoof[0], cfg.hoodOnRoof[1]);
   const bodyHeight = Math.max(0.30, hoodH - clearance);
@@ -1031,8 +1050,9 @@ function applyTier(car, level) {
   p.convertible = (typeKey === 'sports' || typeKey === 'coupe')
                   && L >= 12 && Math.random() < 0.20;
 
-  // Wheel scale: physics radius is fixed at 0.37 m → diameter 0.74 m.
-  p.wheelScale = wheelD / 0.74;
+  // Wheel scale: visual cylinder. Floor at 1.0 so visual ≥ physics — the
+  // wheels always reach the ground. Allow up to 1.6 for big-wheel mutants.
+  p.wheelScale = Math.max(1.0, Math.min(1.6, wheelD / 0.74 + (Math.random() < 0.15 ? rng(0, 0.45) : 0)));
 
   // Colour — chaos as before, sticks out against the monochrome arena.
   if (Math.random() < 0.30) {
@@ -1043,6 +1063,17 @@ function applyTier(car, level) {
   }
   p.headlightStyle = pick(cfg.headlights);
   p.accessory      = pick(cfg.accessories);   // legacy field for projectile lookups
+  // Wide headlight = body-spanning bar (±5%). Override the W multiplier so
+  // the geometry actually reaches edge-to-edge.
+  if (p.headlightStyle === 'wide') {
+    p.headlightW = (p.bodyWidth / 0.60) * rng(0.92, 1.05);
+  }
+  // Rim look variety — randomized per car. Hub colour plus dish sign so the
+  // wheels aren't all identical white discs.
+  p.rimColor   = pick([0xc8ccd0, 0x222222, 0x55585e, 0xffd700, 0xff3366,
+                       0xeeeeee, 0x39ff14, 0x00e5ff, 0xb8b8b8, 0x8a6e3c]);
+  p.rimDish    = pick([-1, 0, 1]) * rng(0.04, 0.16);   // -1 concave, 0 flat, +1 convex
+  p.rimSize    = rng(0.50, 0.78);
 
   // ── New design fields ────────────────────────────────────────────────
   // Per-type rounding hint (jeep / pickup stay sharp, hyper / sedan rounder)
@@ -1090,23 +1121,44 @@ function applyTier(car, level) {
     p.cabinOffset = -length / 2 + p.cabinLength / 2;
   }
 
-  // 30% chance: roll a "crazy" pass over the design — bigger rounding,
-  // bolder spread / sink / spoiler height. Keeps physics-relevant axes
-  // (wheelScale, bodyLift) untouched.
-  if (Math.random() < 0.30) {
-    p.bodyRound  = rng(0.10, 0.28);
-    p.cabinRound = rng(0.10, 0.32);
-    p.cabinSink  = rng(-0.20, 0.05);
-    p.headlightSpread = rng(-0.25, 0.20);
-    p.taillightSpread = rng(-0.25, 0.20);
-    if (p.accessories.spoiler) p.spoilerHeight = rng(0.30, 0.65);
-    if (Math.random() < 0.4 && !p.accessories.spoiler) p.accessories.spoiler = true;
+  // First 10 levels: classic only. Beyond that: 60% chance of a "crazy"
+  // pass that bends every cosmetic axis hard. Big rounding, deep sink,
+  // wild spread, fat spoilers, monster wheels, weird cabin offsets.
+  if (L >= 10 && Math.random() < 0.60) {
+    p.bodyRound       = rng(0.06, 0.40);
+    p.cabinRound      = rng(0.06, 0.45);
+    p.cabinSink       = rng(-0.30, 0.05);
+    p.cabinOffset    += rng(-0.40, 0.40);
+    p.headlightSpread = rng(-0.35, 0.25);
+    p.taillightSpread = rng(-0.35, 0.25);
+    p.bodyHeight     *= rng(0.85, 1.20);
+    if (Math.random() < 0.40) p.wheelScale = Math.min(1.6, p.wheelScale * rng(1.10, 1.40));
+    if (Math.random() < 0.50 && !p.accessories.spoiler) p.accessories.spoiler = true;
+    if (p.accessories.spoiler) p.spoilerHeight = rng(0.25, 0.70);
+    if (Math.random() < 0.30) p.accessories.scoop = true;
+    if (Math.random() < 0.20) p.accessories.antenna = true;
+    p.rimDish = pick([-1, 1]) * rng(0.08, 0.18);
   }
 
   rebuildCarVisual(car);
   if (car.wheels) {
     const s = p.wheelScale;
     car.wheels.forEach(w => w.scale.set(s, s, s));
+    // Re-skin the hubcaps with the rolled rim colour + convex/concave hint.
+    car.wheels.forEach(wg => {
+      if (wg.userData.hubMat) wg.userData.hubMat.color.setHex(p.rimColor || 0xc8ccd0);
+      const dishSign = Math.sign(p.rimDish || 0);
+      const dishAbs  = Math.abs(p.rimDish || 0);
+      const sz = p.rimSize ? (p.rimSize / 0.62) : 1;       // hub disc radius scaler
+      wg.children.forEach(c => {
+        if (!c.userData.role) return;
+        const baseZ = c.userData.baseZ || 0;
+        // dishSign +1 (convex) → push hub OUTWARD on each side; −1 (concave) → pull inward.
+        const push = dishSign * dishAbs * (baseZ > 0 ? 1 : -1);
+        c.position.z = baseZ + push;
+        if (c.userData.role === 'hub') c.scale.set(sz, sz, 1);
+      });
+    });
   }
   if (car === player) rebuildPlayerPreview();
 }
@@ -1225,6 +1277,8 @@ function makeCar(px, pz, color) {
   const innerHubGeom = new THREE.CircleGeometry(0.10, 14);
   const innerHubMat  = new THREE.MeshLambertMaterial({ color: 0x444444 });
 
+  // Per-car hub material so each car can have its own rim colour.
+  const hubMatLocal = new THREE.MeshLambertMaterial({ color: 0xc8ccd0 });
   const wheels = vehicle.wheelInfos.map(() => {
     const wg = new THREE.Group();
     const tyre = new THREE.Mesh(tyreGeom, tyreMat);
@@ -1232,16 +1286,20 @@ function makeCar(px, pz, color) {
     wg.add(tyre);
 
     [0.165, -0.165].forEach((z, i) => {
-      const hub = new THREE.Mesh(hubGeom, hubMat);
+      const hub = new THREE.Mesh(hubGeom, hubMatLocal);
       hub.position.z = z;
       if (i === 1) hub.rotation.y = Math.PI;
+      hub.userData.role = 'hub';
+      hub.userData.baseZ = z;
       wg.add(hub);
       const inner = new THREE.Mesh(innerHubGeom, innerHubMat);
       inner.position.z = z + (i === 0 ? 0.001 : -0.001);
       if (i === 1) inner.rotation.y = Math.PI;
+      inner.userData.role = 'innerHub';
+      inner.userData.baseZ = z + (i === 0 ? 0.001 : -0.001);
       wg.add(inner);
     });
-
+    wg.userData.hubMat = hubMatLocal;
     scene.add(wg);
     return wg;
   });
@@ -1985,6 +2043,16 @@ function loop() {
   // ── AI ────────────────────────────────────────────────────────────────
   aiCars.forEach((car, i) => tickAI(car, aiState[i], dt, now));
 
+  // ── One-way arena wall: when the player is OUTSIDE the arena, drop the
+  // wall group from their collision mask so they can drive back in through
+  // the wall. While inside, the wall blocks them as before. AI keep the
+  // default mask so they always collide.
+  {
+    const px = player.chassis.position.x, pz = player.chassis.position.z;
+    const inside = Math.abs(px) < A - 0.5 && Math.abs(pz) < A - 0.5;
+    player.chassis.collisionFilterMask = inside ? -1 : (-1 ^ WALL_GROUP);
+  }
+
   // ── Physics step ──────────────────────────────────────────────────────
   world.step(1 / 60, dt, 3);
   updateProjectiles(dt);
@@ -2078,17 +2146,18 @@ function loop() {
 
   renderer.render(scene, camera);
 
-  // ── Frozen iso preview (top-right, always on) — fixed 3/4 view of the
-  // player's CURRENT design, drawn from a duplicate group floating high
-  // above the arena. Doesn't move with the actual car.
+  // ── Frozen iso preview (top-right, always on) — orthographic 3/4 hero
+  // shot of the player's CURRENT design. Camera sits front-right of car
+  // (+X is the front), so windshield + headlights face the viewer.
   {
-    miniCam.position.set(-4.0, PREVIEW_Y + 2.6, 4.5);
+    miniCam.position.set(6, PREVIEW_Y + 4.0, 6);
     miniCam.lookAt(0, PREVIEW_Y + 0.4, 0);
+    miniCam.updateProjectionMatrix();
 
     const dpr = renderer.getPixelRatio();
     const W = renderer.domElement.width;
     const H = renderer.domElement.height;
-    const sizeCss = Math.min(200, Math.floor(Math.min(window.innerWidth, window.innerHeight) / 4));
+    const sizeCss = Math.min(260, Math.floor(Math.min(window.innerWidth, window.innerHeight) / 3.2));
     const size = Math.floor(sizeCss * dpr);
     const margin = Math.floor(14 * dpr);
     const x = W - size - margin;
