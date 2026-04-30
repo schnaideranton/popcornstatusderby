@@ -896,7 +896,20 @@ function defaultDesign(color) {
     scoopRise: 0.10, scoopX: 0, scoopZ: 0,
     roofboxLength: 0.85, roofboxWidth: 0.78, roofboxHeight: 0.20, roofboxRound: 0.05,
     accessory: 'none',          // legacy field — kept for projectile lookups
+    // Wheels — these match the cannon RaycastVehicle defaults set in makeCar
+    // (chassisConnectionPointLocal at ±1.42, ±0.92, radius 0.37, width 0.32).
+    // applyDesignVisuals copies wheelbase/trackWidth into wheelInfos so
+    // changing them in the inspector also moves the physics wheels.
     wheelScale: 1.0,
+    wheelbase: 2.84, trackWidth: 1.84, wheelWidth: 0.32,
+    rimDepth: -0.04, rimSize: 0.62, rimColor: 0xc8ccd0,
+    // Fenders — disabled by default, full structure so morph + render don't
+    // need null guards. applyTier overwrites with random values.
+    fenders: {
+      enabled: false,
+      front: { front: 0.30, rear: 0.18, height: 0.28, y: 0, width: 0.40, inset: 0, round: 0.05 },
+      rear:  { front: 0.18, rear: 0.22, height: 0.28, y: 0, width: 0.40, inset: 0, round: 0.05 },
+    },
   };
 }
 
@@ -1047,7 +1060,10 @@ function buildWheelChildren(wg, p) {
   const baseR    = 0.37;
   const baseW    = 0.32;
   const rimOuter = baseR * (p.rimSize || 0.62);
-  const dishVal  = p.rimDish || 0;
+  // Inspector saves the field as `rimDepth`; legacy game data uses `rimDish`.
+  // Read both so a design coming from either source picks up the dish value.
+  const dishVal  = (typeof p.rimDepth === 'number') ? p.rimDepth
+                  : (typeof p.rimDish === 'number') ? p.rimDish : 0;
   const dishAbs  = Math.abs(dishVal);
   const dishSign = Math.sign(dishVal);
 
@@ -1603,7 +1619,7 @@ function applyTier(car, level) {
   // because the simple wheel mesh can't hide a protruding plug).
   p.rimColor   = pick([0xc8ccd0, 0x222222, 0x55585e, 0xffd700, 0xff3366,
                        0xeeeeee, 0x39ff14, 0x00e5ff, 0xb8b8b8, 0x8a6e3c]);
-  p.rimDish    = pick([-1, -1, 0]) * rng(0.05, 0.14);  // 2/3 concave, 1/3 flat
+  p.rimDepth   = pick([-1, -1, 0]) * rng(0.05, 0.14);  // 2/3 concave, 1/3 flat
   p.rimSize    = rng(0.50, 0.78);
 
   // ── New design fields ────────────────────────────────────────────────
@@ -1680,7 +1696,7 @@ function applyTier(car, level) {
     if (p.accessories.spoiler) p.spoilerHeight = rng(0.25, 0.75);
     if (Math.random() < 0.40) p.accessories.scoop = true;
     if (Math.random() < 0.30) p.accessories.antenna = true;
-    p.rimDish = -1 * rng(0.08, 0.16);   // always concave when crazy
+    p.rimDepth = -1 * rng(0.08, 0.16);  // always concave when crazy
   }
 
   // Fenders / Wings — match the inspector's randomization rules. Tops sit
@@ -1740,6 +1756,25 @@ function applyTier(car, level) {
 // a transition so the player car can morph between two designs smoothly.
 function applyDesignVisuals(car) {
   const p = car.design;
+  // Physics wheel positions follow the design's wheelbase / trackWidth so the
+  // physical wheels stay under the visual fenders even when the inspector
+  // ships a non-default wheelbase. Without this the visual fenders move with
+  // design.wheelbase but cannon's wheels stay pinned at (±1.42, ±0.92) and
+  // the wheels poke through the body / past the fender nose.
+  if (car.vehicle && car.vehicle.wheelInfos) {
+    const wbHalf  = (p.wheelbase  || 2.84) / 2;
+    const trkHalf = (p.trackWidth || 1.84) / 2;
+    // FL, FR, RL, RR — same order as the addWheel calls in makeCar.
+    const offsets = [
+      [ wbHalf,  trkHalf], [ wbHalf, -trkHalf],
+      [-wbHalf,  trkHalf], [-wbHalf, -trkHalf],
+    ];
+    car.vehicle.wheelInfos.forEach((wi, i) => {
+      const o = offsets[i]; if (!o || !wi.chassisConnectionPointLocal) return;
+      wi.chassisConnectionPointLocal.x = o[0];
+      wi.chassisConnectionPointLocal.z = o[1];
+    });
+  }
   rebuildCarVisual(car);
   if (typeof rebuildShadowsFor === 'function') rebuildShadowsFor(car);
   if (!car.wheels) return;
@@ -1763,7 +1798,8 @@ const MORPH_NUMERIC = [
   'taillightX','taillightY','taillightW','taillightH','taillightSpread',
   'spoilerHeight','scoopRise','scoopX','scoopZ',
   'roofboxLength','roofboxWidth','roofboxHeight','roofboxRound',
-  'rimSize','rimDish',
+  'rimSize','rimDepth','rimDish',
+  'wheelbase','trackWidth','wheelWidth',
 ];
 const MORPH_COLOR = ['bodyColor', 'rimColor'];
 
