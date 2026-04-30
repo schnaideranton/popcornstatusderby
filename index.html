@@ -179,6 +179,30 @@
   }
   #preview-click:hover { border-color: rgba(255,255,255,0.55); }
   body.touch #preview-click { display: none; }
+  /* GAME TURBO-CARD — compact mirror of the inspector card. Sits under the
+     iso preview, top-right, updates whenever the player's design changes. */
+  #game-tc {
+    position: absolute; right: 14px;
+    background: #f4f4f4; color: #1a1a1a;
+    font-family: 'Courier New', monospace; font-size: 10px;
+    padding: 8px 10px; border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.08);
+    z-index: 5; pointer-events: none;
+    display: grid; gap: 4px;
+    grid-template-columns: 1.1fr 1fr 1fr;
+    align-items: start; max-width: 320px;
+  }
+  body.touch #game-tc { display: none; }
+  #game-tc .gtc-brand   { display: flex; flex-direction: column; gap: 0; }
+  #game-tc .gtc-name    { font-size: 13px; font-weight: 800; letter-spacing: 1.5px; line-height: 1; }
+  #game-tc .gtc-sub     { font-size: 8px;  opacity: 0.6; letter-spacing: 1.5px; margin-top: 2px; }
+  #game-tc .gtc-seed    { font-size: 8px;  opacity: 0.45; margin-top: 4px; }
+  #game-tc .gtc-stats   { display: flex; flex-direction: column; gap: 2px; }
+  #game-tc .gtc-row     { display: flex; justify-content: space-between; gap: 4px; font-size: 9px; }
+  #game-tc .gtc-l       { opacity: 0.55; }
+  #game-tc .gtc-v       { font-weight: 700; text-align: right;
+                          white-space: nowrap; max-width: 65%;
+                          overflow: hidden; text-overflow: ellipsis; }
   /* Inspector modal: covers the whole game while open. Game loop pauses. */
   #inspector-modal {
     display: none; position: fixed; inset: 0;
@@ -332,6 +356,23 @@
     </div>
   </div>
   <div id="preview-click" title="Open this design in the constructor (game pauses)"></div>
+  <div id="game-tc">
+    <div class="gtc-brand">
+      <div class="gtc-name" id="gtc-name">SEDAN</div>
+      <div class="gtc-sub"  id="gtc-sub">STANDARD</div>
+      <div class="gtc-seed" id="gtc-seed">L··</div>
+    </div>
+    <div class="gtc-stats">
+      <div class="gtc-row"><span class="gtc-l">L</span><span class="gtc-v" id="gtc-len">·</span></div>
+      <div class="gtc-row"><span class="gtc-l">W</span><span class="gtc-v" id="gtc-wid">·</span></div>
+      <div class="gtc-row"><span class="gtc-l">H</span><span class="gtc-v" id="gtc-hgt">·</span></div>
+    </div>
+    <div class="gtc-stats">
+      <div class="gtc-row"><span class="gtc-l">WB</span><span class="gtc-v" id="gtc-wbs">·</span></div>
+      <div class="gtc-row"><span class="gtc-l">TR</span><span class="gtc-v" id="gtc-trk">·</span></div>
+      <div class="gtc-row"><span class="gtc-l">Ø</span><span class="gtc-v" id="gtc-whd">·</span></div>
+    </div>
+  </div>
   <button id="gear-btn" title="Tune cameras, sun, clouds, fog…">⚙</button>
   <div id="settings-drawer">
     <h3>Camera</h3>
@@ -1950,6 +1991,10 @@ function applyDesignVisuals(car) {
     buildWheelChildren(wg, p);
     wg.scale.set(s, s, s);
   });
+  // Refresh the on-screen Turbo card if this is the player car.
+  if (car === player && typeof updateGameTurboCard === 'function') {
+    updateGameTurboCard();
+  }
 }
 
 // ── Design morph (player-only) ──────────────────────────────────────────
@@ -2449,6 +2494,42 @@ function syncPreviewClick() {
   const cssH = Math.floor(cssW * 0.62);
   previewClickEl.style.width  = cssW + 'px';
   previewClickEl.style.height = cssH + 'px';
+  // Anchor the Turbo card directly under the iso preview.
+  const tc = document.getElementById('game-tc');
+  if (tc) {
+    tc.style.top   = (14 + cssH + 6) + 'px';
+    tc.style.width = cssW + 'px';
+  }
+}
+
+// ── GAME TURBO-CARD — compact mirror of the inspector card. ──────────────
+const _gtc$ = id => document.getElementById(id);
+function _gtcM(v) { return (+v).toFixed(2); }
+function _gtcSub(p) {
+  if (p.convertible)              return 'CABRIO';
+  if (p.accessories?.spoiler)     return 'GT';
+  if (p.accessories?.roofbox)     return 'TOURING';
+  if (p.accessories?.scoop)       return 'TURBO';
+  if (p.fenders?.enabled)         return 'FENDER';
+  if ((p.wheelScale || 1) > 1.30) return 'MONSTER';
+  return 'STANDARD';
+}
+function updateGameTurboCard() {
+  const p = player && player.design;
+  if (!p) return;
+  const cabH   = p.convertible ? 0.32 : p.cabinHeight;
+  const totalH = 0.77 + p.bodyLift + p.bodyHeight + cabH;
+  const wD     = 2 * 0.37 * (p.wheelScale || 1);
+  // Type label from car's bodyType (set by applyTier), else fallback.
+  _gtc$('gtc-name').textContent = (player.bodyType || 'sedan').toUpperCase();
+  _gtc$('gtc-sub').textContent  = _gtcSub(p);
+  _gtc$('gtc-seed').textContent = 'L' + (player.level | 0);
+  _gtc$('gtc-len').textContent  = _gtcM(p.bodyLength);
+  _gtc$('gtc-wid').textContent  = _gtcM(p.bodyWidth);
+  _gtc$('gtc-hgt').textContent  = _gtcM(totalH);
+  _gtc$('gtc-wbs').textContent  = _gtcM(p.wheelbase);
+  _gtc$('gtc-trk').textContent  = _gtcM(p.trackWidth);
+  _gtc$('gtc-whd').textContent  = _gtcM(wD);
 }
 syncPreviewClick();
 window.addEventListener('resize', syncPreviewClick);

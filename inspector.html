@@ -8,8 +8,56 @@
   html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
   body { background: #15171c; color: #ddd; font-family: 'Courier New', monospace; font-size: 12px; }
   #layout { display: flex; height: 100vh; }
-  #scene  { flex: 1; position: relative; background: #1c2026; }
+  #scene  { flex: 1; display: flex; flex-direction: column; background: #f4f4f4; }
+  #scene-frame {
+    flex: 1; margin: 14px 14px 0; position: relative; overflow: hidden;
+    background: #1c2026; border-radius: 2px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.18);
+  }
   #c      { display: block; width: 100%; height: 100%; }
+  /* TURBO-CARD: Schnaider Turbo gum-style data block under the 3D preview. */
+  #turbo-card {
+    margin: 12px 14px 14px;
+    display: grid;
+    grid-template-columns: 1.4fr 1.1fr 1.1fr 1.1fr 0.9fr;
+    background: #f4f4f4; color: #1a1a1a;
+    padding: 14px 18px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px; line-height: 1.3;
+    align-items: center;
+    gap: 14px;
+    border-radius: 2px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.06);
+  }
+  .tc-brand   { display: flex; flex-direction: column; gap: 1px; }
+  .tc-name    { font-size: 22px; font-weight: 800; letter-spacing: 2.5px; line-height: 1; }
+  .tc-sub     { font-size: 10px; opacity: 0.6; letter-spacing: 2px; margin-top: 2px; }
+  .tc-seed    { font-size: 9px; opacity: 0.40; margin-top: 6px; letter-spacing: 1.5px; }
+  .tc-stats   { display: flex; flex-direction: column; gap: 4px; }
+  .tc-row     { display: flex; justify-content: space-between; gap: 8px; font-size: 10.5px; }
+  .tc-l       { opacity: 0.55; letter-spacing: 0.5px; }
+  .tc-v       { font-weight: 700; text-align: right;
+                white-space: nowrap; max-width: 60%;
+                overflow: hidden; text-overflow: ellipsis; }
+  .tc-logo    { background: #1a1a1a; color: #fff;
+                padding: 10px 16px; border-radius: 22px;
+                text-align: center; letter-spacing: 1.5px;
+                display: flex; flex-direction: column;
+                align-items: center; gap: 2px; }
+  .tc-logo-name { font-size: 10px; font-weight: 700; }
+  .tc-logo-num  { font-size: 22px; font-weight: 800; line-height: 1; }
+  @media (max-width: 900px) {
+    #scene-frame { margin: 6px 6px 0; }
+    #turbo-card  { margin: 6px; padding: 6px 10px; gap: 8px; font-size: 9.5px;
+                   grid-template-columns: 0.9fr 1fr 1fr 0.7fr; }
+    .tc-name     { font-size: 14px; letter-spacing: 1.5px; }
+    .tc-sub, .tc-seed { display: none; }
+    .tc-row      { font-size: 9px; }
+    .tc-stats:nth-child(4) { display: none; }
+    .tc-logo     { padding: 5px 9px; }
+    .tc-logo-num { font-size: 13px; }
+    .tc-logo-name { font-size: 8px; }
+  }
   #info   { position: absolute; top: 16px; left: 16px; opacity: 0.8;
             font-size: 11px; letter-spacing: 1.5px; line-height: 1.7; }
   #hint   { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
@@ -63,12 +111,40 @@
 <body>
 <div id="layout">
   <div id="scene">
-    <canvas id="c"></canvas>
-    <div id="info">
-      <div>SEED <span id="seed">·······</span></div>
-      <div id="dims" style="opacity:0.6">·</div>
+    <div id="scene-frame">
+      <canvas id="c"></canvas>
+      <div id="info">
+        <div>SEED <span id="seed">·······</span></div>
+        <div id="dims" style="opacity:0.6">·</div>
+      </div>
+      <div id="hint">DRAG to rotate · SCROLL to zoom · SHIFT+DRAG to pan</div>
     </div>
-    <div id="hint">DRAG to rotate · SCROLL to zoom · SHIFT+DRAG to pan</div>
+    <div id="turbo-card">
+      <div class="tc-brand">
+        <div class="tc-name" id="tc-name">SEDAN</div>
+        <div class="tc-sub"  id="tc-sub">STANDARD</div>
+        <div class="tc-seed" id="tc-seed">·······</div>
+      </div>
+      <div class="tc-stats">
+        <div class="tc-row"><span class="tc-l">Length</span><span class="tc-v" id="tc-len">·</span></div>
+        <div class="tc-row"><span class="tc-l">Width</span><span class="tc-v" id="tc-wid">·</span></div>
+        <div class="tc-row"><span class="tc-l">Height</span><span class="tc-v" id="tc-hgt">·</span></div>
+      </div>
+      <div class="tc-stats">
+        <div class="tc-row"><span class="tc-l">Wheelbase</span><span class="tc-v" id="tc-wbs">·</span></div>
+        <div class="tc-row"><span class="tc-l">Track</span><span class="tc-v" id="tc-trk">·</span></div>
+        <div class="tc-row"><span class="tc-l">Wheel Ø</span><span class="tc-v" id="tc-whd">·</span></div>
+      </div>
+      <div class="tc-stats">
+        <div class="tc-row"><span class="tc-l">Headlight</span><span class="tc-v" id="tc-hdl">·</span></div>
+        <div class="tc-row"><span class="tc-l">Tail</span><span class="tc-v" id="tc-tll">·</span></div>
+        <div class="tc-row"><span class="tc-l">Fenders</span><span class="tc-v" id="tc-fnd">·</span></div>
+      </div>
+      <div class="tc-logo">
+        <span class="tc-logo-name">DERBY</span>
+        <span class="tc-logo-num" id="tc-num">··</span>
+      </div>
+    </div>
   </div>
 
   <div id="panel">
@@ -972,6 +1048,7 @@ function rebuildCar(d) {
   redrawSide();
   redrawCross('front');
   redrawCross('rear');
+  updateTurboCard(p);
 
   // Update info display
   document.getElementById('dims').innerHTML =
@@ -1791,6 +1868,45 @@ for (const { id, axle, key } of FENDER_SLIDERS) {
 }
 document.getElementById('genClassic').addEventListener('click', () => randomizeCar());
 document.getElementById('genCrazy').addEventListener('click', () => randomizeCrazy());
+
+// ── TURBO CARD ──────────────────────────────────────────────────────────────
+// Schnaider Turbo gum-card style data block under the 3D preview. Renders
+// live values from the design (passed in from rebuildCar) so values morph
+// alongside the car.
+function _tcM(v)   { return (+v).toFixed(2) + ' m'; }
+function _tcSub(p) {
+  if (p.convertible)              return 'CABRIO';
+  if (p.accessories?.spoiler)     return 'GT';
+  if (p.accessories?.roofbox)     return 'TOURING';
+  if (p.accessories?.scoop)       return 'TURBO';
+  if (p.fenders?.enabled)         return 'FENDER';
+  if ((p.wheelScale || 1) > 1.30) return 'MONSTER';
+  return 'STANDARD';
+}
+function updateTurboCard(p) {
+  if (!p) return;
+  const $ = id => document.getElementById(id);
+  const cabH   = p.convertible ? 0.32 : p.cabinHeight;
+  const totalH = 0.77 + p.bodyLift + p.bodyHeight + cabH;
+  const wD     = 2 * 0.37 * (p.wheelScale || 1);
+  // Stable card "number" derived from the seed (1–99), constant across morph.
+  const num = currentSeed
+    ? (parseInt(currentSeed.slice(-3), 16) % 99) + 1
+    : 1;
+  $('tc-name').textContent = (currentType || 'sedan').toUpperCase();
+  $('tc-sub').textContent  = _tcSub(p);
+  $('tc-seed').textContent = currentSeed || '······';
+  $('tc-len').textContent  = _tcM(p.bodyLength);
+  $('tc-wid').textContent  = _tcM(p.bodyWidth);
+  $('tc-hgt').textContent  = _tcM(totalH);
+  $('tc-wbs').textContent  = _tcM(p.wheelbase);
+  $('tc-trk').textContent  = _tcM(p.trackWidth);
+  $('tc-whd').textContent  = _tcM(wD);
+  $('tc-hdl').textContent  = p.headlightStyle  || '—';
+  $('tc-tll').textContent  = p.taillightStyle  || '—';
+  $('tc-fnd').textContent  = (p.fenders && p.fenders.enabled) ? 'on' : 'off';
+  $('tc-num').textContent  = num;
+}
 
 // ── MORPHING ────────────────────────────────────────────────────────────────
 // On randomize / generate the car morphs over ~500ms from its previous shape
