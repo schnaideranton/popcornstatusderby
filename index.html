@@ -50,6 +50,61 @@
   }
   #inspector-btn:hover { background: rgba(255,255,255,0.10); }
   body.touch #inspector-btn { display: none; }
+  /* CARGENEDDON — mode toggle + HUD + game-over card */
+  #mode-toggle {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    z-index: 30; cursor: pointer; pointer-events: auto;
+    background: rgba(0,0,0,0.55); color: #fff;
+    border: 1px solid rgba(255,255,255,0.30);
+    padding: 8px 18px; font-family: 'Courier New', monospace; font-weight: 700;
+    letter-spacing: 2px; border-radius: 8px; font-size: 13px;
+  }
+  #mode-toggle:hover { background: rgba(0,0,0,0.78); border-color: #fff; }
+  #mode-toggle.cg-on {
+    background: rgba(180,30,60,0.55); border-color: rgba(255,120,140,0.85);
+    color: #ffe6ec;
+  }
+  #cg-hud {
+    position: absolute; top: 56px; left: 50%; transform: translateX(-50%);
+    display: none; gap: 18px; padding: 8px 22px;
+    background: rgba(0,0,0,0.62); color: #fff;
+    border: 1px solid rgba(255,120,140,0.55); border-radius: 8px;
+    z-index: 28; pointer-events: none;
+    font-family: 'Courier New', monospace; font-size: 16px; letter-spacing: 1.5px;
+  }
+  #cg-hud.on { display: flex; }
+  .cg-stat { display: flex; gap: 5px; align-items: baseline; }
+  .cg-label { opacity: 0.65; font-size: 12px; }
+  #cg-gameover {
+    position: absolute; inset: 0; display: none;
+    align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.72); z-index: 200; pointer-events: auto;
+  }
+  #cg-gameover.open { display: flex; }
+  .cg-go-card {
+    background: #1a1d22; padding: 28px 38px; border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.20); text-align: center;
+    color: #fff; font-family: 'Courier New', monospace;
+    box-shadow: 0 12px 50px rgba(0,0,0,0.7);
+  }
+  .cg-go-card h2 {
+    font-size: 28px; letter-spacing: 4px; margin: 0 0 10px;
+    color: #ff6688; font-weight: 700;
+  }
+  #cg-go-stats { font-size: 16px; opacity: 0.85; margin-bottom: 22px; }
+  .cg-go-buttons { display: flex; gap: 10px; justify-content: center; }
+  .cg-go-buttons button {
+    background: rgba(120, 200, 140, 0.18);
+    border: 1px solid rgba(120, 200, 140, 0.6);
+    color: #cfe; padding: 10px 18px; font-family: inherit; font-size: 12px;
+    letter-spacing: 1.5px; cursor: pointer; border-radius: 6px;
+  }
+  .cg-go-buttons button:hover { background: rgba(120, 200, 140, 0.32); }
+  .cg-go-buttons button.alt {
+    background: rgba(255, 120, 140, 0.18);
+    border-color: rgba(255, 120, 140, 0.55); color: #ffd0d8;
+  }
+  .cg-go-buttons button.alt:hover { background: rgba(255, 120, 140, 0.32); }
   /* Spectator-camera tuning panel — visible only in cam mode 6. */
   #spec-tune {
     display: none; position: absolute; top: 14px; left: 50%;
@@ -260,6 +315,22 @@
   <a id="inspector-btn" href="inspector.html" target="_blank" title="Open the car constructor in a new tab">
     🛠 CONSTRUCTOR
   </a>
+  <button id="mode-toggle" title="Toggle between Free Ride and Cargeneddon mode">🚗 FREE RIDE</button>
+  <div id="cg-hud">
+    <div class="cg-stat"><span class="cg-label">⏱</span><span id="cg-timer">60.0</span></div>
+    <div class="cg-stat"><span class="cg-label">🎯</span><span id="cg-peds">0/16</span></div>
+    <div class="cg-stat"><span class="cg-label">★</span><span id="cg-score">0</span></div>
+  </div>
+  <div id="cg-gameover">
+    <div class="cg-go-card">
+      <h2 id="cg-go-title">TIME UP</h2>
+      <div id="cg-go-stats">Score: 0 · Kills: 0/16</div>
+      <div class="cg-go-buttons">
+        <button id="cg-restart">▶ RESTART</button>
+        <button id="cg-back" class="alt">FREE RIDE</button>
+      </div>
+    </div>
+  </div>
   <div id="preview-click" title="Open this design in the constructor (game pauses)"></div>
   <button id="gear-btn" title="Tune cameras, sun, clouds, fog…">⚙</button>
   <div id="settings-drawer">
@@ -902,7 +973,7 @@ function defaultDesign(color) {
     // changing them in the inspector also moves the physics wheels.
     wheelScale: 1.0,
     wheelbase: 2.84, trackWidth: 1.84, wheelWidth: 0.32,
-    rimDepth: -0.04, rimSize: 0.62, rimColor: 0xc8ccd0,
+    rimDepth: 0.04, rimSize: 0.62, rimColor: 0xc8ccd0,
     // Fenders — disabled by default, full structure so morph + render don't
     // need null guards. applyTier overwrites with random values.
     fenders: {
@@ -1065,7 +1136,10 @@ function buildWheelChildren(wg, p) {
   const dishVal  = (typeof p.rimDepth === 'number') ? p.rimDepth
                   : (typeof p.rimDish === 'number') ? p.rimDish : 0;
   const dishAbs  = Math.abs(dishVal);
-  const dishSign = Math.sign(dishVal);
+  // Convention (matches inspector slider label): + = dished/recessed inward,
+  // − = bulged/protruding outward. Internal `flip` math reads -1 as concave,
+  // +1 as convex, so negate here to match the user-facing sign.
+  const dishSign = -Math.sign(dishVal);
 
   // Tyre — hollow lathe ring (visible cavity for the rim to sit inside).
   const halfL  = baseW / 2;
@@ -1341,8 +1415,10 @@ function rebuildCarVisual(car) {
 
   // Side turn signals — one mesh per side with its own material so we can
   // blink them independently from the main loop.
+  // Always render turn signals — inspector ships them without an `enabled`
+  // flag, so any car with a turnSignal block gets visible orange markers.
   car.turnSignals = { left: null, right: null };
-  if (p.turnSignal && p.turnSignal.enabled) {
+  if (p.turnSignal) {
     const ts = p.turnSignal;
     const tw = ts.orient === 'h' ? ts.w : ts.h;
     const th = ts.orient === 'h' ? ts.h : ts.w;
@@ -1710,7 +1786,8 @@ function applyTier(car, level) {
   // because the simple wheel mesh can't hide a protruding plug).
   p.rimColor   = pick([0xc8ccd0, 0x222222, 0x55585e, 0xffd700, 0xff3366,
                        0xeeeeee, 0x39ff14, 0x00e5ff, 0xb8b8b8, 0x8a6e3c]);
-  p.rimDepth   = pick([-1, -1, 0]) * rng(0.05, 0.14);  // 2/3 concave, 1/3 flat
+  // + = dished/recessed (most cars), − = bulged. Bias toward dished.
+  p.rimDepth   = pick([1, 1, 0]) * rng(0.05, 0.14);
   p.rimSize    = rng(0.50, 0.78);
 
   // ── New design fields ────────────────────────────────────────────────
@@ -1787,7 +1864,7 @@ function applyTier(car, level) {
     if (p.accessories.spoiler) p.spoilerHeight = rng(0.25, 0.75);
     if (Math.random() < 0.40) p.accessories.scoop = true;
     if (Math.random() < 0.30) p.accessories.antenna = true;
-    p.rimDepth = -1 * rng(0.08, 0.16);  // always concave when crazy
+    p.rimDepth = rng(0.10, 0.18);       // deep dish when crazy (+ = recessed)
   }
 
   // Fenders / Wings — match the inspector's randomization rules. Tops sit
@@ -1834,10 +1911,6 @@ function applyTier(car, level) {
 
   applyDesignVisuals(car);
   if (car === player) {
-    if (!p.turnSignal.enabled) {
-      p.turnSignal.enabled = true;
-      applyDesignVisuals(car);
-    }
     rebuildPlayerPreview();
   }
 }
@@ -2359,8 +2432,7 @@ player.chassis.addEventListener('collide', (event) => {
   if (Synth.hit) Synth.hit();
 });
 
-// Player always has visible turn signals so the blinker effect works.
-player.design.turnSignal.enabled = true;
+// Turn signals are always on now (rendered for every car unconditionally).
 rebuildCarVisual(player);
 rebuildPlayerPreview();
 
@@ -3069,6 +3141,7 @@ function updateStuckHint(dt) {
 
 function loop() {
   requestAnimationFrame(loop);
+  if (typeof cgTick === 'function') cgTick();
 
   const now = performance.now();
   const dt = Math.min((now - prevTime) / 1000, 0.05);
@@ -3485,6 +3558,214 @@ function loop() {
     scene.background = savedBg;
   }
 }
+
+// ── CARGENEDDON MODE ────────────────────────────────────────────────────
+// Cargeneddon = Car-GENerator-aDDON. Carmageddon-flavoured side mode where
+// the player races a countdown clock, mowing pedestrians for time bonuses
+// and points. Original game: wreck opponents, kill all peds, or run out
+// the clock. Our scoping: kill all peds OR survive until time-up.
+const CG_PED_COUNT     = 16;
+const CG_PED_RADIUS    = 0.22;
+const CG_PED_HEIGHT    = 1.05;
+const CG_PED_MASS      = 30;
+const CG_ARENA_BOUND   = 95;        // arena half-size minus a margin
+const CG_KILL_DIST     = 1.6;       // car↔ped centre distance for a kill
+const CG_KILL_SPEED    = 3.0;       // min car speed (m/s) to count
+const CG_TIME_BONUS    = 5;         // seconds added per ped kill
+const CG_PED_SCORE     = 100;       // points per ped
+const CG_TIME_LIMIT    = 60;        // base countdown (seconds)
+
+const CG = {
+  active: false, over: false,
+  startTime: 0, timeBonus: 0,
+  score: 0, pedsKilled: 0,
+  peds: [],
+};
+
+function cgSpawnPedestrian() {
+  let px, pz;
+  do {
+    px = (Math.random() - 0.5) * 2 * CG_ARENA_BOUND;
+    pz = (Math.random() - 0.5) * 2 * CG_ARENA_BOUND;
+  } while (Math.hypot(px, pz) < 18);   // not near player spawn
+
+  const group = new THREE.Group();
+  const torsoMat = new THREE.MeshLambertMaterial({ color: 0xff5599 });
+  const headMat  = new THREE.MeshLambertMaterial({ color: 0xffcccc });
+  const torso = new THREE.Mesh(
+    new THREE.CylinderGeometry(CG_PED_RADIUS, CG_PED_RADIUS, CG_PED_HEIGHT, 12),
+    torsoMat
+  );
+  torso.castShadow = true;
+  torso.position.y = 0;
+  group.add(torso);
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(CG_PED_RADIUS * 0.9, 12, 10),
+    headMat
+  );
+  head.castShadow = true;
+  head.position.y = CG_PED_HEIGHT / 2 + CG_PED_RADIUS * 0.7;
+  group.add(head);
+  scene.add(group);
+
+  const body = new CANNON.Body({ mass: CG_PED_MASS });
+  body.addShape(new CANNON.Box(new CANNON.Vec3(
+    CG_PED_RADIUS, CG_PED_HEIGHT * 0.5, CG_PED_RADIUS
+  )));
+  body.position.set(px, CG_PED_HEIGHT * 0.5 + 0.1, pz);
+  body.linearDamping  = 0.45;
+  body.angularDamping = 0.55;
+  world.addBody(body);
+
+  return {
+    group, body, torsoMat, alive: true, killTime: 0,
+    wanderDir: Math.random() * Math.PI * 2,
+    wanderUntil: 0,
+  };
+}
+
+function cgSpawnAll() {
+  for (let i = 0; i < CG_PED_COUNT; i++) CG.peds.push(cgSpawnPedestrian());
+}
+
+function cgDespawnAll() {
+  for (const ped of CG.peds) {
+    if (ped.body)  world.removeBody(ped.body);
+    if (ped.group) {
+      ped.group.children.forEach(c => { if (c.geometry) c.geometry.dispose(); });
+      scene.remove(ped.group);
+    }
+  }
+  CG.peds.length = 0;
+}
+
+function cgKill(ped, hitter) {
+  if (!ped.alive) return;
+  ped.alive = false;
+  ped.killTime = performance.now();
+  CG.pedsKilled++;
+  CG.score    += CG_PED_SCORE;
+  CG.timeBonus += CG_TIME_BONUS;
+  // Launch ped away from car + a strong upward kick.
+  const v = hitter.chassis.velocity;
+  const dx = ped.body.position.x - hitter.chassis.position.x;
+  const dz = ped.body.position.z - hitter.chassis.position.z;
+  const len = Math.hypot(dx, dz) || 1;
+  const speed = Math.hypot(v.x, v.z);
+  const launch = 18 + speed * 6;
+  ped.body.applyImpulse(
+    new CANNON.Vec3(
+      (dx / len) * launch + v.x * 6,
+      280 + speed * 8,
+      (dz / len) * launch + v.z * 6
+    ),
+    new CANNON.Vec3(0, 0, 0)
+  );
+  ped.body.angularVelocity.set(
+    (Math.random() - 0.5) * 12,
+    (Math.random() - 0.5) * 12,
+    (Math.random() - 0.5) * 12
+  );
+  if (ped.torsoMat) ped.torsoMat.color.setHex(0xff0000);
+  if (Synth.hit) Synth.hit();
+}
+
+function cgUpdatePeds() {
+  if (!CG.active) return;
+  const now = performance.now();
+  for (const ped of CG.peds) {
+    if (!ped.body) continue;
+    // Sync visual to physics (group origin = ped body centre = mid-torso).
+    ped.group.position.copy(ped.body.position);
+    ped.group.quaternion.copy(ped.body.quaternion);
+
+    if (ped.alive) {
+      // Wander AI: pick new direction every 0.8–2.3 s
+      if (now > ped.wanderUntil) {
+        ped.wanderDir   = Math.random() * Math.PI * 2;
+        ped.wanderUntil = now + 800 + Math.random() * 1500;
+      }
+      const sp = 1.7;
+      ped.body.velocity.x = Math.cos(ped.wanderDir) * sp;
+      ped.body.velocity.z = Math.sin(ped.wanderDir) * sp;
+      // Bounce off arena edge
+      if (ped.body.position.x >  CG_ARENA_BOUND) { ped.body.position.x =  CG_ARENA_BOUND; ped.wanderDir = Math.PI - ped.wanderDir; }
+      if (ped.body.position.x < -CG_ARENA_BOUND) { ped.body.position.x = -CG_ARENA_BOUND; ped.wanderDir = Math.PI - ped.wanderDir; }
+      if (ped.body.position.z >  CG_ARENA_BOUND) { ped.body.position.z =  CG_ARENA_BOUND; ped.wanderDir = -ped.wanderDir; }
+      if (ped.body.position.z < -CG_ARENA_BOUND) { ped.body.position.z = -CG_ARENA_BOUND; ped.wanderDir = -ped.wanderDir; }
+      // Kill check — PLAYER only scores. AI cars knock peds around for fun
+      // but don't add to the score / time bonus, since they're rivals.
+      const dx = player.chassis.position.x - ped.body.position.x;
+      const dz = player.chassis.position.z - ped.body.position.z;
+      const d  = Math.hypot(dx, dz);
+      const sp2 = Math.hypot(player.chassis.velocity.x, player.chassis.velocity.z);
+      if (d < CG_KILL_DIST && sp2 > CG_KILL_SPEED) cgKill(ped, player);
+    } else if (now - ped.killTime > 2500) {
+      // Clean up after the splat
+      if (ped.body)  { world.removeBody(ped.body); ped.body = null; }
+      if (ped.group) {
+        ped.group.children.forEach(c => { if (c.geometry) c.geometry.dispose(); });
+        scene.remove(ped.group);
+        ped.group = null;
+      }
+    }
+  }
+}
+
+function cgEnter() {
+  if (CG.active) return;
+  CG.active = true; CG.over = false;
+  CG.startTime = performance.now();
+  CG.timeBonus = 0; CG.score = 0; CG.pedsKilled = 0;
+  cgSpawnAll();
+  document.getElementById('cg-hud').classList.add('on');
+  const btn = document.getElementById('mode-toggle');
+  btn.textContent = '🎯 CARGENEDDON';
+  btn.classList.add('cg-on');
+}
+
+function cgExit() {
+  CG.active = false; CG.over = false;
+  cgDespawnAll();
+  document.getElementById('cg-hud').classList.remove('on');
+  document.getElementById('cg-gameover').classList.remove('open');
+  const btn = document.getElementById('mode-toggle');
+  btn.textContent = '🚗 FREE RIDE';
+  btn.classList.remove('cg-on');
+}
+
+function cgGameOver() {
+  CG.over = true;
+  const won = CG.pedsKilled >= CG_PED_COUNT;
+  document.getElementById('cg-go-title').textContent = won ? '✓ CLEARED' : '⏱ TIME UP';
+  document.getElementById('cg-go-stats').textContent =
+    `Score: ${CG.score} · Kills: ${CG.pedsKilled}/${CG_PED_COUNT}`;
+  document.getElementById('cg-gameover').classList.add('open');
+}
+
+function cgTick() {
+  if (!CG.active) return;
+  const elapsed   = (performance.now() - CG.startTime) / 1000;
+  const remaining = Math.max(0, CG_TIME_LIMIT + CG.timeBonus - elapsed);
+  document.getElementById('cg-timer').textContent = remaining.toFixed(1);
+  document.getElementById('cg-score').textContent = CG.score;
+  document.getElementById('cg-peds').textContent  = `${CG.pedsKilled}/${CG_PED_COUNT}`;
+  if (!CG.over) {
+    cgUpdatePeds();
+    if (remaining <= 0 || CG.pedsKilled >= CG_PED_COUNT) cgGameOver();
+  }
+}
+
+document.getElementById('mode-toggle').addEventListener('click', () => {
+  if (CG.active) cgExit(); else cgEnter();
+});
+document.getElementById('cg-restart').addEventListener('click', () => {
+  cgExit(); cgEnter();
+});
+document.getElementById('cg-back').addEventListener('click', cgExit);
+
+// (cgTick is invoked from the existing `loop()` body — see the call near the
+//  start of that function. No wrapping required.)
 
 loop();
 </script>
