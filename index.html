@@ -464,6 +464,13 @@ function regenerateClouds(opts) {
 }
 // ── ARENA WALLS (moved up so A is available to regenerateClouds) ──────────
 const A = 109; // arena half-size (metres) — 156 × 0.7
+const TILE = 2 * A; // full tile width = 218m
+// 8 neighbor tile offsets for the toroidal ghost layer
+const TILE_OFFSETS = [
+  [-TILE, -TILE], [0, -TILE], [TILE, -TILE],
+  [-TILE,  0   ],              [TILE,  0   ],
+  [-TILE,  TILE], [0,  TILE], [TILE,  TILE],
+];
 
 const cloudOpts = {
   count:     parseInt(localStorage.getItem('cloudN'), 10)  || 77,
@@ -687,14 +694,15 @@ function makeHill(x, z, sigma, peakH) {
     profile.push(new THREE.Vector2(r, h));
   }
   const geom = new THREE.LatheGeometry(profile, 32);
-  const mesh = new THREE.Mesh(
-    geom,
-    new THREE.MeshLambertMaterial({ color: HILL_COLOR, side: THREE.DoubleSide })
-  );
-  mesh.position.set(x, 0, z);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  scene.add(mesh);
+  const mat  = new THREE.MeshLambertMaterial({ color: HILL_COLOR, side: THREE.DoubleSide });
+  // Place in center tile AND all 8 neighbor tiles so they're visible through portals.
+  for (const [dx, dz] of [[0, 0], ...TILE_OFFSETS]) {
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.position.set(x + dx, 0, z + dz);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+  }
 }
 
 function hillHeightAt(x, z) {
@@ -819,6 +827,41 @@ boxSpots.forEach(([x,z], i) => {
 for (let z of [-30, 30]) {
   for (let i = -3; i <= 3; i++) dynCone(i * 6, z);
 }
+
+// ── GHOST TILE SYSTEM ─────────────────────────────────────────────────────
+// Visual copies of all dynamic objects and cars in 8 neighbor tiles.
+// Makes the pac-man portal feel seamless — world appears to continue forever.
+
+// Ghost dynamic objects (boxes, barrels, cones)
+const ghostDynList = []; // [{body, ghosts:[{m,dx,dz}]}]
+
+function buildGhostDynamics() {
+  // Clear old ghosts first (in case of rebuild)
+  for (const { ghosts } of ghostDynList) {
+    for (const { m } of ghosts) scene.remove(m);
+  }
+  ghostDynList.length = 0;
+  for (const { body, mesh } of dynamics) {
+    const ghosts = TILE_OFFSETS.map(([dx, dz]) => {
+      const m = mesh.clone();
+      scene.add(m);
+      return { m, dx, dz };
+    });
+    ghostDynList.push({ body, ghosts });
+  }
+}
+
+function syncGhostDynamics() {
+  for (const { body, ghosts } of ghostDynList) {
+    const p = body.position, q = body.quaternion;
+    for (const { m, dx, dz } of ghosts) {
+      m.position.set(p.x + dx, p.y, p.z + dz);
+      m.quaternion.set(q.x, q.y, q.z, q.w);
+    }
+  }
+}
+
+buildGhostDynamics();
 
 // ── CAR FACTORY ────────────────────────────────────────────────────────────
 function darkenHex(hex, f) {
@@ -2925,24 +2968,18 @@ function loop() {
   }
   tickFlashes(now);
 
+  // ── Pre-physics: snapshot velocities for spike dampening + bowling-ball
+  const _preVels = allCars.map(c => ({
+    x: c.chassis.velocity.x, z: c.chassis.velocity.z
+  }));
+  const _preStepVel = (player.chassis.velocity.lengthSquared() > RAM_MS * RAM_MS)
+    ? new CANNON.Vec3().copy(player.chassis.velocity) : null;
+
   // ── Anti-launch: clamp upward velocity so collisions don't flip cars
-  // into orbit. SKIPPED for any car flagged "rammed" by the bowling-ball
-  // hit so the ramp-launch effect can actually play out.
+  // into orbit. SKIPPED for rammed cars so ramp-launch still plays out.
   for (const c of allCars) {
     const ramming = c._rammedUntil && c._rammedUntil > now;
-    if (!ramming) {
-      // Y-clamp: no flying into orbit
-      if (c.chassis.velocity.y > 6) c.chassis.velocity.y = 6;
-      // Full 3D speed clamp: prevents penetration-recovery impulses from
-      // catapulting cars across the arena at collision seams.
-      const vel = c.chassis.velocity;
-      const spd2 = vel.x*vel.x + vel.z*vel.z;
-      const maxSpd = 52; // ~187 km/h hard cap
-      if (spd2 > maxSpd * maxSpd) {
-        const scale = maxSpd / Math.sqrt(spd2);
-        vel.x *= scale; vel.z *= scale;
-      }
-    }
+    if (!ramming && c.chassis.velocity.y > 6) c.chassis.velocity.y = 6;
     // Angular clamp always applies — keeps spins in check.
     const av = c.chassis.angularVelocity;
     const max = 8;
@@ -2951,16 +2988,27 @@ function loop() {
     if (av.z >  max) av.z =  max; if (av.z < -max) av.z = -max;
   }
 
-  // ── Bowling-ball: save player velocity right before the physics step.
-  // If a high-speed ram fires during the step, we restore the saved
-  // velocity afterwards — player ploughs through unaffected.
-  const _preStepVel = (player.chassis.velocity.lengthSquared() > RAM_MS * RAM_MS)
-    ? new CANNON.Vec3().copy(player.chassis.velocity) : null;
-
   // ── Physics step ──────────────────────────────────────────────────────
   world.step(1 / 60, dt, 3);
   if (_ramHitThisFrame && _preStepVel) {
     player.chassis.velocity.copy(_preStepVel);
+  }
+
+  // ── Collision spike dampener: limit how much velocity can CHANGE in one
+  // physics step from penetration-recovery impulses. Ongoing high speed
+  // (e.g. 2000 km/h runs) is preserved; only sudden collision catapults
+  // are cut. Skipped for rammed cars so bowling-ball effect still works.
+  for (let i = 0; i < allCars.length; i++) {
+    const c = allCars[i];
+    if (c._rammedUntil && c._rammedUntil > now) continue;
+    const dvx = c.chassis.velocity.x - _preVels[i].x;
+    const dvz = c.chassis.velocity.z - _preVels[i].z;
+    const dv  = Math.sqrt(dvx * dvx + dvz * dvz);
+    if (dv > 28) {   // allow up to 28 m/s (~100 km/h) delta per step
+      const s = 28 / dv;
+      c.chassis.velocity.x = _preVels[i].x + dvx * s;
+      c.chassis.velocity.z = _preVels[i].z + dvz * s;
+    }
   }
   _ramHitThisFrame = false;
   updateProjectiles(dt);
@@ -3002,6 +3050,8 @@ function loop() {
 
   // Pac-man mirrors track every car at 8 surrounding tiles.
   syncShadows();
+  // Ghost dynamic objects (boxes, barrels, cones) in all 8 neighbor tiles.
+  syncGhostDynamics();
   // Spectator-cam tuning panel auto-shows / hides with cam mode.
   refreshSpecTuneVisibility();
 
