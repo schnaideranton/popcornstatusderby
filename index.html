@@ -973,7 +973,7 @@ function defaultDesign(color) {
     // changing them in the inspector also moves the physics wheels.
     wheelScale: 1.0,
     wheelbase: 2.84, trackWidth: 1.84, wheelWidth: 0.32,
-    rimDepth: 0.04, rimSize: 0.62, rimColor: 0xc8ccd0,
+    rimDepth: -0.04, rimSize: 0.62, rimColor: 0xc8ccd0,
     // Fenders — disabled by default, full structure so morph + render don't
     // need null guards. applyTier overwrites with random values.
     fenders: {
@@ -1136,10 +1136,11 @@ function buildWheelChildren(wg, p) {
   const dishVal  = (typeof p.rimDepth === 'number') ? p.rimDepth
                   : (typeof p.rimDish === 'number') ? p.rimDish : 0;
   const dishAbs  = Math.abs(dishVal);
-  // Convention (matches inspector slider label): + = dished/recessed inward,
-  // − = bulged/protruding outward. Internal `flip` math reads -1 as concave,
-  // +1 as convex, so negate here to match the user-facing sign.
-  const dishSign = -Math.sign(dishVal);
+  // Convention (matches inspector slider label "− dish / + bulge"):
+  //   negative rimDepth → concave (dish, recessed inward)
+  //   positive rimDepth → convex  (bulge, protruding outward)
+  // No negation — Math.sign already maps − → −1 (concave) and + → +1 (convex).
+  const dishSign = Math.sign(dishVal);
 
   // Tyre — hollow lathe ring (visible cavity for the rim to sit inside).
   const halfL  = baseW / 2;
@@ -1786,8 +1787,8 @@ function applyTier(car, level) {
   // because the simple wheel mesh can't hide a protruding plug).
   p.rimColor   = pick([0xc8ccd0, 0x222222, 0x55585e, 0xffd700, 0xff3366,
                        0xeeeeee, 0x39ff14, 0x00e5ff, 0xb8b8b8, 0x8a6e3c]);
-  // + = dished/recessed (most cars), − = bulged. Bias toward dished.
-  p.rimDepth   = pick([1, 1, 0]) * rng(0.05, 0.14);
+  // Uniform across the slider range so the arena shows every rim style.
+  p.rimDepth   = rng(-0.20, 0.05);
   p.rimSize    = rng(0.50, 0.78);
 
   // ── New design fields ────────────────────────────────────────────────
@@ -1864,7 +1865,7 @@ function applyTier(car, level) {
     if (p.accessories.spoiler) p.spoilerHeight = rng(0.25, 0.75);
     if (Math.random() < 0.40) p.accessories.scoop = true;
     if (Math.random() < 0.30) p.accessories.antenna = true;
-    p.rimDepth = rng(0.10, 0.18);       // deep dish when crazy (+ = recessed)
+    p.rimDepth = rng(-0.20, 0.05);      // crazy still uniform across the range
   }
 
   // Fenders / Wings — match the inspector's randomization rules. Tops sit
@@ -2862,9 +2863,13 @@ function shoot(car) {
       car.chassis.position.z + worldOff.z
     );
     body.linearDamping = 0;
+    // Parallel to the ground — no upward kick, and updateProjectiles zeroes
+    // body.velocity.y each frame to counter world gravity. So the headlight
+    // bullet flies dead straight at headlight altitude until it expires or
+    // hits something.
     body.velocity.set(
       car.chassis.velocity.x + fwd.x * baseSpeed,
-      car.chassis.velocity.y + 1.2,
+      0,
       car.chassis.velocity.z + fwd.z * baseSpeed
     );
     world.addBody(body);
@@ -2874,11 +2879,13 @@ function shoot(car) {
     mesh.quaternion.copy(car.chassis.quaternion);
     scene.add(mesh);
 
-    const proj = { body, mesh, life: 6, dead: false, owner: car };
+    // Free Ride: short range (~half what it used to be). Cargeneddon: long
+    // range, but ANY collision (hill, box, opponent, anything) kills it.
+    const projLife = (typeof CG !== 'undefined' && CG.active) ? 30 : 3;
+    const cgMode = (typeof CG !== 'undefined' && CG.active);
+    const proj = { body, mesh, life: projLife, dead: false, owner: car, cgMode };
     body.addEventListener('collide', (e) => {
       if (proj.dead) return;
-      // Ignore brushes against the firing car itself (spawn-overlap on short
-      // jalopy bodies, or self-overtake on a long projectile).
       if (e.body === car.chassis) return;
       let hitCar = false;
       for (const c of allCars) {
@@ -2889,7 +2896,9 @@ function shoot(car) {
         }
       }
       if (hitCar) Synth.hit();
-      proj.dead = true;
+      // Free Ride: only car hits stop the bullet. Cargeneddon: anything
+      // (hills, boxes, ground, fences, scenery) stops it.
+      if (hitCar || proj.cgMode) proj.dead = true;
     });
     projectiles.push(proj);
   }
@@ -2905,6 +2914,9 @@ function updateProjectiles(dt) {
       scene.remove(p.mesh);
       projectiles.splice(i, 1);
     } else {
+      // Counter gravity each step → projectile stays at headlight altitude
+      // and flies dead straight (parallel to ground) until it dies.
+      p.body.velocity.y = 0;
       p.mesh.position.copy(p.body.position);
     }
   }
@@ -2913,6 +2925,11 @@ function updateProjectiles(dt) {
 // ── INPUT ──────────────────────────────────────────────────────────────────
 const K = {};
 let camMode = 0;  // see camOff array declared earlier in the script.
+// Smoothed camera Y for ground-chase modes (0–4). Lazily tracks the car's
+// vertical position so a quick hill hop doesn't jolt the frame; only a
+// sustained climb pulls the camera up. Modes 5 (bird's-eye) and 6 (spectator)
+// don't use this — they have their own height logic.
+let camYSmooth = null;
 let nextShotTime = 0;
 let lastJump = 0;        // legacy — kept for AI state struct
 let lastJTurn = 0;       // E-key police J-turn cooldown
@@ -3475,14 +3492,19 @@ function loop() {
     const worldOff = new CANNON.Vec3();
     cq.vmult(localOff, worldOff);
 
-    // Tight follow without jitter: high lerp factor on position,
-    // direct snap on lookAt (so the car never drifts off centre).
+    // Smooth Y separately — slow follow so hill bumps don't jolt the camera.
+    // Brief hill hop = camera doesn't react (car briefly drifts up in frame);
+    // sustained climb = camera glides up to match. The X / Z lerp stays
+    // tight so horizontal tracking is still locked-in.
+    if (camYSmooth === null) camYSmooth = cpY;
+    camYSmooth += (cpY - camYSmooth) * 0.025;
+
     const lerpK = camMode === 0 ? 0.30 : 0.55;
     camPos.lerp(
-      new THREE.Vector3(cp.x + worldOff.x, cpY + worldOff.y, cp.z + worldOff.z),
+      new THREE.Vector3(cp.x + worldOff.x, camYSmooth + worldOff.y, cp.z + worldOff.z),
       lerpK
     );
-    camLook.set(cp.x, cpY + 0.7, cp.z);
+    camLook.set(cp.x, camYSmooth + 0.7, cp.z);
 
     camera.position.copy(camPos);
     camera.lookAt(camLook);
