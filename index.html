@@ -2693,6 +2693,7 @@ const MAX_FORCE = 8500;
 const MAX_STEER = 0.47;
 
 let prevTime = performance.now();
+let _lastDPR = window.devicePixelRatio;
 
 // ── GAMEPAD ────────────────────────────────────────────────────────────────
 // Web Gamepad API: any Bluetooth/USB controller paired at OS level shows up
@@ -2784,6 +2785,13 @@ function loop() {
   const now = performance.now();
   const dt = Math.min((now - prevTime) / 1000, 0.05);
   prevTime = now;
+
+  // DPR polling: moving between monitors can change devicePixelRatio without
+  // firing a resize event — catch it here and re-fit when it changes.
+  if (window.devicePixelRatio !== _lastDPR) {
+    _lastDPR = window.devicePixelRatio;
+    fitToViewport();
+  }
 
   // Inspector modal is open → freeze game logic. Skip input, physics, AI.
   if (gamePaused) return;
