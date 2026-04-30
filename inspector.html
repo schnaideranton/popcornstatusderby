@@ -16,8 +16,10 @@
             font-size: 10px; opacity: 0.45; letter-spacing: 2px; }
   #panel  { width: 720px; padding: 18px 22px 30px; overflow-y: auto;
             background: #1a1d22; border-left: 1px solid rgba(255,255,255,0.08); }
-  h2     { font-size: 11px; letter-spacing: 4px; opacity: 0.55; margin: 12px 0 6px;
-           text-transform: uppercase; font-weight: normal; }
+  h2     { font-size: 14px; letter-spacing: 1.5px; opacity: 0.95; color: #fff;
+           margin: 22px 0 8px; padding-bottom: 5px;
+           border-bottom: 1px solid rgba(255,255,255,0.10);
+           text-transform: uppercase; font-weight: 700; }
   .row    { display: grid; grid-template-columns: 100px 1fr 60px;
             gap: 8px; align-items: center; margin: 4px 0; }
   .row label { font-size: 10px; opacity: 0.7; letter-spacing: 1px; }
@@ -80,7 +82,7 @@
       <span id="folder">no folder</span>
     </div>
 
-    <h2>Side profile · drag handles</h2>
+    <h2>📐 Side profile · drag handles</h2>
     <svg id="sideSvg" width="100%" height="280"
          viewBox="-4.2 -2.0 8.4 3.2"
          preserveAspectRatio="xMidYMid meet"
@@ -91,7 +93,7 @@
 
     <div style="display:flex; gap:6px; margin-top:8px;">
       <div style="flex:1">
-        <h2 style="margin:6px 0 4px">Front view</h2>
+        <h2 style="margin:6px 0 4px">🚗 Front</h2>
         <svg id="frontSvg" width="100%" height="280"
              viewBox="-2.4 -2.0 4.8 3.0"
              preserveAspectRatio="xMidYMid meet"
@@ -101,7 +103,7 @@
         </svg>
       </div>
       <div style="flex:1">
-        <h2 style="margin:6px 0 4px">Rear view</h2>
+        <h2 style="margin:6px 0 4px">🚙 Rear</h2>
         <svg id="rearSvg" width="100%" height="280"
              viewBox="-2.4 -2.0 4.8 3.0"
              preserveAspectRatio="xMidYMid meet"
@@ -112,7 +114,7 @@
       </div>
     </div>
 
-    <h2>Type & colour</h2>
+    <h2>🎨 Type & colour</h2>
     <div class="row">
       <label>Body type</label>
       <select id="type"></select>
@@ -124,14 +126,14 @@
       <span class="val"></span>
     </div>
 
-    <h2>Body</h2>
+    <h2>📦 Body</h2>
     <div class="row"><label>Length</label><input type="range" id="bodyLength" min="3.0" max="6.2" step="0.05"/><span class="val">·</span></div>
     <div class="row"><label>Width</label><input type="range" id="bodyWidth"  min="1.50" max="2.10" step="0.02"/><span class="val">·</span></div>
     <div class="row"><label>Height</label><input type="range" id="bodyHeight" min="0.20" max="1.20" step="0.01"/><span class="val">·</span></div>
     <div class="row"><label>Lift (bottom)</label><input type="range" id="bodyLift"   min="-0.80" max="0.20" step="0.01"/><span class="val">·</span></div>
     <div class="row"><label>Round corners</label><input type="range" id="bodyRound" min="0" max="0.55" step="0.005"/><span class="val">·</span></div>
 
-    <h2>Cabin</h2>
+    <h2>🪟 Cabin</h2>
     <div class="row"><label>Length</label><input type="range" id="cabinLength" min="0.6" max="6.5" step="0.05"/><span class="val">·</span></div>
     <div class="row"><label>Width</label><input type="range" id="cabinWidth"  min="1.20" max="2.00" step="0.02"/><span class="val">·</span></div>
     <div class="row"><label>Height</label><input type="range" id="cabinHeight" min="0.20" max="1.10" step="0.02"/><span class="val">·</span></div>
@@ -143,7 +145,7 @@
     <div class="row"><label>Sink into body</label><input type="range" id="cabinSink" min="-0.40" max="0.10" step="0.01"/><span class="val">·</span></div>
     <div class="checkbox-row"><input type="checkbox" id="convertible"/><label>Convertible (no roof)</label></div>
 
-    <h2>Fenders / Wings</h2>
+    <h2>🪽 Fenders / Wings</h2>
     <div class="checkbox-row"><input type="checkbox" id="fender_enabled"/><label>Enabled</label></div>
 
     <div style="opacity:0.55; font-size:10px; letter-spacing:2px; margin:8px 0 2px">— FRONT —</div>
@@ -164,7 +166,7 @@
     <div class="row"><label>Inset (outer)</label><input type="range" id="frInset" min="-0.30" max="1.40" step="0.01"/><span class="val">·</span></div>
     <div class="row"><label>Round</label><input type="range" id="frRound" min="0" max="0.30" step="0.005"/><span class="val">·</span></div>
 
-    <h2>Wheels</h2>
+    <h2>⚙️ Wheels</h2>
     <div class="row"><label>Wheelbase</label><input type="range" id="wheelbase" min="1.5" max="5.5" step="0.02"/><span class="val">·</span></div>
     <div class="row"><label>Track width</label><input type="range" id="trackWidth" min="1.20" max="3.20" step="0.02"/><span class="val">·</span></div>
     <div class="row"><label>Wheel scale</label><input type="range" id="wheelScale" min="0.6" max="1.6" step="0.02"/><span class="val">·</span></div>
@@ -173,7 +175,7 @@
     <div class="row"><label>Rim dish (− concave / + convex)</label><input type="range" id="rimDepth" min="-0.18" max="0.18" step="0.005"/><span class="val">·</span></div>
     <div class="row"><label>Rim color</label><input type="color" id="rimColor"/><span class="val"></span></div>
 
-    <h2>Headlights</h2>
+    <h2>💡 Headlights</h2>
     <div class="row"><label>Style</label><select id="headlightStyle"></select><span class="val"></span></div>
     <div class="row"><label>Horizontal</label><input type="range" id="headlightX" min="-0.40" max="0.40" step="0.01"/><span class="val">·</span></div>
     <div class="row"><label>Vertical</label><input type="range" id="headlightY" min="-0.50" max="0.50" step="0.01"/><span class="val">·</span></div>
@@ -181,7 +183,7 @@
     <div class="row"><label>Height ×</label><input type="range" id="headlightH" min="0.4"  max="2.5"  step="0.05"/><span class="val">·</span></div>
     <div class="row"><label>Spread (Z)</label><input type="range" id="headlightSpread" min="-0.50" max="0.30" step="0.01"/><span class="val">·</span></div>
 
-    <h2>Tail lights</h2>
+    <h2>🔴 Tail lights</h2>
     <div class="row"><label>Style</label><select id="taillightStyle"></select><span class="val"></span></div>
     <div class="row"><label>Horizontal</label><input type="range" id="taillightX" min="-0.40" max="0.40" step="0.01"/><span class="val">·</span></div>
     <div class="row"><label>Vertical</label><input type="range" id="taillightY" min="-0.50" max="0.50" step="0.01"/><span class="val">·</span></div>
@@ -189,14 +191,14 @@
     <div class="row"><label>Height ×</label><input type="range" id="taillightH" min="0.4"  max="2.5"  step="0.05"/><span class="val">·</span></div>
     <div class="row"><label>Spread (Z)</label><input type="range" id="taillightSpread" min="-0.50" max="0.30" step="0.01"/><span class="val">·</span></div>
 
-    <h2>Side turn signals (orange)</h2>
+    <h2>🟠 Side turn signals</h2>
     <div class="row"><label>Horizontal</label><input type="range" id="tsX" min="-3.2" max="3.2" step="0.05"/><span class="val">·</span></div>
     <div class="row"><label>Vertical</label><input type="range" id="tsY" min="-0.60" max="0.80" step="0.01"/><span class="val">·</span></div>
     <div class="row"><label>Width</label><input type="range" id="tsW" min="0.04" max="0.60" step="0.01"/><span class="val">·</span></div>
     <div class="row"><label>Height</label><input type="range" id="tsH" min="0.02" max="0.30" step="0.01"/><span class="val">·</span></div>
     <div class="row"><label>Orient</label><select id="tsOrient"><option value="h">horizontal</option><option value="v">vertical</option></select><span class="val"></span></div>
 
-    <h2>Accessories (multi)</h2>
+    <h2>✨ Accessories</h2>
     <div class="checkbox-row"><input type="checkbox" id="acc_antenna"/><label>Antenna</label></div>
     <div class="row"><label>Antenna mount</label><select id="antennaMount"><option value="rear">rear of body</option><option value="front">front (by A-pillar)</option></select><span class="val"></span></div>
 

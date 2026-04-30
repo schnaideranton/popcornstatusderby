@@ -1108,6 +1108,84 @@ function buildWheelChildren(wg, p) {
   }
 }
 
+// ── WHEEL ARCH SHADER (carGroup-local cylindrical cutout) ────────────────
+// Body and fender materials get an `onBeforeCompile` patch that discards any
+// fragment whose carGroup-local position falls inside one of 4 cylinders
+// centred at each wheel. The cylinder axis is along Z (the wheel rotation
+// axis), so when the chassis rotates the carve rotates with it. Keeps the
+// wheel visible no matter how wide the body / fender becomes.
+function setupArchesForCar(car) {
+  if (car.archUniforms) return car.archUniforms;
+  car.archUniforms = {
+    uArchX:       { value: [0, 0, 0, 0] },
+    uArchZ:       { value: [0, 0, 0, 0] },
+    uArchY:       { value: 0 },
+    uArchRadius:  { value: 0.4 },
+    uArchHalfW:   { value: 0.2 },
+    uArchEnabled: { value: 1 },
+    uMeshOffset:  { value: new THREE.Vector3() },
+  };
+  return car.archUniforms;
+}
+function updateArchUniformsForCar(car) {
+  const u = setupArchesForCar(car);
+  const p = car.design;
+  const wbHalf  = (p.wheelbase  || 2.84) / 2;
+  const trkHalf = (p.trackWidth || 1.84) / 2;
+  const wR      = 0.37 * (p.wheelScale || 1);
+  const wW      = p.wheelWidth || 0.32;
+  u.uArchX.value = [ wbHalf,  wbHalf, -wbHalf, -wbHalf];
+  u.uArchZ.value = [ trkHalf, -trkHalf, trkHalf, -trkHalf];
+  u.uArchY.value      = wR - 0.77;        // carGroup-local wheel-centre Y
+  u.uArchRadius.value = wR * 1.05;
+  u.uArchHalfW.value  = wW / 2 + 0.04;
+}
+function patchMatForArches(mat, archUniforms) {
+  if (mat.userData._archesPatched) return mat;
+  mat.userData._archesPatched = true;
+  mat.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, archUniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>',
+               '#include <common>\nvarying vec3 vWArchPos;\nuniform vec3 uMeshOffset;')
+      .replace('#include <project_vertex>',
+               '#include <project_vertex>\nvWArchPos = transformed + uMeshOffset;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>',
+        `#include <common>
+         varying vec3 vWArchPos;
+         uniform float uArchX[4];
+         uniform float uArchZ[4];
+         uniform float uArchY;
+         uniform float uArchRadius;
+         uniform float uArchHalfW;
+         uniform float uArchEnabled;`)
+      .replace('void main() {',
+        `void main() {
+          if (uArchEnabled > 0.5) {
+            float r2 = uArchRadius * uArchRadius;
+            for (int i = 0; i < 4; i++) {
+              vec2 d  = vec2(vWArchPos.x - uArchX[i], vWArchPos.y - uArchY);
+              float dz = abs(vWArchPos.z - uArchZ[i]);
+              if (dot(d, d) < r2 && dz < uArchHalfW) { discard; }
+            }
+          }
+        `);
+  };
+  return mat;
+}
+// Single per-car body+fender material so onBeforeCompile fires once per car
+// (no re-compile on every rebuild). Colour is updated each call.
+function getBodyArchMat(car) {
+  if (!car._bodyMat) {
+    car._bodyMat = new THREE.MeshLambertMaterial({ side: THREE.DoubleSide });
+    setupArchesForCar(car);
+    patchMatForArches(car._bodyMat, car.archUniforms);
+  }
+  car._bodyMat.color.setHex(car.design.bodyColor);
+  return car._bodyMat;
+}
+
 function rebuildCarVisual(car) {
   const g = car.group;
   while (g.children.length) {
@@ -1118,13 +1196,20 @@ function rebuildCarVisual(car) {
 
   const p = car.design;
 
-  // Body — bodyLift is the BOTTOM of the body (chassis-local Y).
+  // Refresh wheel-arch carve uniforms (carGroup-local) for THIS car's wheels.
+  updateArchUniformsForCar(car);
+
+  // Body — bodyLift is the BOTTOM of the body (chassis-local Y). Material is
+  // patched with the arch shader so a cylinder around each wheel is discarded.
   const body = new THREE.Mesh(
     makeRoundedBoxGeom(p.bodyLength, p.bodyHeight, p.bodyWidth, p.bodyRound || 0),
-    new THREE.MeshLambertMaterial({ color: p.bodyColor })
+    getBodyArchMat(car)
   );
   body.position.y = p.bodyLift + p.bodyHeight / 2;
   body.castShadow = true;
+  body.onBeforeRender = function () {
+    car.archUniforms.uMeshOffset.value.copy(body.position);
+  };
   g.add(body);
 
   const cabinBaseY = p.bodyLift + p.bodyHeight;
@@ -1342,7 +1427,10 @@ function rebuildCarVisual(car) {
     const wYr      = wRr - 0.77;
     const wbHalfF  = (p.wheelbase  || 2.84) / 2;
     const trkHalfF = (p.trackWidth || 1.84) / 2;
-    const fendMat  = new THREE.MeshLambertMaterial({ color: p.bodyColor });
+    // Fender shares the cached body-arch material (same colour, same arch
+    // shader). Each fender mesh sets uMeshOffset before its own draw via
+    // onBeforeRender so the arch test sees its own carGroup-local position.
+    const fendMat = getBodyArchMat(car);
     const renderAxle = (cfg, wbSign) => {
       if (!cfg) return;
       const fL = (cfg.front || 0) + (cfg.rear || 0);
@@ -1365,6 +1453,9 @@ function rebuildCarVisual(car) {
         const m = new THREE.Mesh(fGeom, fendMat);
         m.position.set(wbSign * wbHalfF + fCXoff, fCY, trkSign * centerZ);
         m.castShadow = true;
+        m.onBeforeRender = function () {
+          car.archUniforms.uMeshOffset.value.copy(m.position);
+        };
         g.add(m);
       }
     };
