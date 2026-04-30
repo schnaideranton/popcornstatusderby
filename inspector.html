@@ -14,7 +14,7 @@
             font-size: 11px; letter-spacing: 1.5px; line-height: 1.7; }
   #hint   { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
             font-size: 10px; opacity: 0.45; letter-spacing: 2px; }
-  #panel  { width: 360px; padding: 18px 18px 30px; overflow-y: auto;
+  #panel  { width: 720px; padding: 18px 22px 30px; overflow-y: auto;
             background: #1a1d22; border-left: 1px solid rgba(255,255,255,0.08); }
   h2     { font-size: 11px; letter-spacing: 4px; opacity: 0.55; margin: 12px 0 6px;
            text-transform: uppercase; font-weight: normal; }
@@ -39,6 +39,23 @@
   #seed { font-size: 13px; color: #ffd060; letter-spacing: 2px; }
   #folder { font-size: 10px; opacity: 0.55; word-break: break-all; }
   hr { border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 14px 0; }
+
+  /* MOBILE — stack the 3D scene on top (pinned) and scroll the panel below.
+     Keeps the live preview always visible while you tweak settings. */
+  @media (max-width: 900px) {
+    html, body { height: auto; overflow: auto; }
+    #layout    { display: block; height: auto; }
+    #scene     { position: fixed; top: 0; left: 0; width: 100vw; height: 38vh;
+                 z-index: 10; background: #1c2026;
+                 border-bottom: 1px solid rgba(255,255,255,0.08); }
+    #panel     { width: 100vw; margin-top: 38vh;
+                 padding: 12px 14px 60px;
+                 border-left: none;
+                 border-top: 1px solid rgba(255,255,255,0.08); }
+    #info      { font-size: 9px; }
+    #hint      { display: none; }
+    h2         { margin: 10px 0 4px; }
+  }
 </style>
 </head>
 <body>
@@ -64,13 +81,36 @@
     </div>
 
     <h2>Side profile · drag handles</h2>
-    <svg id="sideSvg" width="100%" height="170"
-         viewBox="-3.6 -1.6 7.2 2.6"
+    <svg id="sideSvg" width="100%" height="280"
+         viewBox="-4.2 -2.0 8.4 3.2"
          preserveAspectRatio="xMidYMid meet"
          style="background:#22252a;border-radius:4px;display:block;
                 touch-action:none;user-select:none;">
       <g id="sideGroup"></g>
     </svg>
+
+    <div style="display:flex; gap:6px; margin-top:8px;">
+      <div style="flex:1">
+        <h2 style="margin:6px 0 4px">Front view</h2>
+        <svg id="frontSvg" width="100%" height="280"
+             viewBox="-2.4 -2.0 4.8 3.0"
+             preserveAspectRatio="xMidYMid meet"
+             style="background:#22252a;border-radius:4px;display:block;
+                    touch-action:none;user-select:none;">
+          <g id="frontGroup"></g>
+        </svg>
+      </div>
+      <div style="flex:1">
+        <h2 style="margin:6px 0 4px">Rear view</h2>
+        <svg id="rearSvg" width="100%" height="280"
+             viewBox="-2.4 -2.0 4.8 3.0"
+             preserveAspectRatio="xMidYMid meet"
+             style="background:#22252a;border-radius:4px;display:block;
+                    touch-action:none;user-select:none;">
+          <g id="rearGroup"></g>
+        </svg>
+      </div>
+    </div>
 
     <h2>Type & colour</h2>
     <div class="row">
@@ -103,6 +143,27 @@
     <div class="row"><label>Sink into body</label><input type="range" id="cabinSink" min="-0.40" max="0.10" step="0.01"/><span class="val">·</span></div>
     <div class="checkbox-row"><input type="checkbox" id="convertible"/><label>Convertible (no roof)</label></div>
 
+    <h2>Fenders / Wings</h2>
+    <div class="checkbox-row"><input type="checkbox" id="fender_enabled"/><label>Enabled</label></div>
+
+    <div style="opacity:0.55; font-size:10px; letter-spacing:2px; margin:8px 0 2px">— FRONT —</div>
+    <div class="row"><label>Front overhang</label><input type="range" id="ffFront" min="0.00" max="1.80" step="0.01"/><span class="val">·</span></div>
+    <div class="row"><label>Rear overhang</label><input type="range" id="ffRear" min="0.00" max="1.80" step="0.01"/><span class="val">·</span></div>
+    <div class="row"><label>Height</label><input type="range" id="ffHeight" min="0.06" max="1.60" step="0.01"/><span class="val">·</span></div>
+    <div class="row"><label>Width (→inward)</label><input type="range" id="ffWidth" min="0.10" max="1.50" step="0.01"/><span class="val">·</span></div>
+    <div class="row"><label>Vertical</label><input type="range" id="ffY" min="-0.60" max="0.80" step="0.01"/><span class="val">·</span></div>
+    <div class="row"><label>Inset (outer)</label><input type="range" id="ffInset" min="-0.30" max="1.40" step="0.01"/><span class="val">·</span></div>
+    <div class="row"><label>Round</label><input type="range" id="ffRound" min="0" max="0.30" step="0.005"/><span class="val">·</span></div>
+
+    <div style="opacity:0.55; font-size:10px; letter-spacing:2px; margin:8px 0 2px">— REAR —</div>
+    <div class="row"><label>Front overhang</label><input type="range" id="frFront" min="0.00" max="1.80" step="0.01"/><span class="val">·</span></div>
+    <div class="row"><label>Rear overhang</label><input type="range" id="frRear" min="0.00" max="1.80" step="0.01"/><span class="val">·</span></div>
+    <div class="row"><label>Height</label><input type="range" id="frHeight" min="0.06" max="1.60" step="0.01"/><span class="val">·</span></div>
+    <div class="row"><label>Width (→inward)</label><input type="range" id="frWidth" min="0.10" max="1.50" step="0.01"/><span class="val">·</span></div>
+    <div class="row"><label>Vertical</label><input type="range" id="frY" min="-0.60" max="0.80" step="0.01"/><span class="val">·</span></div>
+    <div class="row"><label>Inset (outer)</label><input type="range" id="frInset" min="-0.30" max="1.40" step="0.01"/><span class="val">·</span></div>
+    <div class="row"><label>Round</label><input type="range" id="frRound" min="0" max="0.30" step="0.005"/><span class="val">·</span></div>
+
     <h2>Wheels</h2>
     <div class="row"><label>Wheelbase</label><input type="range" id="wheelbase" min="1.5" max="5.5" step="0.02"/><span class="val">·</span></div>
     <div class="row"><label>Track width</label><input type="range" id="trackWidth" min="1.20" max="3.20" step="0.02"/><span class="val">·</span></div>
@@ -114,24 +175,23 @@
 
     <h2>Headlights</h2>
     <div class="row"><label>Style</label><select id="headlightStyle"></select><span class="val"></span></div>
-    <div class="row"><label>Pos X</label><input type="range" id="headlightX" min="-0.40" max="0.40" step="0.01"/><span class="val">·</span></div>
-    <div class="row"><label>Pos Y</label><input type="range" id="headlightY" min="-0.50" max="0.50" step="0.01"/><span class="val">·</span></div>
+    <div class="row"><label>Horizontal</label><input type="range" id="headlightX" min="-0.40" max="0.40" step="0.01"/><span class="val">·</span></div>
+    <div class="row"><label>Vertical</label><input type="range" id="headlightY" min="-0.50" max="0.50" step="0.01"/><span class="val">·</span></div>
     <div class="row"><label>Width ×</label><input type="range" id="headlightW" min="0.4"  max="2.5"  step="0.05"/><span class="val">·</span></div>
     <div class="row"><label>Height ×</label><input type="range" id="headlightH" min="0.4"  max="2.5"  step="0.05"/><span class="val">·</span></div>
     <div class="row"><label>Spread (Z)</label><input type="range" id="headlightSpread" min="-0.50" max="0.30" step="0.01"/><span class="val">·</span></div>
 
     <h2>Tail lights</h2>
     <div class="row"><label>Style</label><select id="taillightStyle"></select><span class="val"></span></div>
-    <div class="row"><label>Pos X</label><input type="range" id="taillightX" min="-0.40" max="0.40" step="0.01"/><span class="val">·</span></div>
-    <div class="row"><label>Pos Y</label><input type="range" id="taillightY" min="-0.50" max="0.50" step="0.01"/><span class="val">·</span></div>
+    <div class="row"><label>Horizontal</label><input type="range" id="taillightX" min="-0.40" max="0.40" step="0.01"/><span class="val">·</span></div>
+    <div class="row"><label>Vertical</label><input type="range" id="taillightY" min="-0.50" max="0.50" step="0.01"/><span class="val">·</span></div>
     <div class="row"><label>Width ×</label><input type="range" id="taillightW" min="0.4"  max="2.5"  step="0.05"/><span class="val">·</span></div>
     <div class="row"><label>Height ×</label><input type="range" id="taillightH" min="0.4"  max="2.5"  step="0.05"/><span class="val">·</span></div>
     <div class="row"><label>Spread (Z)</label><input type="range" id="taillightSpread" min="-0.50" max="0.30" step="0.01"/><span class="val">·</span></div>
 
     <h2>Side turn signals (orange)</h2>
-    <div class="checkbox-row"><input type="checkbox" id="ts_enabled"/><label>Enabled</label></div>
-    <div class="row"><label>Pos X</label><input type="range" id="tsX" min="-3.2" max="3.2" step="0.05"/><span class="val">·</span></div>
-    <div class="row"><label>Pos Y</label><input type="range" id="tsY" min="-0.60" max="0.80" step="0.01"/><span class="val">·</span></div>
+    <div class="row"><label>Horizontal</label><input type="range" id="tsX" min="-3.2" max="3.2" step="0.05"/><span class="val">·</span></div>
+    <div class="row"><label>Vertical</label><input type="range" id="tsY" min="-0.60" max="0.80" step="0.01"/><span class="val">·</span></div>
     <div class="row"><label>Width</label><input type="range" id="tsW" min="0.04" max="0.60" step="0.01"/><span class="val">·</span></div>
     <div class="row"><label>Height</label><input type="range" id="tsH" min="0.02" max="0.30" step="0.01"/><span class="val">·</span></div>
     <div class="row"><label>Orient</label><select id="tsOrient"><option value="h">horizontal</option><option value="v">vertical</option></select><span class="val"></span></div>
@@ -377,6 +437,56 @@ function makeTaperedCab(bw, bl, h, sf, sr, sl, sR) {
   return g;
 }
 
+// ── WHEEL ARCH SHADER (cylindrical cutouts in body + fender) ───────────────
+// Body and fender materials get an `onBeforeCompile` hook that discards any
+// fragment whose world position falls inside a cylinder around a wheel — so
+// the wheel stays visible even when the body or fender is wider than the
+// wheel position. Four cylinders total (one per wheel), each with axis along
+// Z (the wheel rotation axis), centred at the wheel's world (X, Y, Z).
+const ARCH_UNIFORMS = {
+  uArchX:       { value: [0, 0, 0, 0] },     // X of each wheel (world)
+  uArchZ:       { value: [0, 0, 0, 0] },     // Z of each wheel (world)
+  uArchY:       { value: 0.37 },              // Y of wheel centre (world)
+  uArchRadius:  { value: 0.40 },              // 5% larger than wheel radius
+  uArchHalfW:   { value: 0.20 },              // half tyre width + buffer
+  uArchEnabled: { value: 1.0 },
+};
+function patchForArches(mat) {
+  if (mat.userData._archesPatched) return mat;
+  mat.userData._archesPatched = true;
+  mat.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, ARCH_UNIFORMS);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>',
+               '#include <common>\nvarying vec3 vWArchPos;')
+      .replace('#include <project_vertex>',
+               `#include <project_vertex>
+                vWArchPos = (modelMatrix * vec4(transformed, 1.0)).xyz;`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>',
+        `#include <common>
+         varying vec3 vWArchPos;
+         uniform float uArchX[4];
+         uniform float uArchZ[4];
+         uniform float uArchY;
+         uniform float uArchRadius;
+         uniform float uArchHalfW;
+         uniform float uArchEnabled;`)
+      .replace('void main() {',
+        `void main() {
+          if (uArchEnabled > 0.5) {
+            float r2 = uArchRadius * uArchRadius;
+            for (int i = 0; i < 4; i++) {
+              vec2 d  = vec2(vWArchPos.x - uArchX[i], vWArchPos.y - uArchY);
+              float dz = abs(vWArchPos.z - uArchZ[i]);
+              if (dot(d, d) < r2 && dz < uArchHalfW) { discard; }
+            }
+          }
+        `);
+  };
+  return mat;
+}
+
 // ── SCENE ──────────────────────────────────────────────────────────────────
 const canvas   = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -450,18 +560,26 @@ function defaultDesign() {
     taillightStyle: 'box-h',
     taillightX: 0, taillightY: 0, taillightW: 1.0, taillightH: 1.0, taillightSpread: 0,
     // Turn signals on side
-    turnSignal: { enabled: false, x: 1.2, y: 0.05, w: 0.18, h: 0.06, orient: 'h' },
+    turnSignal: { x: 1.2, y: 0.05, w: 0.18, h: 0.06, orient: 'h' },
     // Accessories — multiple at once
     accessories: { antenna: false, spoiler: false, scoop: false, roofbox: false },
     antennaMount: 'rear',
     spoilerHeight: 0.30,
     scoopRise: 0.10, scoopX: 0.7, scoopZ: 0,
     roofboxLength: 0.85, roofboxWidth: 0.78, roofboxHeight: 0.20, roofboxRound: 0.05,
+    // Fenders / Wings — front and rear are fully independent
+    fenders: {
+      enabled: false,
+      front: { front: 0.30, rear: 0.18, height: 0.28, y: 0, inset: 0.00, width: 0.40, round: 0.05 },
+      rear:  { front: 0.18, rear: 0.22, height: 0.28, y: 0, inset: 0.00, width: 0.40, round: 0.05 },
+    },
   };
 }
 
 // ── REBUILD CAR ─────────────────────────────────────────────────────────────
-function rebuildCar() {
+// Accepts an optional design snapshot. When omitted, uses the global `design`
+// (canonical/target). The morph tick passes interpolated snapshots each frame.
+function rebuildCar(d) {
   while (carGroup.children.length) {
     const c = carGroup.children[0];
     carGroup.remove(c);
@@ -472,12 +590,50 @@ function rebuildCar() {
     wheelsGroup.remove(c);
     if (c.geometry) c.geometry.dispose();
   }
-  const p = design;
+  const p = d || design;
+
+  // Wheel & geometry constants needed by both headlights and fenders, hoisted
+  // so headlights can snap onto the front fender's center when it protrudes.
+  const wR = 0.37 * p.wheelScale;
+  const wW = p.wheelWidth;
+  const wbHalf = p.wheelbase / 2;
+  const trkHalf = p.trackWidth / 2;
+  const wY = wR - 0.77;
+
+  // Compute the front fender's center (Y, Z) up-front so headlights can snap
+  // onto it when the fender protrudes past the body nose.
+  function _fenderCenterYZ(cfg) {
+    if (!cfg) return null;
+    const fH = cfg.height;
+    const fWdepth = cfg.width ?? (wW + 0.08);
+    const baseFCY = wY + wR * 0.45 + fH / 2;
+    let fCY = baseFCY + (cfg.y || 0);
+    const minBottom = p.bodyLift + 0.02;
+    if (fCY - fH / 2 < minBottom) fCY = minBottom + fH / 2;
+    // Outer face natural position = trkHalf + wW/2 + 0.04, slid inward by inset.
+    const defaultOuterZ = trkHalf + wW / 2 + 0.04;
+    const outerZ = defaultOuterZ - cfg.inset;
+    const centerZ = outerZ - fWdepth / 2;
+    return { y: fCY, z: centerZ, outerZ, depth: fWdepth };
+  }
+  const _ffEnabled = !!(p.fenders && p.fenders.enabled);
+  const _ffCenter  = _ffEnabled ? _fenderCenterYZ(p.fenders.front) : null;
+  const _frCenter  = _ffEnabled ? _fenderCenterYZ(p.fenders.rear)  : null;
+
+  // Wheel-arch cutout: update shared shader uniforms with the 4 wheel centres
+  // in world space (carGroup adds +0.77 to Y, so wheel centre Y = wR).
+  ARCH_UNIFORMS.uArchX.value = [ wbHalf,  wbHalf, -wbHalf, -wbHalf];
+  ARCH_UNIFORMS.uArchZ.value = [ trkHalf, -trkHalf, trkHalf, -trkHalf];
+  ARCH_UNIFORMS.uArchY.value      = wR;
+  ARCH_UNIFORMS.uArchRadius.value = wR * 1.05;
+  ARCH_UNIFORMS.uArchHalfW.value  = wW / 2 + 0.04;
 
   // Body
   const body = new THREE.Mesh(
     makeRoundedBoxGeom(p.bodyLength, p.bodyHeight, p.bodyWidth, p.bodyRound),
-    new THREE.MeshStandardMaterial({ color: p.bodyColor, roughness: 0.4, metalness: 0.4 })
+    patchForArches(new THREE.MeshStandardMaterial({
+      color: p.bodyColor, roughness: 0.4, metalness: 0.4, side: THREE.DoubleSide,
+    }))
   );
   // bodyLift is the BOTTOM of the body (in carGroup coords).
   // Box geometry is centered, so shift by half height.
@@ -524,12 +680,22 @@ function rebuildCar() {
   // ── HEADLIGHTS — style + position offset + scale ────────────────────────
   const hlMat = new THREE.MeshBasicMaterial({ color: 0xffffcc });
   const hlDef = HL[p.headlightStyle] || HL.box;
-  // Slightly proud of the body face by default; user can pull in via slider.
-  const xFront = p.bodyLength / 2 + 0.01 + p.headlightX;
+  // When the front fender sticks out past the body nose, headlights ride with
+  // it: X advances to the fender nose, Y snaps to the fender center, and Z
+  // snaps to the fender's depth-center (so the lamp is "stuck to the fender",
+  // not floating at body height as before).
+  const _ffFront = _ffEnabled ? p.fenders.front : null;
+  const _ffNoseX = _ffEnabled ? wbHalf + _ffFront.front : p.bodyLength / 2;
+  const _ffProtrudes = _ffEnabled && _ffNoseX > p.bodyLength / 2;
+  const _fenderNoseX = Math.max(p.bodyLength / 2, _ffNoseX);
+  const xFront = _fenderNoseX + 0.01 + p.headlightX;
   const bodyCenterY = p.bodyLift + p.bodyHeight / 2;
-  const hlBaseY = bodyCenterY + p.headlightY;
-  const zSideHL = Math.min(p.bodyWidth / 2 - 0.05,
-                           Math.max(0.05, p.bodyWidth / 2 - 0.25 + (p.headlightSpread || 0)));
+  const hlBaseY = (_ffProtrudes ? _ffCenter.y : bodyCenterY) + p.headlightY;
+  const _zSideBody = Math.min(p.bodyWidth / 2 - 0.05,
+                              Math.max(0.05, p.bodyWidth / 2 - 0.25 + (p.headlightSpread || 0)));
+  const zSideHL = _ffProtrudes
+    ? Math.max(0.05, _ffCenter.z + (p.headlightSpread || 0))
+    : _zSideBody;
   const zSide = zSideHL;
   const placeHL = (x, y, z) => {
     const hl = new THREE.Mesh(hlDef.viz(), hlMat);
@@ -545,13 +711,23 @@ function rebuildCar() {
     [-zSide, zSide].forEach(z => placeHL(xFront, hlBaseY, z));
   }
 
-  // ── TAIL LIGHTS — independent style + pos + scale ───────────────────────
+  // ── TAIL LIGHTS — mirror of headlight rules: when the rear fender sticks
+  // out past the body tail, taillights ride with it (X to fender rear face,
+  // Y to fender centre, Z to fender depth-centre). Otherwise they sit on the
+  // body — same fallback as headlights.
   const tlMat = new THREE.MeshBasicMaterial({ color: 0xff2200 });
   const tlDef = HL[p.taillightStyle] || HL.box;
-  const xRear = -p.bodyLength / 2 - 0.01 - p.taillightX;
-  const tlBaseY = bodyCenterY + p.taillightY;
-  const zSideTL = Math.min(p.bodyWidth / 2 - 0.05,
-                           Math.max(0.05, p.bodyWidth / 2 - 0.25 + (p.taillightSpread || 0)));
+  const _frRear     = _ffEnabled ? p.fenders.rear : null;
+  const _frTailX    = _ffEnabled ? -wbHalf - _frRear.rear : -p.bodyLength / 2;
+  const _frProtrudes = _ffEnabled && _frTailX < -p.bodyLength / 2;
+  const _fenderTailX = Math.min(-p.bodyLength / 2, _frTailX);
+  const xRear = _fenderTailX - 0.01 - p.taillightX;
+  const tlBaseY = (_frProtrudes ? _frCenter.y : bodyCenterY) + p.taillightY;
+  const _zSideBodyTL = Math.min(p.bodyWidth / 2 - 0.05,
+                                Math.max(0.05, p.bodyWidth / 2 - 0.25 + (p.taillightSpread || 0)));
+  const zSideTL = _frProtrudes
+    ? Math.max(0.05, _frCenter.z + (p.taillightSpread || 0))
+    : _zSideBodyTL;
   const placeTL = (x, y, z) => {
     const tl = new THREE.Mesh(tlDef.viz(), tlMat);
     tl.position.set(x, y, z);
@@ -566,16 +742,28 @@ function rebuildCar() {
     [-zSideTL, zSideTL].forEach(z => placeTL(xRear, tlBaseY, z));
   }
 
-  // ── SIDE TURN SIGNALS (orange) ───────────────────────────────────────────
-  if (p.turnSignal && p.turnSignal.enabled) {
+  // ── SIDE TURN SIGNALS (orange) — always rendered ─────────────────────────
+  if (p.turnSignal) {
     const ts = p.turnSignal;
     const tsMat = new THREE.MeshBasicMaterial({ color: 0xff8c00 });
     const w = ts.orient === 'h' ? ts.w : ts.h;
     const h = ts.orient === 'h' ? ts.h : ts.w;
-    // Thin pancake on each side (depth halved per feedback).
+    // If the TS X falls inside a fender's X-span and that fender's outer
+    // face is wider than the body, ride the fender surface.
+    let tsZHalf = p.bodyWidth / 2 + 0.005;
+    if (_ffEnabled) {
+      const ff = p.fenders.front, fr = p.fenders.rear;
+      const inFront = (ts.x >= wbHalf - ff.rear) && (ts.x <= wbHalf + ff.front);
+      const inRear  = (ts.x >= -wbHalf - fr.rear) && (ts.x <= -wbHalf + fr.front);
+      if (inFront) {
+        tsZHalf = Math.max(tsZHalf, _ffCenter.outerZ + 0.005);
+      } else if (inRear) {
+        tsZHalf = Math.max(tsZHalf, _frCenter.outerZ + 0.005);
+      }
+    }
     for (const side of [-1, 1]) {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.018), tsMat);
-      m.position.set(ts.x, bodyCenterY + ts.y, side * (p.bodyWidth / 2 + 0.005));
+      m.position.set(ts.x, bodyCenterY + ts.y, side * tsZHalf);
       carGroup.add(m);
     }
   }
@@ -655,13 +843,7 @@ function rebuildCar() {
   }
 
   // ── WHEELS — wheelbase / track / width / rim depth all configurable ─────
-  const wR = 0.37 * p.wheelScale;
-  const wW = p.wheelWidth;
-  const wbHalf = p.wheelbase / 2;
-  const trkHalf = p.trackWidth / 2;
-  // World wheel center y so bottom touches ground = wR
-  // carGroup will sit at chassis_rest_y = 0.77, so wheel-local-y = wR - 0.77
-  const wY = wR - 0.77;
+  // wR / wW / wbHalf / trkHalf / wY are hoisted at the top of rebuildCar.
   const wPositions = [
     [ wbHalf, wY,  trkHalf],
     [ wbHalf, wY, -trkHalf],
@@ -739,6 +921,40 @@ function rebuildCar() {
     wheelsGroup.add(wg);
   }
 
+  // ── FENDERS / WINGS ───────────────────────────────────────────────────────
+  // Front and rear are independent. Y is wheel-tied (NOT body-tied) so raising
+  // bodyLift does not lift the fender. Width grows INWARD from the outer face:
+  // outer face position is fixed by `inset`, then the box thickens toward the
+  // car's centerline as `width` increases. Two opposite fenders can meet at
+  // Z=0 to form a hood-cap if width is cranked high enough.
+  if (_ffEnabled) {
+    const fMat = patchForArches(new THREE.MeshStandardMaterial({
+      color: p.bodyColor, roughness: 0.4, metalness: 0.4, side: THREE.DoubleSide,
+    }));
+    const renderAxle = (cfg, center, wbSign) => {
+      const fL = cfg.front + cfg.rear;
+      if (fL < 0.01) return;
+      const fH = cfg.height;
+      const fCXoff = (cfg.front - cfg.rear) / 2;
+      const fGeom = makeRoundedBoxGeom(
+        fL, fH, center.depth,
+        Math.min(cfg.round, fL * 0.45, fH * 0.45, center.depth * 0.45)
+      );
+      for (const trkSign of [1, -1]) {
+        const m = new THREE.Mesh(fGeom, fMat);
+        m.position.set(
+          wbSign * wbHalf + fCXoff,
+          center.y,
+          trkSign * center.z
+        );
+        m.castShadow = true;
+        carGroup.add(m);
+      }
+    };
+    renderAxle(p.fenders.front, _ffCenter,  1);
+    renderAxle(p.fenders.rear,  _frCenter, -1);
+  }
+
   // Position whole car at chassis_rest_y (matches in-game frame, body always
   // sits above ground regardless of bodyLift sign).
   const CHASSIS_REST_Y = 0.77;
@@ -746,6 +962,8 @@ function rebuildCar() {
   wheelsGroup.position.y = CHASSIS_REST_Y;     // wheel groups follow same parent frame
 
   redrawSide();
+  redrawCross('front');
+  redrawCross('rear');
 
   // Update info display
   document.getElementById('dims').innerHTML =
@@ -768,8 +986,8 @@ function svgEl(parent, tag, attrs) {
   return el;
 }
 function clamp(v, mn, mx) { return Math.max(mn, Math.min(mx, v)); }
-const HANDLE_R = 0.07;
-const HANDLE_STROKE = 0.012;
+const HANDLE_R = 0.10;
+const HANDLE_STROKE = 0.014;
 
 // World X is forward (+X = front). SVG is drawn LEFT-FACING per convention,
 // so we flip: svgX = -worldX. svgY = -worldY (already flipped before).
@@ -811,6 +1029,35 @@ function redrawSide() {
                          fill: '#1a1a1c', stroke: '#fff',
                          'stroke-opacity': 0.4, 'stroke-width': 0.012 });
   }
+  // Fender outlines (drawn before handles so handles sit on top)
+  const fdr = p.fenders;
+  let ffRect = null, frRect = null;
+  if (fdr) {
+    const drawFenderRect = (cfg, wbSign) => {
+      if (cfg.front + cfg.rear < 0.001) return null;
+      const baseFCY = (wR - 0.77) + wR * 0.45 + cfg.height / 2;
+      let fCY = baseFCY + (cfg.y || 0);
+      // We are NOT in carGroup space here — match rebuildCar minBottom logic.
+      const minBottom = p.bodyLift + 0.02;
+      if (fCY - cfg.height / 2 < minBottom) fCY = minBottom + cfg.height / 2;
+      const wcx = wbSign * wbHalf;
+      const xL = wcx - cfg.rear;
+      const xR = wcx + cfg.front;
+      const yTop = fCY + cfg.height / 2;
+      const yBot = fCY - cfg.height / 2;
+      const opa = fdr.enabled ? 0.5 : 0.18;
+      const stroke = fdr.enabled ? '#ffb060' : '#888';
+      svgEl(g, 'rect', {
+        x: SX(xR), y: -yTop, width: xR - xL, height: cfg.height,
+        fill: hexStr(p.bodyColor), 'fill-opacity': opa * 0.6,
+        stroke, 'stroke-opacity': opa, 'stroke-width': 0.012,
+        rx: cfg.round, ry: cfg.round,
+      });
+      return { wcx, xL, xR, yTop, yBot, cfg };
+    };
+    ffRect = drawFenderRect(fdr.front,  1);
+    frRect = drawFenderRect(fdr.rear,  -1);
+  }
   // Headlight (white) + Tail-light (red) drag dots, just outside the body.
   const bcy = p.bodyLift + p.bodyHeight/2;
   const hlWY = bcy + p.headlightY;
@@ -835,6 +1082,23 @@ function redrawSide() {
     { key: 'taillight-y',       x: -p.bodyLength/2 - 0.20, wy: tlWY,                color: '#ff5050' },
     { key: 'turnsignal-pos',    x: tsWX,             wy: tsWY,                      color: '#ff8c00' },
   ];
+  // Fender handles (only when there's a rect to anchor to)
+  if (ffRect) {
+    handles.push(
+      { key: 'ff-front', x: ffRect.xR,                 wy: (ffRect.yTop + ffRect.yBot)/2, color: '#ffb060' },
+      { key: 'ff-rear',  x: ffRect.xL,                 wy: (ffRect.yTop + ffRect.yBot)/2, color: '#ffb060' },
+      { key: 'ff-top',   x: ffRect.wcx,                wy: ffRect.yTop,                   color: '#ffb060' },
+      { key: 'ff-bot',   x: ffRect.wcx,                wy: ffRect.yBot,                   color: '#ffb060' },
+    );
+  }
+  if (frRect) {
+    handles.push(
+      { key: 'fr-front', x: frRect.xR,                 wy: (frRect.yTop + frRect.yBot)/2, color: '#ff7a30' },
+      { key: 'fr-rear',  x: frRect.xL,                 wy: (frRect.yTop + frRect.yBot)/2, color: '#ff7a30' },
+      { key: 'fr-top',   x: frRect.wcx,                wy: frRect.yTop,                   color: '#ff7a30' },
+      { key: 'fr-bot',   x: frRect.wcx,                wy: frRect.yBot,                   color: '#ff7a30' },
+    );
+  }
   for (const h of handles) {
     const c = svgEl(g, 'circle', {
       cx: SX(h.x), cy: -h.wy, r: HANDLE_R,
@@ -851,7 +1115,7 @@ function redrawSide() {
   let activeKey = null;
   function pxToWorld(svg) {
     const rect = svg.getBoundingClientRect();
-    const vbW = 7.2, vbH = 2.6;
+    const vbW = 8.4, vbH = 3.2;
     return Math.min(rect.width / vbW, rect.height / vbH); // uniform px-per-world-unit
   }
   svg.addEventListener('mousedown', e => {
@@ -912,6 +1176,255 @@ function redrawSide() {
         p.turnSignal.x = clamp(p.turnSignal.x + dx, -2.0, 2.0);
         p.turnSignal.y = clamp(p.turnSignal.y + dy, -0.40, 0.50);
         break;
+      case 'ff-front':
+        p.fenders.front.front = clamp(p.fenders.front.front + dx, 0.00, 1.80); break;
+      case 'ff-rear':
+        p.fenders.front.rear  = clamp(p.fenders.front.rear  - dx, 0.00, 1.80); break;
+      case 'ff-top':
+        p.fenders.front.height = clamp(p.fenders.front.height + dy, 0.06, 1.60);
+        p.fenders.front.y      = clamp(p.fenders.front.y      + dy / 2, -0.60, 0.80);
+        break;
+      case 'ff-bot':
+        p.fenders.front.height = clamp(p.fenders.front.height - dy, 0.06, 1.60);
+        p.fenders.front.y      = clamp(p.fenders.front.y      + dy / 2, -0.60, 0.80);
+        break;
+      case 'fr-front':
+        p.fenders.rear.front = clamp(p.fenders.rear.front + dx, 0.00, 1.80); break;
+      case 'fr-rear':
+        p.fenders.rear.rear  = clamp(p.fenders.rear.rear  - dx, 0.00, 1.80); break;
+      case 'fr-top':
+        p.fenders.rear.height = clamp(p.fenders.rear.height + dy, 0.06, 1.60);
+        p.fenders.rear.y      = clamp(p.fenders.rear.y      + dy / 2, -0.60, 0.80);
+        break;
+      case 'fr-bot':
+        p.fenders.rear.height = clamp(p.fenders.rear.height - dy, 0.06, 1.60);
+        p.fenders.rear.y      = clamp(p.fenders.rear.y      + dy / 2, -0.60, 0.80);
+        break;
+    }
+    syncControlsFromDesign();
+    rebuildCar();
+  });
+})();
+
+// ── FRONT / REAR CROSS-SECTION VIEWS ──────────────────────────────────────
+// `axle` = 'front' or 'rear'. Both views share the same renderer; the only
+// per-view differences are which fender / wheel set / lamp set to draw and
+// the screen-X mirror direction (front: looking at +X face; rear: at −X face).
+function redrawCross(axle) {
+  const isFront = axle === 'front';
+  const gId = isFront ? 'frontGroup' : 'rearGroup';
+  const g = document.getElementById(gId);
+  if (!g) return;
+  g.innerHTML = '';
+  const p = design;
+  const groundY = -0.77;
+  // Map world-Z to screen-X. Front view: looking from +X, so +Z is to the
+  // viewer's RIGHT. Rear view (looking from −X) flips that so +Z is LEFT.
+  const ZX = isFront ? (z => z) : (z => -z);
+  // SVG y grows downward; flip world-Y.
+  const YY = wy => -wy;
+
+  // Ground line
+  svgEl(g, 'line', { x1: -2.4, y1: -groundY, x2: 2.4, y2: -groundY,
+                     stroke: '#3a3d44', 'stroke-width': 0.022 });
+
+  // Body rectangle (centered on Z=0)
+  svgEl(g, 'rect', {
+    x: -p.bodyWidth / 2, y: YY(p.bodyLift + p.bodyHeight),
+    width: p.bodyWidth, height: p.bodyHeight,
+    fill: hexStr(p.bodyColor), 'fill-opacity': 0.55,
+    stroke: '#fff', 'stroke-opacity': 0.6, 'stroke-width': 0.018,
+  });
+
+  // Cabin rectangle (no roof in convertibles → thin glass slab)
+  const cy0 = p.bodyLift + p.bodyHeight;
+  if (!p.convertible) {
+    const effCabW = Math.min(p.cabinWidth, p.bodyWidth - 0.04);
+    svgEl(g, 'rect', {
+      x: -effCabW / 2, y: YY(cy0 + p.cabinHeight),
+      width: effCabW, height: p.cabinHeight,
+      fill: hexStr(darkenHex(p.bodyColor, 0.55)), 'fill-opacity': 0.55,
+      stroke: '#fff', 'stroke-opacity': 0.6, 'stroke-width': 0.018,
+    });
+  }
+
+  // Wheels — viewed head-on, the tyre cross-section is a RECTANGLE, not a
+  // circle (we're looking at the tyre's edge, not its face). Width = tyre
+  // width (Z), height = tyre diameter (Y).
+  const wR = 0.37 * p.wheelScale;
+  const trkHalf = p.trackWidth / 2;
+  const wcy = -(wR + groundY);  // wheel-center on screen (Y, flipped)
+  const wWr = p.wheelWidth;
+  for (const sz of [-trkHalf, trkHalf]) {
+    svgEl(g, 'rect', {
+      x: ZX(sz) - wWr / 2, y: wcy - wR,
+      width: wWr, height: 2 * wR,
+      fill: '#1a1a1c', stroke: '#fff', 'stroke-opacity': 0.4, 'stroke-width': 0.018,
+      rx: 0.04, ry: 0.04,
+    });
+  }
+
+  // Fender (cross-section): two boxes at ±centerZ, depth=cfg.width, h=cfg.height.
+  const fdr = p.fenders;
+  let fRect = null;
+  if (fdr) {
+    const cfg = fdr[axle];
+    const fH = cfg.height;
+    const fWdepth = cfg.width ?? 0.40;
+    const baseFCY = (wR - 0.77) + wR * 0.45 + fH / 2;
+    let fCY = baseFCY + (cfg.y || 0);
+    const minBottom = p.bodyLift + 0.02;
+    if (fCY - fH / 2 < minBottom) fCY = minBottom + fH / 2;
+    const wW = p.wheelWidth;
+    const defaultOuterZ = trkHalf + wW / 2 + 0.04;
+    const outerZ = defaultOuterZ - cfg.inset;
+    const innerZ = outerZ - fWdepth;
+    const yTop = fCY + fH / 2, yBot = fCY - fH / 2;
+    const opa = fdr.enabled ? 0.55 : 0.18;
+    const stroke = fdr.enabled ? (isFront ? '#ffb060' : '#ff7a30') : '#888';
+    // Draw both halves (positive and negative Z)
+    for (const sgn of [1, -1]) {
+      const zL = sgn * outerZ, zR = sgn * innerZ;
+      const xLeft  = Math.min(ZX(zL), ZX(zR));
+      const xRight = Math.max(ZX(zL), ZX(zR));
+      svgEl(g, 'rect', {
+        x: xLeft, y: YY(yTop), width: xRight - xLeft, height: fH,
+        fill: hexStr(p.bodyColor), 'fill-opacity': opa * 0.6,
+        stroke, 'stroke-opacity': opa, 'stroke-width': 0.018,
+        rx: cfg.round, ry: cfg.round,
+      });
+    }
+    fRect = { fCY, fH, outerZ, innerZ, yTop, yBot };
+  }
+
+  // Headlights (front view) or taillights (rear view) — drawn as filled dots.
+  // Use the same Z snap as the 3D scene so the dots track the fender when it
+  // protrudes past the body nose.
+  if (isFront) {
+    const ffEnabled = fdr && fdr.enabled;
+    const ffNoseX = ffEnabled ? p.wheelbase / 2 + fdr.front.front : p.bodyLength / 2;
+    const ffProtrudes = ffEnabled && ffNoseX > p.bodyLength / 2;
+    const wW = p.wheelWidth;
+    const defaultOuterZ = trkHalf + wW / 2 + 0.04;
+    const outerZ = ffEnabled ? (defaultOuterZ - fdr.front.inset) : null;
+    const fCenterZ = ffProtrudes ? (outerZ - fdr.front.width / 2) : null;
+    const zSideHL = ffProtrudes
+      ? Math.max(0.05, fCenterZ + (p.headlightSpread || 0))
+      : Math.min(p.bodyWidth / 2 - 0.05,
+                 Math.max(0.05, p.bodyWidth / 2 - 0.25 + (p.headlightSpread || 0)));
+    const hlY = ffProtrudes
+      ? (fRect ? fRect.fCY : 0) + p.headlightY
+      : (p.bodyLift + p.bodyHeight / 2) + p.headlightY;
+    for (const sz of [-zSideHL, zSideHL]) {
+      svgEl(g, 'circle', { cx: ZX(sz), cy: YY(hlY), r: 0.05,
+                           fill: '#ffffcc', stroke: '#000', 'stroke-width': 0.012 });
+    }
+  } else {
+    const zSideTL = Math.min(p.bodyWidth / 2 - 0.05,
+                             Math.max(0.05, p.bodyWidth / 2 - 0.25 + (p.taillightSpread || 0)));
+    const tlY = (p.bodyLift + p.bodyHeight / 2) + p.taillightY;
+    for (const sz of [-zSideTL, zSideTL]) {
+      svgEl(g, 'circle', { cx: ZX(sz), cy: YY(tlY), r: 0.05,
+                           fill: '#ff3030', stroke: '#000', 'stroke-width': 0.012 });
+    }
+  }
+
+  // Drag handles. Prefix per view so side / front / rear don't collide.
+  const px = isFront ? 'F' : 'R';
+  const handles = [
+    // Body width: one handle on the right edge (mirrored across)
+    { key: px+'-body-side', x: ZX(p.bodyWidth / 2),  y: YY(p.bodyLift + p.bodyHeight / 2), color: '#ffd060' },
+    { key: px+'-body-top',  x: 0,                    y: YY(p.bodyLift + p.bodyHeight),     color: '#ffd060' },
+    { key: px+'-body-bot',  x: 0,                    y: YY(p.bodyLift),                    color: '#ffd060' },
+    // Cabin width and height
+    { key: px+'-cab-side',  x: Math.min(p.cabinWidth, p.bodyWidth - 0.04) / 2,
+                            y: YY(cy0 + p.cabinHeight / 2),                                color: '#9bd3ff' },
+    { key: px+'-cab-top',   x: 0,                    y: YY(cy0 + p.cabinHeight),           color: '#9bd3ff' },
+    // Track width: drag the right wheel
+    { key: px+'-track',     x: ZX(trkHalf),          y: wcy,                               color: '#a8e0a0' },
+  ];
+  // Fender handles (drawn only when there's geometry to anchor on).
+  if (fRect) {
+    const fCol = fdr.enabled ? (isFront ? '#ffb060' : '#ff7a30') : '#888';
+    handles.push(
+      { key: px+'-fend-outer', x: ZX(fRect.outerZ),  y: YY((fRect.yTop + fRect.yBot)/2), color: fCol },
+      { key: px+'-fend-inner', x: ZX(fRect.innerZ),  y: YY((fRect.yTop + fRect.yBot)/2), color: fCol },
+      { key: px+'-fend-top',   x: ZX((fRect.outerZ + fRect.innerZ)/2), y: YY(fRect.yTop), color: fCol },
+    );
+  }
+  for (const h of handles) {
+    const c = svgEl(g, 'circle', {
+      cx: h.x, cy: h.y, r: HANDLE_R,
+      fill: h.color, stroke: '#000', 'stroke-width': HANDLE_STROKE,
+      style: 'cursor:grab',
+    });
+    c.dataset.key = h.key;
+  }
+}
+
+// Drag handler shared by front + rear views.
+(function bindCrossDrag() {
+  const fSvg = document.getElementById('frontSvg');
+  const rSvg = document.getElementById('rearSvg');
+  let activeKey = null, activeSvg = null;
+  function pxToWorld(svg) {
+    const rect = svg.getBoundingClientRect();
+    const vbW = 4.8, vbH = 3.0;
+    return Math.min(rect.width / vbW, rect.height / vbH);
+  }
+  for (const svg of [fSvg, rSvg]) {
+    if (!svg) continue;
+    svg.addEventListener('mousedown', e => {
+      if (e.target.dataset && e.target.dataset.key) {
+        activeKey = e.target.dataset.key;
+        activeSvg = svg;
+        e.preventDefault();
+      }
+    });
+  }
+  window.addEventListener('mouseup', () => { activeKey = null; activeSvg = null; });
+  window.addEventListener('mousemove', e => {
+    if (!activeKey || !activeSvg) return;
+    const s = pxToWorld(activeSvg);
+    const isFront = activeKey.startsWith('F-');
+    // SVG-x → world-Z. Front view: dragging right grows +Z (right side).
+    // Rear view: dragging right grows −Z (mirrored), so flip dx for world Z.
+    const dxScreen = e.movementX / s;
+    const dy = -e.movementY / s;
+    const dz = isFront ? dxScreen : -dxScreen;     // signed world-Z delta
+    const dzAbs = Math.abs(dxScreen) * Math.sign(dxScreen); // not used; dz is enough
+    const p = design;
+    const key = activeKey.slice(2);                // strip 'F-' or 'R-'
+    switch (key) {
+      case 'body-side':
+        p.bodyWidth = clamp(p.bodyWidth + dz * 2, 1.50, 2.10); break;
+      case 'body-top':
+        p.bodyHeight = clamp(p.bodyHeight + dy, 0.20, 1.20); break;
+      case 'body-bot':
+        p.bodyLift = clamp(p.bodyLift + dy, -0.80, 0.20); break;
+      case 'cab-side':
+        p.cabinWidth = clamp(p.cabinWidth + dz * 2, 1.20, 2.00); break;
+      case 'cab-top':
+        p.cabinHeight = clamp(p.cabinHeight + dy, 0.20, 1.10); break;
+      case 'track':
+        p.trackWidth = clamp(p.trackWidth + dz * 2, 1.20, 3.20); break;
+      case 'fend-outer': {
+        const axle = isFront ? 'front' : 'rear';
+        // Outer-edge drag changes inset (inset+ → outer face inward).
+        p.fenders[axle].inset = clamp(p.fenders[axle].inset - dz, -0.30, 1.40);
+        break;
+      }
+      case 'fend-inner': {
+        const axle = isFront ? 'front' : 'rear';
+        // Inner-edge drag changes width (width+ → inner edge moves toward 0).
+        p.fenders[axle].width = clamp(p.fenders[axle].width - dz, 0.10, 1.50);
+        break;
+      }
+      case 'fend-top': {
+        const axle = isFront ? 'front' : 'rear';
+        p.fenders[axle].height = clamp(p.fenders[axle].height + dy, 0.06, 1.60);
+        break;
+      }
     }
     syncControlsFromDesign();
     rebuildCar();
@@ -927,6 +1440,8 @@ function randomizeCar(typeKey) {
   const cfg = TYPES[typeKey];
   currentType = typeKey;
   currentSeed = makeSeed();
+  // Snapshot the BEFORE state so we can morph from it once design is mutated.
+  const _morphFrom = _deepClone(design);
 
   const lenMm = rng(cfg.realLength[0], cfg.realLength[1]);
   const length = lenMm / 1000;
@@ -984,7 +1499,6 @@ function randomizeCar(typeKey) {
   // Turn signals: front-fender, just AHEAD of the front wheel, upper body band.
   const wbHalf = design.wheelbase / 2;
   design.turnSignal = {
-    enabled: Math.random() < 0.4,
     x: wbHalf + rng(0.05, 0.20),
     y: design.bodyHeight * rng(0.30, 0.45),
     w: rng(0.12, 0.22), h: rng(0.03, 0.07), orient: 'h',
@@ -1011,15 +1525,78 @@ function randomizeCar(typeKey) {
     design.cabinOffset = -length / 2 + design.cabinLength / 2;
   }
 
+  // Fenders: random on/off (about 1/3 of cars get them). Front and rear
+  // identical at gen time — same overhangs (centered on wheel), same height
+  // (slightly taller than the body so they peek above the hood line), same
+  // inset, same rounding. Length always > wheel diameter so the wheel never
+  // pokes past the fender edge.
+  {
+    // When fenders are generated they are COMMITTED, classic-style: the front
+    // pair clearly pokes past the body nose, the rear pair past the body tail,
+    // both reach all the way DOWN to the body bottom, and both peek slightly
+    // above the body top. The user can edit each fender independently after.
+    const wRr      = 0.37 * design.wheelScale;
+    const wWr      = design.wheelWidth;
+    const wYr      = wRr - 0.77;
+    const wbHalfR  = design.wheelbase / 2;
+    const halfBL   = design.bodyLength / 2;
+    const noseGap  = halfBL - wbHalfR;             // wheel-center → body nose
+    // Height: top 5–10% of bodyHeight above bodyTop, bottom flush w/ bodyBot.
+    const aboveFactor = (Math.random() < 0.7) ? rng(0.05, 0.08) : rng(0.08, 0.12);
+    const fenderH     = design.bodyHeight * (1 + aboveFactor);
+    // Drop fender so its bottom sits at body bottom (+ tiny safety margin).
+    const naturalBot  = wYr + wRr * 0.45;
+    const targetBot   = design.bodyLift + 0.02;
+    const fenderY     = clamp(targetBot - naturalBot, -0.60, 0.80);
+    // Z width: tight to wheel + small wobble.
+    const fenderW = wWr + rng(0.04, 0.14);
+    // Outer face: usually overhangs body by 4–12%, sometimes pulls INWARD up
+    // to 15% (but never collapses to centre — capped at +0.40 inset).
+    const widthBias = (Math.random() < 0.75) ? rng(0.04, 0.12) : rng(-0.15, -0.02);
+    const targetOuterZ  = (design.bodyWidth / 2) * (1 + widthBias);
+    const defaultOuterZ = design.trackWidth / 2 + wWr / 2 + 0.04;
+    const fenderInset   = clamp(defaultOuterZ - targetOuterZ, -0.15, 0.40);
+    // X overhangs:
+    //   • front fender: extends forward past body nose by 2–8% of bodyLength,
+    //                   extends back through the wheel zone by ~1× wheel radius
+    //   • rear fender:  mirror — covers wheel forward, sticks past tail
+    const protrudeF  = design.bodyLength * rng(0.02, 0.08);
+    const protrudeR  = design.bodyLength * rng(0.02, 0.08);
+    const wheelCover = wRr * rng(0.9, 1.4);
+    const fenderRound = (typeKey === 'classic' || typeKey === 'jeep')
+      ? rng(0.06, 0.14) : rng(0.02, 0.08);
+    const enabled = (typeKey === 'classic' || typeKey === 'jeep')
+      ? Math.random() < 0.85
+      : Math.random() < 0.35;
+    const baseCfg = {
+      height: fenderH, y: fenderY, width: fenderW,
+      inset: fenderInset, round: fenderRound,
+    };
+    design.fenders = {
+      enabled,
+      front: Object.assign({}, baseCfg, {
+        front: Math.max(0.10, noseGap + protrudeF),
+        rear:  wheelCover,
+      }),
+      rear:  Object.assign({}, baseCfg, {
+        front: wheelCover,
+        rear:  Math.max(0.10, noseGap + protrudeR),
+      }),
+    };
+  }
+
   document.getElementById('seed').textContent = currentSeed;
   syncControlsFromDesign();
-  rebuildCar();
+  startMorph(_morphFrom, design);
 }
 
 // "Crazy" mode: start from classic, then push a few axes outside the
 // real-car envelope — extreme rim, exaggerated wheelbase / track, dramatic
 // rake / stance, larger rounding, sometimes wheels that poke past the body.
 function randomizeCrazy(typeKey) {
+  // Capture the BEFORE state so the morph runs end-to-end (the inner morph
+  // started by randomizeCar gets discarded below).
+  const _morphFrom = _deepClone(design);
   randomizeCar(typeKey);
   const p = design;
   // Wheelbase: occasionally push wheels beyond the body length.
@@ -1046,8 +1623,9 @@ function randomizeCrazy(typeKey) {
   p.taillightSpread  = rng(-0.30, 0.20);
   // Aggressive spoiler default if enabled.
   if (p.accessories.spoiler) p.spoilerHeight = rng(0.30, 0.65);
+  morphState = null;          // discard inner morph; replace with full one
   syncControlsFromDesign();
-  rebuildCar();
+  startMorph(_morphFrom, design);
 }
 
 // ── CONTROLS UI BINDING ────────────────────────────────────────────────────
@@ -1083,6 +1661,23 @@ const SLIDERS = ['bodyLength','bodyWidth','bodyHeight','bodyLift',
 const TS_SLIDERS = { tsX: 'x', tsY: 'y', tsW: 'w', tsH: 'h' };
 const ACC_BOXES  = { acc_antenna: 'antenna', acc_spoiler: 'spoiler',
                      acc_scoop: 'scoop',     acc_roofbox: 'roofbox' };
+// Independent front/rear: each entry maps a slider id to {axle, key}
+const FENDER_SLIDERS = [
+  { id: 'ffFront',  axle: 'front', key: 'front'  },
+  { id: 'ffRear',   axle: 'front', key: 'rear'   },
+  { id: 'ffHeight', axle: 'front', key: 'height' },
+  { id: 'ffWidth',  axle: 'front', key: 'width'  },
+  { id: 'ffY',      axle: 'front', key: 'y'      },
+  { id: 'ffInset',  axle: 'front', key: 'inset'  },
+  { id: 'ffRound',  axle: 'front', key: 'round'  },
+  { id: 'frFront',  axle: 'rear',  key: 'front'  },
+  { id: 'frRear',   axle: 'rear',  key: 'rear'   },
+  { id: 'frHeight', axle: 'rear',  key: 'height' },
+  { id: 'frWidth',  axle: 'rear',  key: 'width'  },
+  { id: 'frY',      axle: 'rear',  key: 'y'      },
+  { id: 'frInset',  axle: 'rear',  key: 'inset'  },
+  { id: 'frRound',  axle: 'rear',  key: 'round'  },
+];
 
 function syncControlsFromDesign() {
   for (const k of SLIDERS) {
@@ -1100,7 +1695,6 @@ function syncControlsFromDesign() {
   document.getElementById('type').value = currentType;
   // Turn signals
   const ts = design.turnSignal;
-  document.getElementById('ts_enabled').checked = ts.enabled;
   document.getElementById('tsOrient').value = ts.orient;
   for (const [id, key] of Object.entries(TS_SLIDERS)) {
     const inp = document.getElementById(id);
@@ -1111,6 +1705,16 @@ function syncControlsFromDesign() {
   for (const [id, key] of Object.entries(ACC_BOXES)) {
     document.getElementById(id).checked = !!design.accessories[key];
   }
+  // Fenders (independent front/rear)
+  const fd = design.fenders || {};
+  document.getElementById('fender_enabled').checked = !!fd.enabled;
+  for (const { id, axle, key } of FENDER_SLIDERS) {
+    const inp = document.getElementById(id);
+    if (!inp || !fd[axle]) continue;
+    const v = fd[axle][key] ?? 0;
+    inp.value = v;
+    inp.parentElement.querySelector('.val').textContent = (+v).toFixed(2);
+  }
 }
 
 // Wire up every slider so it updates design + rebuilds live
@@ -1119,6 +1723,7 @@ for (const k of SLIDERS) {
   inp.addEventListener('input', () => {
     design[k] = parseFloat(inp.value);
     inp.parentElement.querySelector('.val').textContent = (+inp.value).toFixed(2);
+    morphState = null;
     rebuildCar();
   });
 }
@@ -1145,10 +1750,7 @@ document.getElementById('taillightStyle').addEventListener('change', e => {
 document.getElementById('type').addEventListener('change', e => {
   randomizeCar(e.target.value);
 });
-// Turn signals
-document.getElementById('ts_enabled').addEventListener('change', e => {
-  design.turnSignal.enabled = e.target.checked; rebuildCar();
-});
+// Turn signals (always rendered — no enabled toggle)
 document.getElementById('tsOrient').addEventListener('change', e => {
   design.turnSignal.orient = e.target.value; rebuildCar();
 });
@@ -1166,8 +1768,76 @@ for (const [id, key] of Object.entries(ACC_BOXES)) {
     design.accessories[key] = e.target.checked; rebuildCar();
   });
 }
+// Fender checkbox + sliders (independent front/rear)
+document.getElementById('fender_enabled').addEventListener('change', e => {
+  design.fenders.enabled = e.target.checked; rebuildCar();
+});
+for (const { id, axle, key } of FENDER_SLIDERS) {
+  document.getElementById(id).addEventListener('input', e => {
+    design.fenders[axle][key] = parseFloat(e.target.value);
+    e.target.parentElement.querySelector('.val').textContent = (+e.target.value).toFixed(2);
+    rebuildCar();
+  });
+}
 document.getElementById('genClassic').addEventListener('click', () => randomizeCar());
 document.getElementById('genCrazy').addEventListener('click', () => randomizeCrazy());
+
+// ── MORPHING ────────────────────────────────────────────────────────────────
+// On randomize / generate the car morphs over ~500ms from its previous shape
+// to the new one. Per-slider edits are still instant. Numbers lerp linearly,
+// hex colours lerp in RGB, booleans/strings switch at the half-way point.
+const MORPH_MS = 500;
+let morphState = null;          // { from, to, t0, duration }
+let _lastDisplayed = null;       // last interpolated state actually rendered
+
+function _deepClone(o) { return JSON.parse(JSON.stringify(o)); }
+function _lerpColor(a, b, t) {
+  const ar=(a>>16)&255, ag=(a>>8)&255, ab=a&255;
+  const br=(b>>16)&255, bg=(b>>8)&255, bb=b&255;
+  return (Math.round(ar+(br-ar)*t)<<16) | (Math.round(ag+(bg-ag)*t)<<8) | Math.round(ab+(bb-ab)*t);
+}
+function _lerpDeep(a, b, t, key) {
+  if (a === b) return a;
+  if (typeof a === 'number' && typeof b === 'number') {
+    if (key === 'bodyColor' || key === 'rimColor') return _lerpColor(a, b, t);
+    return a + (b - a) * t;
+  }
+  if (a && b && typeof a === 'object' && typeof b === 'object') {
+    const out = Array.isArray(b) ? [] : {};
+    const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+    for (const k of keys) {
+      const av = a[k], bv = b[k];
+      if (av === undefined) out[k] = bv;
+      else if (bv === undefined) out[k] = av;
+      else out[k] = _lerpDeep(av, bv, t, k);
+    }
+    return out;
+  }
+  // strings / booleans / mismatched — switch at midpoint
+  return t < 0.5 ? a : b;
+}
+function startMorph(fromSnapshot, toDesign) {
+  // If a morph is already in flight, blend FROM the current interpolated frame
+  // so successive generations chain smoothly instead of snapping.
+  let from = fromSnapshot;
+  if (morphState && _lastDisplayed) from = _deepClone(_lastDisplayed);
+  morphState = {
+    from,
+    to: _deepClone(toDesign),
+    t0: performance.now(),
+    duration: MORPH_MS,
+  };
+}
+function tickMorph() {
+  if (!morphState) return;
+  const dt = (performance.now() - morphState.t0) / morphState.duration;
+  const t  = Math.min(1, Math.max(0, dt));
+  const k  = t * t * (3 - 2 * t);   // smoothstep
+  const interp = _lerpDeep(morphState.from, morphState.to, k);
+  rebuildCar(interp);
+  _lastDisplayed = interp;
+  if (t >= 1) morphState = null;
+}
 
 // ── ORBIT CAMERA (manual) ───────────────────────────────────────────────────
 let camYaw = -0.6, camPitch = 0.35, camDist = 8.5;
@@ -1289,6 +1959,7 @@ updateCamera();
 
 (function loop() {
   requestAnimationFrame(loop);
+  tickMorph();
   renderer.render(scene, camera);
 })();
 </script>
