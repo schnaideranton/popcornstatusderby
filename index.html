@@ -387,6 +387,9 @@ function rebuildPlayerPreview() {
 }
 
 function fitToViewport() {
+  // Update DPR first — moving between monitors (e.g. external 1x → Retina 2x)
+  // changes devicePixelRatio without a dedicated event; resize catches it.
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
