@@ -2962,7 +2962,9 @@ function loop() {
   }
   // Snap camPos by the same offset so the lerp target doesn't teleport across
   // the arena — camera feels seamless, no visible cut.
-  if (playerWrapDX !== 0 || playerWrapDZ !== 0) {
+  // Only applies in player-follow modes (0-4); spectator (6) and bird's-eye (5)
+  // are world-fixed and must never jump with the player wrap.
+  if ((playerWrapDX !== 0 || playerWrapDZ !== 0) && camMode < 5) {
     camPos.x += playerWrapDX;
     camPos.z += playerWrapDZ;
   }
