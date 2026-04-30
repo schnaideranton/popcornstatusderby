@@ -1217,6 +1217,45 @@ function rebuildCarVisual(car) {
     rb.position.set(p.cabinOffset, roofY + rbH / 2, 0);
     g.add(rb);
   }
+
+  // Fenders / Wings — front and rear independent. Width grows INWARD from
+  // outer face. Y is anchored to the wheel (independent of body lift),
+  // clamped so bottom never sinks below body bottom + 2 cm.
+  if (p.fenders && p.fenders.enabled) {
+    const wRr      = 0.37 * (p.wheelScale || 1);
+    const wWr      = p.wheelWidth || 0.32;
+    const wYr      = wRr - 0.77;
+    const wbHalfF  = (p.wheelbase  || 2.84) / 2;
+    const trkHalfF = (p.trackWidth || 1.84) / 2;
+    const fendMat  = new THREE.MeshLambertMaterial({ color: p.bodyColor });
+    const renderAxle = (cfg, wbSign) => {
+      if (!cfg) return;
+      const fL = (cfg.front || 0) + (cfg.rear || 0);
+      if (fL < 0.01) return;
+      const fH    = cfg.height;
+      const fW    = cfg.width || (wWr + 0.08);
+      const fCXoff = ((cfg.front || 0) - (cfg.rear || 0)) / 2;
+      const baseFCY = wYr + wRr * 0.45 + fH / 2;
+      let fCY = baseFCY + (cfg.y || 0);
+      const minBottom = p.bodyLift + 0.02;
+      if (fCY - fH / 2 < minBottom) fCY = minBottom + fH / 2;
+      const defaultOuterZ = trkHalfF + wWr / 2 + 0.04;
+      const outerZ  = defaultOuterZ - (cfg.inset || 0);
+      const centerZ = outerZ - fW / 2;
+      const fGeom = makeRoundedBoxGeom(
+        fL, fH, fW,
+        Math.min(cfg.round || 0, fL * 0.45, fH * 0.45, fW * 0.45)
+      );
+      for (const trkSign of [1, -1]) {
+        const m = new THREE.Mesh(fGeom, fendMat);
+        m.position.set(wbSign * wbHalfF + fCXoff, fCY, trkSign * centerZ);
+        m.castShadow = true;
+        g.add(m);
+      }
+    };
+    renderAxle(p.fenders.front,  1);
+    renderAxle(p.fenders.rear,  -1);
+  }
 }
 
 // ── LEVEL-BASED PARAMETRIC SYSTEM ─────────────────────────────────────────
@@ -1526,10 +1565,10 @@ function applyTier(car, level) {
     p.cabinOffset = -length / 2 + p.cabinLength / 2;
   }
 
-  // First 10 levels: classic only. Beyond that: 70% chance of a "crazy"
-  // pass that bends every cosmetic axis hard. Big rounding, deep sink,
-  // wild spread, fat spoilers, monster wheels, weird cabin offsets.
-  if (L >= 10 && Math.random() < 0.70) {
+  // First 10 levels: classic only. Beyond that: 30% chance of a "crazy"
+  // pass that bends every cosmetic axis hard (70% stay classic). Big
+  // rounding, deep sink, wild spread, fat spoilers, monster wheels.
+  if (L >= 10 && Math.random() < 0.30) {
     p.bodyRound       = rng(0.10, 0.45);
     p.cabinRound      = rng(0.10, 0.50);
     p.cabinSink       = rng(-0.35, 0.05);
@@ -1543,6 +1582,48 @@ function applyTier(car, level) {
     if (Math.random() < 0.40) p.accessories.scoop = true;
     if (Math.random() < 0.30) p.accessories.antenna = true;
     p.rimDish = -1 * rng(0.08, 0.16);   // always concave when crazy
+  }
+
+  // Fenders / Wings — match the inspector's randomization rules. Tops sit
+  // 5–12% of bodyHeight above body top, bottoms flush with body bottom,
+  // front/rear protrude past the nose / tail by 2–8% of bodyLength, outer
+  // face overhangs body width by 4–12% (sometimes pulls inward up to 15%).
+  // Enabled chance ~35% normal, ~85% for jeep types.
+  {
+    const _wRr      = 0.37 * (p.wheelScale || 1);
+    const _wWr     = p.wheelWidth || 0.32;
+    const _wYr     = _wRr - 0.77;
+    const _wbHalfR = wbHalf;                       // already computed above
+    const _halfBL  = p.bodyLength / 2;
+    const _noseGap = _halfBL - _wbHalfR;
+    const _aboveF  = (Math.random() < 0.7) ? rng(0.05, 0.08) : rng(0.08, 0.12);
+    const _fH      = p.bodyHeight * (1 + _aboveF);
+    const _natBot  = _wYr + _wRr * 0.45;
+    const _tgtBot  = p.bodyLift + 0.02;
+    const _fY      = Math.max(-0.60, Math.min(0.80, _tgtBot - _natBot));
+    const _fW      = _wWr + rng(0.04, 0.14);
+    const _wBias   = (Math.random() < 0.75) ? rng(0.04, 0.12) : rng(-0.15, -0.02);
+    const _tgtOZ   = (p.bodyWidth / 2) * (1 + _wBias);
+    const _defOZ   = (p.trackWidth || p.bodyWidth * 0.96) / 2 + _wWr / 2 + 0.04;
+    const _fIn     = Math.max(-0.15, Math.min(0.40, _defOZ - _tgtOZ));
+    const _protrF  = p.bodyLength * rng(0.02, 0.08);
+    const _protrR  = p.bodyLength * rng(0.02, 0.08);
+    const _wCover  = _wRr * rng(0.9, 1.4);
+    const _fRound  = (typeKey === 'jeep') ? rng(0.06, 0.14) : rng(0.02, 0.08);
+    const _fEnabled = (typeKey === 'jeep')
+      ? Math.random() < 0.85
+      : Math.random() < 0.35;
+    const _base = { height: _fH, y: _fY, width: _fW, inset: _fIn, round: _fRound };
+    p.fenders = {
+      enabled: _fEnabled,
+      front: { ..._base, front: Math.max(0.10, _noseGap + _protrF), rear:  _wCover },
+      rear:  { ..._base, front: _wCover,                            rear:  Math.max(0.10, _noseGap + _protrR) },
+    };
+    // Persist visual wheelbase / track / wheelWidth on the design so fender
+    // rendering positions correctly inside rebuildCarVisual.
+    p.wheelbase   = wheelbase;
+    p.trackWidth  = p.trackWidth || (p.bodyWidth * rng(0.92, 0.99));
+    p.wheelWidth  = _wWr;
   }
 
   applyDesignVisuals(car);
@@ -1616,6 +1697,23 @@ function lerpDesign(a, b, t) {
     out.turnSignal = { ...(t < 0.5 ? a.turnSignal : b.turnSignal) };
     for (const k of ['x','y','w','h']) {
       out.turnSignal[k] = _lerp(a.turnSignal[k], b.turnSignal[k], t);
+    }
+  }
+  // Fenders — booleans snap, numerics lerp per axle.
+  if (a.fenders && b.fenders) {
+    out.fenders = { enabled: t < 0.5 ? !!a.fenders.enabled : !!b.fenders.enabled };
+    for (const axle of ['front', 'rear']) {
+      const af = a.fenders[axle], bf = b.fenders[axle];
+      if (af && bf) {
+        out.fenders[axle] = { ...(t < 0.5 ? af : bf) };
+        for (const k of ['front','rear','height','y','width','inset','round']) {
+          if (typeof af[k] === 'number' && typeof bf[k] === 'number') {
+            out.fenders[axle][k] = _lerp(af[k], bf[k], t);
+          }
+        }
+      } else {
+        out.fenders[axle] = af || bf;
+      }
     }
   }
   return out;
@@ -2897,9 +2995,12 @@ function loop() {
   v.setBrake(hb, 2);
   v.setBrake(hb, 3);
 
-  // Tail-lights: dim red by default, bright red on brake/reverse intent.
+  // Tail-lights: dim red by default, bright red on brake/reverse intent
+  // OR on any drift signal (Space handbrake, touch drift zone, J-turn,
+  // brake-skid lock-up). Real cars light up the lamps mid-drift too.
   if (player.tailMat) {
-    player.tailMat.color.setHex(brakeHeld ? 0xff2200 : 0x660000);
+    const tailHot = brakeHeld || hb > 0;
+    player.tailMat.color.setHex(tailHot ? 0xff2200 : 0x660000);
   }
 
   // ── Shoot — fires at the Popcorn melody's tempo (8th=204ms, 16ths=102ms)
