@@ -1031,6 +1031,67 @@ function makeRoundedCabGeom(bw, bl, h, sf, sr, roundTop) {
   return geom;
 }
 
+// ── WHEEL MESH BUILDER ────────────────────────────────────────────────────
+// Replaces the wheel group's children with a hollow lathe-donut tyre + a
+// proper rim plug per side (flat, concave, or convex depending on rimDish).
+// Same geometry the inspector uses, so the in-game wheel reads the same as
+// what the user just designed. Geometry is built at base radius 0.37; the
+// wheel group itself is scaled by wheelScale in applyDesignVisuals.
+function buildWheelChildren(wg, p) {
+  while (wg.children.length) {
+    const c = wg.children[0];
+    wg.remove(c);
+    if (c.geometry) c.geometry.dispose();
+    if (c.material) c.material.dispose();
+  }
+  const baseR    = 0.37;
+  const baseW    = 0.32;
+  const rimOuter = baseR * (p.rimSize || 0.62);
+  const dishVal  = p.rimDish || 0;
+  const dishAbs  = Math.abs(dishVal);
+  const dishSign = Math.sign(dishVal);
+
+  // Tyre — hollow lathe ring (visible cavity for the rim to sit inside).
+  const halfL  = baseW / 2;
+  const innerR = Math.max(0.02, rimOuter - 0.005);
+  const tyrePts = [
+    new THREE.Vector2(baseR,  -halfL),
+    new THREE.Vector2(baseR,   halfL),
+    new THREE.Vector2(innerR,  halfL),
+    new THREE.Vector2(innerR, -halfL),
+    new THREE.Vector2(baseR,  -halfL),
+  ];
+  const tyreGeom = new THREE.LatheGeometry(tyrePts, 24);
+  tyreGeom.rotateX(Math.PI / 2);
+  const tyre = new THREE.Mesh(tyreGeom, new THREE.MeshLambertMaterial({ color: 0x121214 }));
+  tyre.castShadow = true;
+  wg.add(tyre);
+
+  // Rim plug, one per side: flat cylinder when dish is ~0, lathe profile
+  // (recessed bowl / protruding bulge) when dished.
+  const rimMat = new THREE.MeshLambertMaterial({ color: p.rimColor || 0xc8ccd0 });
+  for (const side of [1, -1]) {
+    let geom;
+    if (dishAbs <= 0.001) {
+      geom = new THREE.CylinderGeometry(rimOuter, rimOuter, 0.025, 24);
+      geom.rotateX(Math.PI / 2);
+    } else {
+      const pts = [
+        new THREE.Vector2(rimOuter,        0),
+        new THREE.Vector2(rimOuter,        dishAbs * 0.85),
+        new THREE.Vector2(rimOuter * 0.92, dishAbs * 1.00),
+        new THREE.Vector2(0,               dishAbs * 1.00),
+      ];
+      geom = new THREE.LatheGeometry(pts, 24);
+      const flip = side * dishSign;
+      geom.rotateX(flip > 0 ? -Math.PI / 2 : Math.PI / 2);
+    }
+    const rim = new THREE.Mesh(geom, rimMat);
+    rim.position.z = side * (baseW / 2 + 0.005);
+    wg.add(rim);
+  }
+}
+
 function rebuildCarVisual(car) {
   const g = car.group;
   while (g.children.length) {
@@ -1086,21 +1147,52 @@ function rebuildCarVisual(car) {
     g.add(cab);
   }
 
-  // Headlights
-  const hlMat  = new THREE.MeshBasicMaterial({ color: 0xffffcc });
-  const hlDef  = HL[p.headlightStyle] || HL.box;
-  const xFront = p.bodyLength / 2 + 0.01 + (p.headlightX || 0);
-  const hlBaseY = bodyCenterY + (p.headlightY || 0);
   // Per-style half-Z extent (so we can clamp the OUTER edge of a round / oval /
   // box light to the body silhouette + 5%, instead of the centre).
   const HL_HALFZ = {
     box:0.15, 'box-h':0.17, tall:0.05, round:0.14, oval:0.119, 'pill-v':0.0455,
     wide:0.30, split:0.09, 'split-tall':0.035, 'split-round':0.08, 'split-oval':0.072,
   };
-  const halfZ = (HL_HALFZ[p.headlightStyle] || 0.15) * (p.headlightW || 1);
   const maxOuter = p.bodyWidth / 2 + p.bodyWidth * 0.05;
+
+  // Compute front + rear fender centers (Y, Z) so headlights / taillights can
+  // snap onto them when the matching fender protrudes past body nose/tail.
+  // Mirror of the inspector's _fenderCenterYZ helper.
+  const _ffEnabled = !!(p.fenders && p.fenders.enabled);
+  const _wRf      = 0.37 * (p.wheelScale || 1);
+  const _wWf      = p.wheelWidth || 0.32;
+  const _wYf      = _wRf - 0.77;
+  const _wbHalfFL = (p.wheelbase  || 2.84) / 2;
+  const _trkHalfL = (p.trackWidth || 1.84) / 2;
+  function _fenderCY(cfg) {
+    if (!cfg) return null;
+    const fH = cfg.height;
+    const fWd = cfg.width || (_wWf + 0.08);
+    const baseFCY = _wYf + _wRf * 0.45 + fH / 2;
+    let fCY = baseFCY + (cfg.y || 0);
+    const minBottom = p.bodyLift + 0.02;
+    if (fCY - fH / 2 < minBottom) fCY = minBottom + fH / 2;
+    const defOZ = _trkHalfL + _wWf / 2 + 0.04;
+    const outerZ = defOZ - (cfg.inset || 0);
+    return { y: fCY, z: outerZ - fWd / 2 };
+  }
+  const _ffCenter = _ffEnabled ? _fenderCY(p.fenders.front) : null;
+  const _frCenter = _ffEnabled ? _fenderCY(p.fenders.rear)  : null;
+
+  // Headlights — snap X / Y / Z onto the front fender when it protrudes.
+  const hlMat = new THREE.MeshBasicMaterial({ color: 0xffffcc });
+  const hlDef = HL[p.headlightStyle] || HL.box;
+  const _ffNoseX = _ffEnabled ? _wbHalfFL + (p.fenders.front.front || 0) : p.bodyLength / 2;
+  const _ffProtrudes = _ffEnabled && _ffNoseX > p.bodyLength / 2;
+  const _fenderNoseX = Math.max(p.bodyLength / 2, _ffNoseX);
+  const xFront = _fenderNoseX + 0.01 + (p.headlightX || 0);
+  const hlBaseY = (_ffProtrudes ? _ffCenter.y : bodyCenterY) + (p.headlightY || 0);
+  const halfZ = (HL_HALFZ[p.headlightStyle] || 0.15) * (p.headlightW || 1);
   const zSideHLraw = Math.max(0.05, p.bodyWidth / 2 - 0.25 + (p.headlightSpread || 0));
-  const zSideHL = Math.min(zSideHLraw, maxOuter - halfZ);
+  const zSideHL_default = Math.min(zSideHLraw, maxOuter - halfZ);
+  const zSideHL = _ffProtrudes
+    ? Math.max(0.05, _ffCenter.z + (p.headlightSpread || 0))
+    : zSideHL_default;
   const placeHL = (x, y, z) => {
     const hl = new THREE.Mesh(hlDef.viz(), hlMat);
     hl.position.set(x, y, z);
@@ -1115,16 +1207,23 @@ function rebuildCarVisual(car) {
     [-zSideHL, zSideHL].forEach(z => placeHL(xFront, hlBaseY, z));
   }
 
-  // Tail lights — per-car material so we can flash bright red on brake.
+  // Tail lights — mirror of the headlight snap. Per-car material so the main
+  // loop can flash them bright red on brake / drift / reverse.
   if (!car.tailMat) car.tailMat = new THREE.MeshBasicMaterial({ color: 0x660000 });
   const tlMat = car.tailMat;
   tlMat.color.setHex(0x660000);          // reset to dim on every rebuild
   const tlDef = HL[p.taillightStyle] || HL['box-h'];
-  const xRear = -p.bodyLength / 2 - 0.01 - (p.taillightX || 0);
-  const tlBaseY = bodyCenterY + (p.taillightY || 0);
+  const _frTailX     = _ffEnabled ? -_wbHalfFL - (p.fenders.rear.rear || 0) : -p.bodyLength / 2;
+  const _frProtrudes = _ffEnabled && _frTailX < -p.bodyLength / 2;
+  const _fenderTailX = Math.min(-p.bodyLength / 2, _frTailX);
+  const xRear = _fenderTailX - 0.01 - (p.taillightX || 0);
+  const tlBaseY = (_frProtrudes ? _frCenter.y : bodyCenterY) + (p.taillightY || 0);
   const halfZTL = (HL_HALFZ[p.taillightStyle] || 0.15) * (p.taillightW || 1);
   const zSideTLraw = Math.max(0.05, p.bodyWidth / 2 - 0.25 + (p.taillightSpread || 0));
-  const zSideTL = Math.min(zSideTLraw, maxOuter - halfZTL);
+  const zSideTL_default = Math.min(zSideTLraw, maxOuter - halfZTL);
+  const zSideTL = _frProtrudes
+    ? Math.max(0.05, _frCenter.z + (p.taillightSpread || 0))
+    : zSideTL_default;
   const placeTL = (x, y, z) => {
     const tl = new THREE.Mesh(tlDef.viz(), tlMat);
     tl.position.set(x, y, z);
@@ -1644,20 +1743,12 @@ function applyDesignVisuals(car) {
   rebuildCarVisual(car);
   if (typeof rebuildShadowsFor === 'function') rebuildShadowsFor(car);
   if (!car.wheels) return;
-  const s = p.wheelScale;
-  car.wheels.forEach(w => w.scale.set(s, s, s));
+  // Rebuild wheel meshes (lathe tyre + dish rim plug) so visuals match the
+  // inspector. Geometry sits at base radius 0.37; group scale handles wheelScale.
+  const s = p.wheelScale || 1;
   car.wheels.forEach(wg => {
-    if (wg.userData.hubMat) wg.userData.hubMat.color.setHex(p.rimColor || 0xc8ccd0);
-    const dishSign = Math.sign(p.rimDish || 0);
-    const sz = p.rimSize ? (p.rimSize / 0.62) : 1;
-    const innerScale = dishSign < 0 ? 1.6 : 0.65;
-    wg.children.forEach(c => {
-      if (!c.userData.role) return;
-      const baseZ = c.userData.baseZ || 0;
-      c.position.z = baseZ;
-      if (c.userData.role === 'hub') c.scale.set(sz, sz, 1);
-      if (c.userData.role === 'innerHub') c.scale.set(sz * innerScale, sz * innerScale, 1);
-    });
+    buildWheelChildren(wg, p);
+    wg.scale.set(s, s, s);
   });
 }
 
@@ -1838,39 +1929,11 @@ function makeCar(px, pz, color) {
 
   vehicle.addToWorld(world);
 
-  // Wheel meshes — tyre + hub disc on each side, grouped so updateWheelTransform spins them
-  const tyreGeom = new THREE.CylinderGeometry(0.37, 0.37, 0.32, 20);
-  tyreGeom.applyMatrix4(new THREE.Matrix4().makeRotationX(Math.PI / 2));
-  const tyreMat = new THREE.MeshLambertMaterial({ color: 0x1a1a1a });
-
-  const hubGeom = new THREE.CircleGeometry(0.22, 18);
-  const hubMat  = new THREE.MeshLambertMaterial({ color: 0xbbbbbb });
-  const innerHubGeom = new THREE.CircleGeometry(0.10, 14);
-  const innerHubMat  = new THREE.MeshLambertMaterial({ color: 0x444444 });
-
-  // Per-car hub material so each car can have its own rim colour.
-  const hubMatLocal = new THREE.MeshLambertMaterial({ color: 0xc8ccd0 });
+  // Wheel meshes — empty groups, populated by buildWheelChildren below.
+  // Geometry is rebuilt per car based on design (rimSize, rimDish, rimColor)
+  // so the in-game wheel matches the inspector's lathe-based donut + dish rim.
   const wheels = vehicle.wheelInfos.map(() => {
     const wg = new THREE.Group();
-    const tyre = new THREE.Mesh(tyreGeom, tyreMat);
-    tyre.castShadow = true;
-    wg.add(tyre);
-
-    [0.165, -0.165].forEach((z, i) => {
-      const hub = new THREE.Mesh(hubGeom, hubMatLocal);
-      hub.position.z = z;
-      if (i === 1) hub.rotation.y = Math.PI;
-      hub.userData.role = 'hub';
-      hub.userData.baseZ = z;
-      wg.add(hub);
-      const inner = new THREE.Mesh(innerHubGeom, innerHubMat);
-      inner.position.z = z + (i === 0 ? 0.001 : -0.001);
-      if (i === 1) inner.rotation.y = Math.PI;
-      inner.userData.role = 'innerHub';
-      inner.userData.baseZ = z + (i === 0 ? 0.001 : -0.001);
-      wg.add(inner);
-    });
-    wg.userData.hubMat = hubMatLocal;
     scene.add(wg);
     return wg;
   });
