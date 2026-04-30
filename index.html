@@ -1788,7 +1788,7 @@ function applyTier(car, level) {
   p.rimColor   = pick([0xc8ccd0, 0x222222, 0x55585e, 0xffd700, 0xff3366,
                        0xeeeeee, 0x39ff14, 0x00e5ff, 0xb8b8b8, 0x8a6e3c]);
   // Uniform across the slider range so the arena shows every rim style.
-  p.rimDepth   = rng(-0.20, 0.05);
+  p.rimDepth   = rng(-0.05, 0.20);
   p.rimSize    = rng(0.50, 0.78);
 
   // ── New design fields ────────────────────────────────────────────────
@@ -1865,7 +1865,7 @@ function applyTier(car, level) {
     if (p.accessories.spoiler) p.spoilerHeight = rng(0.25, 0.75);
     if (Math.random() < 0.40) p.accessories.scoop = true;
     if (Math.random() < 0.30) p.accessories.antenna = true;
-    p.rimDepth = rng(-0.20, 0.05);      // crazy still uniform across the range
+    p.rimDepth = rng(-0.05, 0.20);      // crazy still uniform across the range
   }
 
   // Fenders / Wings — match the inspector's randomization rules. Tops sit
