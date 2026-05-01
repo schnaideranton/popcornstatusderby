@@ -9,11 +9,21 @@
   body { background: #15171c; color: #ddd; font-family: 'Courier New', monospace; font-size: 12px; }
   #layout { display: flex; height: 100vh; }
   #scene  { flex: 1; display: flex; align-items: center; justify-content: center;
-            background: #15171c; padding: 14px; min-height: 0; min-width: 0; }
+            background: #15171c; padding: 14px; min-height: 0; min-width: 0;
+            container-type: size; }
   /* CARD-WRAP — single white frame holding both the 3D scene and the
      turbo-card data strip. All visual values are CSS vars so the live
      tuner panel can drive them. */
   #card-wrap {
+    /* All px-based sizes below are baselined to a card 400px wide. The
+       `--s` factor (calc-d to 1 at 400cqi-width) scales every dimension
+       linearly with the actual card width — both inspector and game card
+       use this same scheme. Resize the window → card and text scale
+       together, glassy-smooth. */
+    container-type: inline-size;
+    --card-base-w:    400px;
+    --s:              calc(100cqi / var(--card-base-w));
+
     --card-bg:        #f4f4f4;
     --scene-bg:       #1c2026;
     --frame-side:     30px;   /* top + L + R white margin */
@@ -48,13 +58,11 @@
     aspect-ratio: 4 / 3;
     display: flex; flex-direction: column;
     background: var(--card-bg);
-    padding: var(--frame-side) var(--frame-side) 0;
+    padding: calc(var(--frame-side) * var(--s)) calc(var(--frame-side) * var(--s)) 0;
     border-radius: 2px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.10);
     min-height: 0;
   }
-  /* Container query unit — needs a containment context on the parent. */
-  #scene { container-type: size; }
   #scene-frame {
     flex: 1; position: relative; overflow: hidden;
     background: var(--scene-bg); border-radius: 2px;
@@ -66,31 +74,32 @@
     display: grid;
     grid-template-columns: 1.4fr 1.2fr 1.2fr 1.2fr 1fr;
     color: var(--font-color);
-    padding: var(--bottom-pad-y) var(--bottom-pad-x);
+    padding: calc(var(--bottom-pad-y) * var(--s)) calc(var(--bottom-pad-x) * var(--s));
     font-family: 'Courier New', monospace;
     line-height: 1.25;
     align-items: center;
-    gap: var(--col-gap);
+    gap: calc(var(--col-gap) * var(--s));
   }
   .tc-brand   { display: flex; flex-direction: column; gap: 0;
                 align-items: center; text-align: center; }
   .tc-name    { font-family: var(--name-font);
-                font-size: var(--name-size); font-weight: var(--name-weight);
-                letter-spacing: var(--name-letter); line-height: 1;
-                color: var(--font-color);
+                font-size: calc(var(--name-size) * var(--s));
+                font-weight: var(--name-weight);
+                letter-spacing: calc(var(--name-letter) * var(--s));
+                line-height: 1; color: var(--font-color);
                 font-stretch: condensed; }
-  /* Sub-line — single text block holding both the descriptor (FENDER/etc.)
-     and the seed. Same font + size, separated by a middle dot, wraps on
-     long content. seedSize/seedWeight are no longer used (one shared style). */
-  .tc-subline { font-size: var(--sub-size); color: var(--font-color);
-                letter-spacing: var(--sub-letter);
-                margin-top: var(--sub-gap);
+  .tc-subline { font-size: calc(var(--sub-size) * var(--s));
+                color: var(--font-color);
+                letter-spacing: calc(var(--sub-letter) * var(--s));
+                margin-top: calc(var(--sub-gap) * var(--s));
                 font-weight: var(--sub-weight); line-height: 1.15;
                 text-align: center; max-width: 100%; }
   .tc-sub, .tc-seed { font: inherit; color: inherit; letter-spacing: inherit; }
-  .tc-stats   { display: flex; flex-direction: column; gap: var(--row-gap); }
+  .tc-stats   { display: flex; flex-direction: column;
+                gap: calc(var(--row-gap) * var(--s)); }
   .tc-row     { display: flex; justify-content: flex-start;
-                gap: var(--pair-gap); font-size: var(--row-size); }
+                gap: calc(var(--pair-gap) * var(--s));
+                font-size: calc(var(--row-size) * var(--s)); }
   .tc-l       { color: var(--font-color); letter-spacing: 0.5px;
                 font-weight: var(--label-weight); white-space: nowrap; }
   .tc-v       { font-weight: var(--value-weight); text-align: left;
@@ -100,12 +109,16 @@
                 align-items: flex-end; gap: 0; line-height: 0.95;
                 align-self: start; }
   .tc-logo-name { font-family: var(--name-font);
-                  font-size: var(--logo-name-size); font-weight: var(--logo-weight);
-                  letter-spacing: 1.5px; color: var(--font-color);
+                  font-size: calc(var(--logo-name-size) * var(--s));
+                  font-weight: var(--logo-weight);
+                  letter-spacing: calc(1.5px * var(--s));
+                  color: var(--font-color);
                   font-style: italic; font-stretch: condensed; }
-  .tc-logo-num  { font-size: var(--logo-num-size); font-weight: var(--logo-weight);
-                  line-height: 1; color: var(--font-color); letter-spacing: -1px;
-                  margin-top: 2px; }
+  .tc-logo-num  { font-size: calc(var(--logo-num-size) * var(--s));
+                  font-weight: var(--logo-weight);
+                  line-height: 1; color: var(--font-color);
+                  letter-spacing: calc(-1px * var(--s));
+                  margin-top: calc(2px * var(--s)); }
   /* Field visibility — toggled by the tuner via data-show-* attributes. */
   #card-wrap[data-show-name="0"]      .tc-name      { display: none; }
   /* Hide separator dot when either side is hidden so we don't end up with
@@ -2004,9 +2017,11 @@ for (const { id, axle, key } of FENDER_SLIDERS) {
 // Live-tuning panel overlaid on the 3D scene. Every value lives as a CSS
 // var on #card-wrap (or as a data-show-* attribute), is persisted to
 // localStorage under 'tc-tune-inspector', and is broadcast cross-window
-// Inspector card has its own key — game card uses tc-tune-game-{desktop,
-// mobile} so big inspector type doesn't dwarf the small in-game HUD.
-const TC_STORE = 'tc-tune-inspector';
+// One shared key with the game card. Values are sized for a 400px-wide
+// "base" card; both inspector and game cards scale via container-query
+// units (cqi), so a 360px game card automatically renders the same look at
+// 90% size. No per-port hacks.
+const TC_STORE = 'tc-tune';
 const TC_DEFAULTS = {
   // frame
   cardBg: '#f4f4f4',

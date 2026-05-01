@@ -179,30 +179,38 @@
      turbo data strip. Same CSS-var scheme as the inspector, driven by the
      shared 'tc-tune' localStorage state (see #gtc-tune below). */
   #game-card-wrap {
+    /* Same responsive scheme as the inspector — vars below are baselined
+       to a 400px-wide card; cqi factor scales everything proportionally
+       to the actual width. The game card is just a smaller slice of the
+       same image. */
+    container-type: inline-size;
+    --card-base-w:    400px;
+    --s:              calc(100cqi / var(--card-base-w));
+
     --card-bg:        #f4f4f4;
     --scene-bg:       #1c2026;
-    --frame-side:     14px;
-    --bottom-pad-y:   10px;
-    --bottom-pad-x:   12px;
-    --col-gap:        10px;
-    --row-gap:        2px;
-    --pair-gap:       6px;
+    --frame-side:     30px;
+    --bottom-pad-y:   26px;
+    --bottom-pad-x:   32px;
+    --col-gap:        24px;
+    --row-gap:        5px;
+    --pair-gap:       8px;
     --font-color:     #000;
     --name-font:      'Arial Narrow', 'Helvetica Neue Condensed', 'Roboto Condensed', 'Oswald', Impact, sans-serif;
-    --name-size:      18px;
+    --name-size:      38px;
     --name-weight:    900;
-    --name-letter:    1.5px;
+    --name-letter:    2px;
     --sub-gap:        2px;
-    --sub-size:       9px;
+    --sub-size:       12px;
     --sub-weight:     700;
-    --sub-letter:     1.5px;
-    --seed-size:      8px;
+    --sub-letter:     2.5px;
+    --seed-size:      11px;
     --seed-weight:    700;
-    --row-size:       10px;
+    --row-size:       12px;
     --label-weight:   700;
     --value-weight:   900;
-    --logo-name-size: 14px;
-    --logo-num-size:  26px;
+    --logo-name-size: 28px;
+    --logo-num-size:  56px;
     --logo-weight:    900;
 
     position: absolute; top: 14px; right: 14px; z-index: 5;
@@ -221,11 +229,8 @@
   /* Click target — invisible div on top of the slot that opens the inspector. */
   #preview-slot {
     position: relative; flex: 1; min-height: 0;
-    /* Transparent — the WebGL canvas underneath renders the iso preview
-       directly into this rectangle (viewport coords read from this div's
-       bbox). White "frame" comes from the surrounding border. */
     background: transparent;
-    border: var(--frame-side) solid var(--card-bg);
+    border: calc(var(--frame-side) * var(--s)) solid var(--card-bg);
     border-bottom: 0;
     border-radius: 6px 6px 0 0;
     cursor: pointer;
@@ -239,45 +244,53 @@
   #game-tc {
     background: var(--card-bg);
     color: var(--font-color);
-    padding: var(--bottom-pad-y) var(--bottom-pad-x);
+    padding: calc(var(--bottom-pad-y) * var(--s)) calc(var(--bottom-pad-x) * var(--s));
     border-radius: 0 0 6px 6px;
     font-family: 'Courier New', monospace;
     line-height: 1.2; pointer-events: none;
-    display: grid; gap: var(--col-gap);
+    display: grid; gap: calc(var(--col-gap) * var(--s));
     grid-template-columns: 1.4fr 1fr 1fr 1fr 0.8fr;
     align-items: center;
   }
   #game-tc .gtc-brand   { display: flex; flex-direction: column; gap: 0;
                           align-items: center; text-align: center; }
   #game-tc .gtc-name    { font-family: var(--name-font);
-                          font-size: var(--name-size); font-weight: var(--name-weight);
-                          letter-spacing: var(--name-letter); line-height: 1;
-                          color: var(--font-color); font-stretch: condensed; }
-  #game-tc .gtc-subline { font-size: var(--sub-size); color: var(--font-color);
-                          letter-spacing: var(--sub-letter);
-                          margin-top: var(--sub-gap);
+                          font-size: calc(var(--name-size) * var(--s));
+                          font-weight: var(--name-weight);
+                          letter-spacing: calc(var(--name-letter) * var(--s));
+                          line-height: 1; color: var(--font-color);
+                          font-stretch: condensed; }
+  #game-tc .gtc-subline { font-size: calc(var(--sub-size) * var(--s));
+                          color: var(--font-color);
+                          letter-spacing: calc(var(--sub-letter) * var(--s));
+                          margin-top: calc(var(--sub-gap) * var(--s));
                           font-weight: var(--sub-weight); line-height: 1.15;
                           text-align: center; max-width: 100%; }
   #game-tc .gtc-sub, #game-tc .gtc-seed { font: inherit; color: inherit; letter-spacing: inherit; }
-  #game-tc .gtc-stats   { display: flex; flex-direction: column; gap: var(--row-gap); }
+  #game-tc .gtc-stats   { display: flex; flex-direction: column;
+                          gap: calc(var(--row-gap) * var(--s)); }
   #game-tc .gtc-row     { display: flex; justify-content: flex-start;
-                          gap: var(--pair-gap); font-size: var(--row-size); }
+                          gap: calc(var(--pair-gap) * var(--s));
+                          font-size: calc(var(--row-size) * var(--s)); }
   #game-tc .gtc-l       { color: var(--font-color); white-space: nowrap;
                           font-weight: var(--label-weight); }
   #game-tc .gtc-v       { font-weight: var(--value-weight); text-align: left;
-                          color: var(--font-color);
-                          white-space: nowrap;
+                          color: var(--font-color); white-space: nowrap;
                           overflow: hidden; text-overflow: ellipsis; }
   #game-tc .gtc-logo    { display: flex; flex-direction: column;
                           align-items: flex-end; gap: 0; line-height: 0.95;
                           align-self: start; }
   #game-tc .gtc-logo-name { font-family: var(--name-font);
-                            font-size: var(--logo-name-size); font-weight: var(--logo-weight);
-                            letter-spacing: 1.2px; color: var(--font-color);
+                            font-size: calc(var(--logo-name-size) * var(--s));
+                            font-weight: var(--logo-weight);
+                            letter-spacing: calc(1.5px * var(--s));
+                            color: var(--font-color);
                             font-style: italic; font-stretch: condensed; }
-  #game-tc .gtc-logo-num  { font-size: var(--logo-num-size); font-weight: var(--logo-weight);
-                            line-height: 1; color: var(--font-color); letter-spacing: -0.5px;
-                            margin-top: 2px; }
+  #game-tc .gtc-logo-num  { font-size: calc(var(--logo-num-size) * var(--s));
+                            font-weight: var(--logo-weight);
+                            line-height: 1; color: var(--font-color);
+                            letter-spacing: calc(-1px * var(--s));
+                            margin-top: calc(2px * var(--s)); }
   #game-card-wrap[data-show-sub="0"]       .gtc-sub       { display: none; }
   #game-card-wrap[data-show-sub="0"]       .gtc-sep       { display: none; }
   #game-card-wrap[data-show-seed="0"]      .gtc-seed      { display: none; }
@@ -2690,24 +2703,25 @@ window.addEventListener('resize', syncPreviewClick);
 // Same controls as the inspector's #tc-tune panel, persisted to the same
 // 'tc-tune' localStorage key so changes propagate both ways via storage
 // events. Camera fields are inspector-only — game ignores them.
-// Game card has its own tuning state — inspector card values (which the
-// user pumps up to ~70px name size, etc.) would dwarf the small game card.
-// Per-port keys: desktop and portrait/touch each get their own slot.
-const GTC_STORE = matchMedia('(orientation: portrait), (max-width: 700px)').matches
-  ? 'tc-tune-game-mobile'
-  : 'tc-tune-game-desktop';
+// Shared key with the inspector. Sizes are baselined to a 400px-wide card
+// and scale via container-query units (cqi); the smaller game card just
+// renders the same look at the appropriate scale.
+const GTC_STORE = 'tc-tune';
+// Same defaults as the inspector — both cards share the 'tc-tune' key
+// and scale via container queries, so the values are identical and the
+// game card just renders smaller.
 const GTC_DEFAULTS = {
   cardBg: '#f4f4f4', sceneBg: '#1c2026',
-  frameSide: 14, bottomPadY: 10, bottomPadX: 12,
-  colGap: 10, rowGap: 2, pairGap: 6,
+  frameSide: 30, bottomPadY: 26, bottomPadX: 32,
+  colGap: 24, rowGap: 5, pairGap: 8,
   fontColor: '#000000',
   nameFontIdx: 0,
-  nameSize: 18, nameWeight: 900, nameLetter: 1.5,
+  nameSize: 38, nameWeight: 900, nameLetter: 2.0,
   subGap: 2,
-  subSize: 9,   subWeight: 700,  subLetter: 1.5,
-  seedSize: 8,  seedWeight: 700,
-  rowSize: 10,  labelWeight: 700, valueWeight: 900,
-  logoNameSize: 14, logoNumSize: 26, logoWeight: 900,
+  subSize: 12, subWeight: 700, subLetter: 2.5,
+  seedSize: 11, seedWeight: 700,
+  rowSize: 12, labelWeight: 700, valueWeight: 900,
+  logoNameSize: 28, logoNumSize: 56, logoWeight: 900,
   showName: 1, showSub: 1, showSeed: 1,
   showLen: 1, showWid: 1, showHgt: 1,
   showWbs: 1, showTrk: 1, showWhd: 1,
@@ -3965,16 +3979,46 @@ function loop() {
     const x = r ? Math.floor((r.left + bL) * dpr) : (W - w - Math.floor(14 * dpr));
     const y = r ? (H - Math.floor((r.top + bT + cssH) * dpr)) : (H - h - Math.floor(14 * dpr));
 
-    // Match the ortho frustum to the inset aspect so the car keeps its
-    // real proportions (no vertical stretch).
+    // ── ISO AUTO-FIT ────────────────────────────────────────────────────
+    // Compute the previewGroup bbox each frame and size the ortho frustum
+    // tightly around it, with a small margin. Aim the camera at the bbox
+    // center (X/Y/Z) so the car sits in the visual middle of the slot
+    // regardless of body lift, fender thickness, or wheel scale.
     const aspect = w / h;
-    const halfH = 1.9;                       // ~3.8 vertical world units fit
+    previewGroup.updateMatrixWorld(true);
+    const _box = new THREE.Box3().setFromObject(previewGroup);
+    const _ctr = _box.getCenter(new THREE.Vector3());
+    // Camera is offset along a fixed front-left direction; we just slide
+    // the position so it always points at the centre.
+    const camDir = new THREE.Vector3(6, 4.0, -6).normalize();
+    miniCam.position.copy(camDir).multiplyScalar(20).add(_ctr);
+    miniCam.lookAt(_ctr.x, _ctr.y, _ctr.z);
+    // Compute the bbox extent along the camera's right/up axes so the
+    // frustum fits the car exactly (no excess sky / no clipped fenders).
+    const fwd   = new THREE.Vector3().subVectors(_ctr, miniCam.position).normalize();
+    const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), fwd).normalize();
+    const upAx  = new THREE.Vector3().crossVectors(fwd, right).normalize();
+    let extX = 0, extY = 0;
+    const corners = [
+      new THREE.Vector3(_box.min.x, _box.min.y, _box.min.z),
+      new THREE.Vector3(_box.min.x, _box.min.y, _box.max.z),
+      new THREE.Vector3(_box.min.x, _box.max.y, _box.min.z),
+      new THREE.Vector3(_box.min.x, _box.max.y, _box.max.z),
+      new THREE.Vector3(_box.max.x, _box.min.y, _box.min.z),
+      new THREE.Vector3(_box.max.x, _box.min.y, _box.max.z),
+      new THREE.Vector3(_box.max.x, _box.max.y, _box.min.z),
+      new THREE.Vector3(_box.max.x, _box.max.y, _box.max.z),
+    ];
+    for (const c of corners) {
+      const v = c.sub(_ctr);
+      extX = Math.max(extX, Math.abs(v.dot(right)));
+      extY = Math.max(extY, Math.abs(v.dot(upAx)));
+    }
+    const margin = 1.1;
+    const halfH = Math.max(extY, extX / aspect) * margin;
     const halfW = halfH * aspect;
     miniCam.left  = -halfW; miniCam.right =  halfW;
     miniCam.top   =  halfH; miniCam.bottom = -halfH;
-    // Camera at front-left of the car. +X is forward; -Z is the left side.
-    miniCam.position.set(6, PREVIEW_Y + 4.0, -6);
-    miniCam.lookAt(0, PREVIEW_Y + 0.4, 0);
     miniCam.updateProjectionMatrix();
 
     // Suppress the scene background so the inset is transparent — viewer
