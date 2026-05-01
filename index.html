@@ -6,7 +6,11 @@
 <title>SCHNAIDER RACING</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #000; overflow: hidden; }
+  /* dvh / dvw use the *dynamic* viewport — accounts for iOS Safari URL bar
+     collapsing/expanding without firing a reliable resize event. Fallback
+     to vh/vw on browsers that don't support dvh yet. */
+  html, body { width: 100vw; height: 100vh; height: 100dvh; }
+  body { background: #000; overflow: hidden; position: fixed; inset: 0; }
   canvas { display: block; }
   #hud {
     position: fixed; inset: 0; pointer-events: none;
@@ -643,14 +647,24 @@ function rebuildPlayerPreview() {
 }
 
 function fitToViewport() {
-  // Update DPR first — moving between monitors (e.g. external 1x → Retina 2x)
-  // changes devicePixelRatio without a dedicated event; resize catches it.
+  // Prefer visualViewport — on iOS Safari it tracks the *visible* area as
+  // the URL bar collapses/expands, while window.inner* lags behind and can
+  // leave the canvas at e.g. 2× viewport size (showing only one quadrant
+  // until the user pinch-zooms out).
+  const vv = window.visualViewport;
+  const w  = Math.round(vv ? vv.width  : window.innerWidth);
+  const h  = Math.round(vv ? vv.height : window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(w, h);
 }
 window.addEventListener('resize', fitToViewport);
+window.addEventListener('orientationchange', fitToViewport);
+if (window.visualViewport) {
+  visualViewport.addEventListener('resize', fitToViewport);
+  visualViewport.addEventListener('scroll', fitToViewport);
+}
 window.addEventListener('orientationchange', () => {
   // iOS reports the wrong size for a few frames after rotation — re-fit a bit later.
   setTimeout(fitToViewport, 100);
@@ -2676,7 +2690,12 @@ window.addEventListener('resize', syncPreviewClick);
 // Same controls as the inspector's #tc-tune panel, persisted to the same
 // 'tc-tune' localStorage key so changes propagate both ways via storage
 // events. Camera fields are inspector-only — game ignores them.
-const GTC_STORE = 'tc-tune';
+// Game card has its own tuning state — inspector card values (which the
+// user pumps up to ~70px name size, etc.) would dwarf the small game card.
+// Per-port keys: desktop and portrait/touch each get their own slot.
+const GTC_STORE = matchMedia('(orientation: portrait), (max-width: 700px)').matches
+  ? 'tc-tune-game-mobile'
+  : 'tc-tune-game-desktop';
 const GTC_DEFAULTS = {
   cardBg: '#f4f4f4', sceneBg: '#1c2026',
   frameSide: 14, bottomPadY: 10, bottomPadX: 12,
@@ -2841,15 +2860,9 @@ const gtcHead = document.querySelector('#gtc-tune .gt-head');
 if (gtcHead) gtcHead.addEventListener('click', () => document.getElementById('gtc-tune').classList.toggle('collapsed'));
 gtcApply(gtcState);
 gtcBuildPanel();
-window.addEventListener('storage', (e) => {
-  if (e.key !== GTC_STORE || !e.newValue) return;
-  try {
-    const next = JSON.parse(e.newValue);
-    Object.assign(gtcState, GTC_DEFAULTS, next);
-    gtcApply(gtcState);
-    gtcBuildPanel();
-  } catch (_) {}
-});
+// No cross-window sync — inspector and game cards now tune independently
+// (different localStorage keys) so big inspector type doesn't wreck the
+// small in-game HUD card.
 previewClickEl.addEventListener('click', () => {
   const json = JSON.stringify(player.design);
   inspectorIframe.src = 'inspector.html?design=' + encodeURIComponent(json);

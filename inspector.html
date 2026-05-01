@@ -127,7 +127,7 @@
   #card-wrap[data-show-logo-name="0"] .tc-logo-name { display: none; }
   #card-wrap[data-show-logo-num="0"]  .tc-logo-num  { display: none; }
 
-  @media (max-width: 900px) {
+  @media (orientation: portrait), (max-width: 700px) {
     #scene { padding: 8px; }
     #card-wrap { --frame-side: 12px; --bottom-pad-y: 12px; --bottom-pad-x: 14px;
                  --col-gap: 10px; --name-size: 22px; --name-letter: 1.5px;
@@ -183,7 +183,7 @@
     border: 1px solid rgba(255,255,255,0.15); border-radius: 3px;
     font-family: inherit; font-size: 9px; padding: 4px;
     height: 60px; resize: vertical; }
-  @media (max-width: 900px) {
+  @media (orientation: portrait), (max-width: 700px) {
     #tc-tune { width: 200px; font-size: 9px; }
     #tc-tune .tc-row2 { grid-template-columns: 70px 1fr 32px; }
   }
@@ -221,7 +221,7 @@
 
   /* MOBILE — stack the 3D scene on top (pinned) and scroll the panel below.
      Keeps the live preview always visible while you tweak settings. */
-  @media (max-width: 900px) {
+  @media (orientation: portrait), (max-width: 700px) {
     html, body { height: auto; overflow: auto; }
     #layout    { display: block; height: auto; }
     #scene     { position: fixed; top: 0; left: 0; width: 100vw; height: 38vh;
@@ -2004,9 +2004,9 @@ for (const { id, axle, key } of FENDER_SLIDERS) {
 // Live-tuning panel overlaid on the 3D scene. Every value lives as a CSS
 // var on #card-wrap (or as a data-show-* attribute), is persisted to
 // localStorage under 'tc-tune-inspector', and is broadcast cross-window
-// (the 'storage' event in the game tab) so the game's #game-tc and iso
-// preview re-apply the same theme.
-const TC_STORE = 'tc-tune';
+// Inspector card has its own key — game card uses tc-tune-game-{desktop,
+// mobile} so big inspector type doesn't dwarf the small in-game HUD.
+const TC_STORE = 'tc-tune-inspector';
 const TC_DEFAULTS = {
   // frame
   cardBg: '#f4f4f4',
@@ -2294,12 +2294,14 @@ function tcAutoFit() {
   const box = new THREE.Box3().setFromObject(carGroup);
   if (!isFinite(box.min.x) || box.isEmpty()) return;
 
-  // Centre orbit pivot on the actual car centre so off-axis bodies sit in
-  // the middle of the frame.
+  // Centre orbit pivot on the actual car centre — including Y, so the car
+  // sits in the visual middle of the frame instead of slipping toward the
+  // bottom (camera was previously aimed at a fixed Y while the bbox sat
+  // higher, leaving empty space above the car).
   const centre = box.getCenter(new THREE.Vector3());
   camTarget.x = centre.x;
+  camTarget.y = centre.y;
   camTarget.z = centre.z;
-  // Keep camTgtY whatever the user set — vertical aim is theirs.
 
   const fovRad = camera.fov * Math.PI / 180;
   const aspect = camera.aspect || 1;
@@ -2353,17 +2355,9 @@ function tcAutoFit() {
   if (typeof updateCamera === 'function') updateCamera();
 }
 
-// Cross-window sync — the game tab writes to the same key, this listener
-// pulls those changes in and re-renders the panel.
-window.addEventListener('storage', (e) => {
-  if (e.key !== TC_STORE || !e.newValue) return;
-  try {
-    const next = JSON.parse(e.newValue);
-    Object.assign(tcState, TC_DEFAULTS, next);
-    tcApply(tcState);
-    tcBuildPanel();
-  } catch (_) {}
-});
+// Inspector and game cards tune independently now (separate localStorage
+// keys) — no cross-window listener needed. If you want to mirror, paste
+// the JSON from one panel into the other via Copy JSON.
 
 document.getElementById('genClassic').addEventListener('click', () => randomizeCar());
 document.getElementById('genCrazy').addEventListener('click', () => randomizeCrazy());
