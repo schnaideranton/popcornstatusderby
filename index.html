@@ -123,7 +123,9 @@
   #spec-tune .v { width: 32px; text-align: right; opacity: 0.85; }
   /* Settings drawer + gear button. Default hidden — open via ⚙. */
   #gear-btn {
-    position: absolute; top: 14px; right: 320px;
+    /* Anchored bottom-right so it never collides with the Turbo card
+       (top-right) or the Cargeneddon button (top-centre). */
+    position: absolute; bottom: 14px; right: 14px;
     width: 36px; height: 36px; border-radius: 50%;
     background: rgba(0,0,0,0.55); color: #ddd;
     border: 1px solid rgba(255,255,255,0.25);
@@ -133,7 +135,7 @@
   #gear-btn:hover { background: rgba(255,255,255,0.10); }
   body.touch #gear-btn { display: none; }
   #settings-drawer {
-    display: none; position: absolute; top: 60px; right: 14px;
+    display: none; position: absolute; bottom: 60px; right: 14px;
     width: 320px; max-height: calc(100vh - 80px); overflow-y: auto;
     padding: 14px 16px; border-radius: 8px;
     background: rgba(0,0,0,0.78); color: #ddd;
@@ -200,21 +202,28 @@
     --logo-weight:    900;
 
     position: absolute; top: 14px; right: 14px; z-index: 5;
-    background: var(--card-bg);
-    padding: var(--frame-side) var(--frame-side) 0;
+    /* Wrap is a layout container only — transparent so the iso WebGL render
+       inside #preview-slot shows through the canvas. The white "photograph
+       mat" appearance comes from the slot's outer border + the data strip's
+       own background. */
+    background: transparent;
     border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.08);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
     display: flex; flex-direction: column;
-    /* Same 8:6 lock as the inspector. Width is fixed by JS (preview-slot
-       size). Card height is derived from that via aspect-ratio so the whole
-       white frame stays in classic Turbo proportion. */
+    width: 360px;
     aspect-ratio: 4 / 3;
   }
   /* Card stays visible on touch — user wants to see / tune it everywhere. */
   /* Click target — invisible div on top of the slot that opens the inspector. */
   #preview-slot {
-    position: relative; width: 320px; height: 198px;
-    background: var(--scene-bg); border-radius: 2px;
+    position: relative; flex: 1; min-height: 0;
+    /* Transparent — the WebGL canvas underneath renders the iso preview
+       directly into this rectangle (viewport coords read from this div's
+       bbox). White "frame" comes from the surrounding border. */
+    background: transparent;
+    border: var(--frame-side) solid var(--card-bg);
+    border-bottom: 0;
+    border-radius: 6px 6px 0 0;
     cursor: pointer;
   }
   #preview-click {
@@ -224,8 +233,10 @@
   }
   #preview-click:hover { border-color: rgba(255,255,255,0.55); }
   #game-tc {
+    background: var(--card-bg);
     color: var(--font-color);
     padding: var(--bottom-pad-y) var(--bottom-pad-x);
+    border-radius: 0 0 6px 6px;
     font-family: 'Courier New', monospace;
     line-height: 1.2; pointer-events: none;
     display: grid; gap: var(--col-gap);
@@ -541,7 +552,7 @@
   <div id="spec-tune">
     <label class="spec-only">HEIGHT <input id="spec-h" type="range" min="20" max="400" step="2"/><span class="v" id="spec-h-v"></span></label>
     <label class="spec-only">DIST   <input id="spec-d" type="range" min="20" max="500" step="2"/><span class="v" id="spec-d-v"></span></label>
-    <label>FOG <input id="fog-d" type="range" min="0" max="0.020" step="0.0005"/><span class="v" id="fog-v"></span></label>
+    <input id="fog-d" type="hidden" value="0"/>
   </div>
 </div>
 
@@ -2374,20 +2385,8 @@ specD.addEventListener('input', () => {
 function refreshSpecTuneVisibility() {
   specTuneEl.classList.toggle('spec-active', camMode === 6);
 }
-// Fog slider — persisted, applied immediately to scene.fog.density.
-const fogD  = document.getElementById('fog-d');
-const fogV  = document.getElementById('fog-v');
-const savedFog = parseFloat(localStorage.getItem('fogD'));
-const initialFog = !isNaN(savedFog) ? savedFog : 0;
-fogD.value = initialFog;
-fogV.textContent = initialFog.toFixed(4);
-scene.fog.density = initialFog;
-fogD.addEventListener('input', () => {
-  const v = parseFloat(fogD.value);
-  scene.fog.density = v;
-  fogV.textContent = v.toFixed(4);
-  localStorage.setItem('fogD', String(v));
-});
+// Fog UI removed — kept as no-op to match the hidden input below.
+scene.fog.density = 0;
 
 // ── Pac-man visual mirroring ───────────────────────────────────────────
 // Every car is rendered EIGHT extra times at the surrounding arena tiles
@@ -2623,13 +2622,8 @@ const previewClickEl  = document.getElementById('preview-click');
 const inspectorModal  = document.getElementById('inspector-modal');
 const inspectorIframe = document.getElementById('inspector-iframe');
 function syncPreviewClick() {
-  // Slot inside the white #game-card-wrap holds the iso preview render area.
-  // Sized once based on viewport; the WebGL viewport reads its bbox each
-  // frame so the frame and the rendered car always line up.
-  const cssW = Math.min(320, Math.floor(window.innerWidth / 2.6));
-  const cssH = Math.floor(cssW * 0.62);
-  const slot = document.getElementById('preview-slot');
-  if (slot) { slot.style.width = cssW + 'px'; slot.style.height = cssH + 'px'; }
+  // No-op kept for back-compat with existing call sites. Slot now sizes
+  // itself via CSS (flex inside the 4:3-locked card-wrap).
 }
 
 // ── GAME TURBO-CARD — compact mirror of the inspector card. ──────────────
@@ -2840,6 +2834,9 @@ function gtcBuildPanel() {
     body.appendChild(row);
   }
 }
+// Tuner starts collapsed — gameplay first, tuning on demand.
+const gtcEl = document.getElementById('gtc-tune');
+if (gtcEl) gtcEl.classList.add('collapsed');
 const gtcHead = document.querySelector('#gtc-tune .gt-head');
 if (gtcHead) gtcHead.addEventListener('click', () => document.getElementById('gtc-tune').classList.toggle('collapsed'));
 gtcApply(gtcState);
@@ -3942,15 +3939,18 @@ function loop() {
     const dpr = renderer.getPixelRatio();
     const W = renderer.domElement.width;
     const H = renderer.domElement.height;
-    // Read the iso slot's CSS bbox so the WebGL viewport stays glued to the
-    // white frame even as the user resizes / tunes the frame thickness.
+    // Read the iso slot's INNER bbox (clientLeft/Top/Width/Height excludes
+    // the white border) so the WebGL viewport draws into the transparent
+    // interior, not over the white frame.
     const slot = document.getElementById('preview-slot');
     const r    = slot ? slot.getBoundingClientRect() : null;
-    const cssW = r ? r.width  : Math.min(320, Math.floor(window.innerWidth / 2.6));
-    const cssH = r ? r.height : Math.floor(cssW * 0.62);
+    const bL   = slot ? slot.clientLeft : 0;
+    const bT   = slot ? slot.clientTop  : 0;
+    const cssW = slot ? slot.clientWidth  : Math.min(320, Math.floor(window.innerWidth / 2.6));
+    const cssH = slot ? slot.clientHeight : Math.floor(cssW * 0.62);
     const w = Math.floor(cssW * dpr), h = Math.floor(cssH * dpr);
-    const x = r ? Math.floor(r.left * dpr) : (W - w - Math.floor(14 * dpr));
-    const y = r ? (H - Math.floor(r.bottom * dpr)) : (H - h - Math.floor(14 * dpr));
+    const x = r ? Math.floor((r.left + bL) * dpr) : (W - w - Math.floor(14 * dpr));
+    const y = r ? (H - Math.floor((r.top + bT + cssH) * dpr)) : (H - h - Math.floor(14 * dpr));
 
     // Match the ortho frustum to the inset aspect so the car keeps its
     // real proportions (no vertical stretch).

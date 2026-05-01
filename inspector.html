@@ -2271,6 +2271,8 @@ function formatTcVal(v) {
   return v.toFixed(2);
 }
 
+// Tuner starts collapsed — clear out of the way until user opens it.
+document.getElementById('tc-tune').classList.add('collapsed');
 document.querySelector('#tc-tune .tc-head').addEventListener('click', () => {
   document.getElementById('tc-tune').classList.toggle('collapsed');
 });
