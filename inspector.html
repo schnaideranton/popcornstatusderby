@@ -722,14 +722,35 @@ const scene  = new THREE.Scene();
 scene.background = new THREE.Color(0x1c2026);
 
 const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
-function resize() {
-  const r = canvas.parentElement.getBoundingClientRect();
-  renderer.setSize(r.width, r.height, false);
-  camera.aspect = r.width / r.height;
+function resize(w, h) {
+  if (w === undefined || h === undefined) {
+    const r = canvas.parentElement.getBoundingClientRect();
+    w = r.width; h = r.height;
+  }
+  if (w <= 0 || h <= 0) return;
+  renderer.setSize(w, h, false);
+  // Force the canvas CSS size to match the drawing buffer exactly so the
+  // browser never stretches a stale buffer into a new layout box.
+  canvas.style.width  = w + 'px';
+  canvas.style.height = h + 'px';
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
 resize();
-window.addEventListener('resize', resize);
+window.addEventListener('resize', () => resize());
+// Container-query scaling (frame thickness, slot aspect, etc.) resizes
+// the canvas parent without firing a window resize. ResizeObserver
+// catches every layout change, and we read the entry's contentRect
+// directly so we never lag behind the live layout.
+if (typeof ResizeObserver !== 'undefined') {
+  const ro = new ResizeObserver(entries => {
+    for (const e of entries) {
+      const cr = e.contentRect;
+      resize(cr.width, cr.height);
+    }
+  });
+  ro.observe(canvas.parentElement);
+}
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.55));
 const sun = new THREE.DirectionalLight(0xfff5d6, 1.1);
@@ -2609,8 +2630,18 @@ window.addEventListener('message', (ev) => {
 
 updateCamera();
 
+// Per-frame size check — bullet-proof guard against any layout that
+// sneaks past ResizeObserver (font load, container-query restyling,
+// async wraps). Costs one getBoundingClientRect per frame; only fires
+// setSize when the parent actually changed.
+let _lastW = 0, _lastH = 0;
 (function loop() {
   requestAnimationFrame(loop);
+  const r = canvas.parentElement.getBoundingClientRect();
+  if (Math.abs(r.width - _lastW) > 0.5 || Math.abs(r.height - _lastH) > 0.5) {
+    _lastW = r.width; _lastH = r.height;
+    resize(r.width, r.height);
+  }
   tickMorph();
   renderer.render(scene, camera);
 })();
