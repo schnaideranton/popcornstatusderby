@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schnaider Turbo Card — multi-size preview</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100%; background: #15171c;
+               color: #ddd; font-family: 'Courier New', monospace; font-size: 12px; }
+  header { padding: 16px 22px; border-bottom: 1px solid rgba(255,255,255,0.08);
+           display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+  header h1 { font-size: 14px; letter-spacing: 2px; margin: 0 0 4px; color: #fff; }
+  header p { font-size: 11px; color: #aaa; margin: 0; max-width: 560px;
+             line-height: 1.5; }
+  header .actions { display: flex; gap: 8px; flex-wrap: wrap;
+                    margin-left: auto; align-self: center; }
+  header button, header textarea {
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.30);
+    color: #fff; font-family: inherit; font-size: 11px; padding: 6px 10px;
+    border-radius: 4px; cursor: pointer;
+  }
+  header button.primary { background: rgba(120,200,140,0.18);
+                          border-color: rgba(120,200,140,0.55); color: #cfe; }
+  header textarea { width: 280px; height: 28px; resize: vertical; cursor: text; }
+  main { padding: 22px; display: flex; flex-wrap: wrap; gap: 30px;
+         align-items: flex-start; }
+  .stage { display: flex; flex-direction: column; gap: 6px;
+           flex: 0 0 auto; }
+  .stage.full { flex: 1 0 100%; }
+  .stage h2 { margin: 0; font-size: 11px; letter-spacing: 2px;
+              color: #ffd060; text-transform: uppercase; }
+  .stage .meta { color: #888; font-size: 10px; letter-spacing: 1px; }
+  .stage .holder {
+    width: var(--w); max-width: 100%;
+    background: linear-gradient(45deg, #1f2228 25%, transparent 25%, transparent 75%, #1f2228 75%),
+                linear-gradient(45deg, #1f2228 25%, transparent 25%, transparent 75%, #1f2228 75%) 8px 8px;
+    background-size: 16px 16px; background-color: #15171c;
+    padding: 12px; border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.05);
+    display: flex; align-items: flex-start; justify-content: center;
+  }
+
+  /* CARD — direct copy of the inspector's responsive scheme. Same vars,
+     same calc(... * --s) factor. The only differences for the test page
+     are: no real WebGL canvas (a placeholder fills #scene-frame), and the
+     test page never tunes — values are read from localStorage at load. */
+  .card-wrap {
+    container-type: inline-size;
+    --card-base-w:    400px;
+    --s:              calc(100cqi / var(--card-base-w));
+
+    --card-bg:        #f4f4f4;
+    --scene-bg:       #1c2026;
+    --frame-side:     30px;
+    --bottom-pad-y:   26px;
+    --bottom-pad-x:   32px;
+    --col-gap:        24px;
+    --row-gap:        5px;
+    --pair-gap:       8px;
+    --font-color:     #000;
+    --name-font:      'Arial Narrow', 'Helvetica Neue Condensed', 'Roboto Condensed', 'Oswald', Impact, sans-serif;
+    --name-size:      38px;
+    --name-weight:    900;
+    --name-letter:    2px;
+    --sub-gap:        2px;
+    --sub-size:       12px;
+    --sub-weight:     700;
+    --sub-letter:     2.5px;
+    --seed-size:      11px;
+    --seed-weight:    700;
+    --row-size:       12px;
+    --label-weight:   700;
+    --value-weight:   900;
+    --logo-name-size: 28px;
+    --logo-num-size:  56px;
+    --logo-weight:    900;
+
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    display: flex; flex-direction: column;
+    background: var(--card-bg);
+    padding: calc(var(--frame-side) * var(--s)) calc(var(--frame-side) * var(--s)) 0;
+    border-radius: 2px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.10);
+  }
+  .scene-frame {
+    flex: 1; position: relative; overflow: hidden;
+    background: var(--scene-bg); border-radius: 2px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.18);
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.18); font-size: calc(11px * var(--s));
+    letter-spacing: 1.5px; text-transform: uppercase;
+  }
+  .scene-frame::before { content: '3D · ' attr(data-label); }
+  .turbo-card {
+    display: grid; grid-template-columns: 1.4fr 1.2fr 1.2fr 1.2fr 1fr;
+    color: var(--font-color);
+    padding: calc(var(--bottom-pad-y) * var(--s)) calc(var(--bottom-pad-x) * var(--s));
+    font-family: 'Courier New', monospace; line-height: 1.25;
+    align-items: center;
+    gap: calc(var(--col-gap) * var(--s));
+  }
+  .tc-brand   { display: flex; flex-direction: column; gap: 0;
+                align-items: center; text-align: center; }
+  .tc-name    { font-family: var(--name-font);
+                font-size: calc(var(--name-size) * var(--s));
+                font-weight: var(--name-weight);
+                letter-spacing: calc(var(--name-letter) * var(--s));
+                line-height: 1; color: var(--font-color);
+                font-stretch: condensed; }
+  .tc-subline { font-size: calc(var(--sub-size) * var(--s));
+                color: var(--font-color);
+                letter-spacing: calc(var(--sub-letter) * var(--s));
+                margin-top: calc(var(--sub-gap) * var(--s));
+                font-weight: var(--sub-weight); line-height: 1.15;
+                text-align: center; max-width: 100%; }
+  .tc-stats   { display: flex; flex-direction: column;
+                gap: calc(var(--row-gap) * var(--s)); }
+  .tc-row     { display: flex; justify-content: flex-start;
+                gap: calc(var(--pair-gap) * var(--s));
+                font-size: calc(var(--row-size) * var(--s)); }
+  .tc-l       { color: var(--font-color); letter-spacing: 0.5px;
+                font-weight: var(--label-weight); white-space: nowrap; }
+  .tc-v       { font-weight: var(--value-weight); text-align: left;
+                color: var(--font-color); white-space: nowrap;
+                overflow: hidden; text-overflow: ellipsis; }
+  .tc-logo    { display: flex; flex-direction: column;
+                align-items: flex-end; gap: 0; line-height: 0.95;
+                align-self: start; }
+  .tc-logo-name { font-family: var(--name-font);
+                  font-size: calc(var(--logo-name-size) * var(--s));
+                  font-weight: var(--logo-weight);
+                  letter-spacing: calc(1.5px * var(--s));
+                  color: var(--font-color);
+                  font-style: italic; font-stretch: condensed; }
+  .tc-logo-num  { font-size: calc(var(--logo-num-size) * var(--s));
+                  font-weight: var(--logo-weight);
+                  line-height: 1; color: var(--font-color);
+                  letter-spacing: calc(-1px * var(--s));
+                  margin-top: calc(2px * var(--s)); }
+  .card-wrap[data-show-name="0"]      .tc-name      { display: none; }
+  .card-wrap[data-show-sub="0"]       .tc-sub       { display: none; }
+  .card-wrap[data-show-sub="0"]       .tc-sep       { display: none; }
+  .card-wrap[data-show-seed="0"]      .tc-seed      { display: none; }
+  .card-wrap[data-show-seed="0"]      .tc-sep       { display: none; }
+  .card-wrap[data-show-sub="0"][data-show-seed="0"] .tc-subline { display: none; }
+  .card-wrap[data-show-len="0"]       .tc-row.r-len { display: none; }
+  .card-wrap[data-show-wid="0"]       .tc-row.r-wid { display: none; }
+  .card-wrap[data-show-hgt="0"]       .tc-row.r-hgt { display: none; }
+  .card-wrap[data-show-wbs="0"]       .tc-row.r-wbs { display: none; }
+  .card-wrap[data-show-trk="0"]       .tc-row.r-trk { display: none; }
+  .card-wrap[data-show-whd="0"]       .tc-row.r-whd { display: none; }
+  .card-wrap[data-show-hdl="0"]       .tc-row.r-hdl { display: none; }
+  .card-wrap[data-show-tll="0"]       .tc-row.r-tll { display: none; }
+  .card-wrap[data-show-fnd="0"]       .tc-row.r-fnd { display: none; }
+  .card-wrap[data-show-logo-name="0"] .tc-logo-name { display: none; }
+  .card-wrap[data-show-logo-num="0"]  .tc-logo-num  { display: none; }
+
+  /* MOBILE-FULL stage uses 100vw width + bottom-bound to mimic phone. */
+  .stage.full .holder { padding: 0; }
+  .stage.full .card-wrap { aspect-ratio: auto; height: calc(100vw * 0.75); }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>TURBO CARD · MULTI-SIZE PREVIEW</h1>
+    <p>All cards read the same <code>localStorage['tc-tune']</code>. Tweak in the
+       constructor, this page picks it up. Or paste JSON in the box. Use this to
+       balance values that look good at every size.</p>
+  </div>
+  <div class="actions">
+    <textarea id="json-in" placeholder="paste tc-tune JSON here…"></textarea>
+    <button id="apply"  class="primary">APPLY JSON</button>
+    <button id="reload">↻ RELOAD FROM STORAGE</button>
+    <button id="copy">COPY CURRENT JSON</button>
+  </div>
+</header>
+<main id="stages"></main>
+
+<script>
+const SIZES = [
+  { id: 'big',    label: 'Inspector / desktop',  w: '600px' },
+  { id: 'med',    label: 'Game · desktop large', w: '440px' },
+  { id: 'small',  label: 'Game · desktop small', w: '320px' },
+  { id: 'tiny',   label: 'HUD-mini',             w: '220px' },
+  { id: 'mobile', label: 'Mobile · full width',  w: '100%', cls: 'full' },
+];
+
+// Static demo data — represents a single playable car. Values mirror what
+// updateTurboCard would emit from a real design.
+const DEMO = {
+  name: 'SEDAN', sub: 'STANDARD',
+  seed: 'SEED 7157C7',
+  Length: '4.99 m', Width: '1.83 m', Height: '1.54 m',
+  Wbase:  '2.89 m', Track: '1.79 m', Wheel: '0.73 m',
+  Hlight: 'oval',   Tail:  'wide',   Fender: 'on',
+  num: '07',
+};
+
+function cardHTML(label) {
+  return `
+    <div class="scene-frame" data-label="${label}"></div>
+    <div class="turbo-card">
+      <div class="tc-brand">
+        <div class="tc-name">${DEMO.name}</div>
+        <div class="tc-subline">
+          <span class="tc-sub">${DEMO.sub}</span><span class="tc-sep"> · </span><span class="tc-seed">${DEMO.seed}</span>
+        </div>
+      </div>
+      <div class="tc-stats">
+        <div class="tc-row r-len"><span class="tc-l">Length</span><span class="tc-v">${DEMO.Length}</span></div>
+        <div class="tc-row r-wid"><span class="tc-l">Width</span><span class="tc-v">${DEMO.Width}</span></div>
+        <div class="tc-row r-hgt"><span class="tc-l">Height</span><span class="tc-v">${DEMO.Height}</span></div>
+      </div>
+      <div class="tc-stats">
+        <div class="tc-row r-wbs"><span class="tc-l">Wbase</span><span class="tc-v">${DEMO.Wbase}</span></div>
+        <div class="tc-row r-trk"><span class="tc-l">Track</span><span class="tc-v">${DEMO.Track}</span></div>
+        <div class="tc-row r-whd"><span class="tc-l">Wheel</span><span class="tc-v">${DEMO.Wheel}</span></div>
+      </div>
+      <div class="tc-stats">
+        <div class="tc-row r-hdl"><span class="tc-l">Hlight</span><span class="tc-v">${DEMO.Hlight}</span></div>
+        <div class="tc-row r-tll"><span class="tc-l">Tail</span><span class="tc-v">${DEMO.Tail}</span></div>
+        <div class="tc-row r-fnd"><span class="tc-l">Fender</span><span class="tc-v">${DEMO.Fender}</span></div>
+      </div>
+      <div class="tc-logo">
+        <span class="tc-logo-name">DERBY</span>
+        <span class="tc-logo-num">${DEMO.num}</span>
+      </div>
+    </div>`;
+}
+
+// Render the stages once.
+const main = document.getElementById('stages');
+for (const s of SIZES) {
+  const stage = document.createElement('section');
+  stage.className = 'stage' + (s.cls ? ' ' + s.cls : '');
+  stage.innerHTML = `
+    <h2>${s.label}</h2>
+    <div class="meta">${s.w}</div>
+    <div class="holder" style="--w:${s.w}">
+      <div class="card-wrap" id="card-${s.id}">${cardHTML(s.label)}</div>
+    </div>`;
+  main.appendChild(stage);
+}
+
+// CSS-var schema — mirrors car-inspector.html's TC_CSS_VARS.
+const VARS = {
+  cardBg:['--card-bg',''], sceneBg:['--scene-bg',''],
+  frameSide:['--frame-side','px'], bottomPadY:['--bottom-pad-y','px'],
+  bottomPadX:['--bottom-pad-x','px'], colGap:['--col-gap','px'],
+  rowGap:['--row-gap','px'], pairGap:['--pair-gap','px'],
+  fontColor:['--font-color',''],
+  nameSize:['--name-size','px'], nameWeight:['--name-weight',''], nameLetter:['--name-letter','px'],
+  subGap:['--sub-gap','px'],
+  subSize:['--sub-size','px'], subWeight:['--sub-weight',''], subLetter:['--sub-letter','px'],
+  seedSize:['--seed-size','px'], seedWeight:['--seed-weight',''],
+  rowSize:['--row-size','px'], labelWeight:['--label-weight',''], valueWeight:['--value-weight',''],
+  logoNameSize:['--logo-name-size','px'], logoNumSize:['--logo-num-size','px'],
+  logoWeight:['--logo-weight',''],
+};
+const SHOW = {
+  showName:'name', showSub:'sub', showSeed:'seed',
+  showLen:'len', showWid:'wid', showHgt:'hgt',
+  showWbs:'wbs', showTrk:'trk', showWhd:'whd',
+  showHdl:'hdl', showTll:'tll', showFnd:'fnd',
+  showLogoName:'logo-name', showLogoNum:'logo-num',
+};
+const FONTS = [
+  "'Arial Narrow', 'Helvetica Neue Condensed', 'Roboto Condensed', 'Oswald', Impact, sans-serif",
+  "'Oswald', 'Arial Narrow', Impact, sans-serif",
+  "Impact, 'Arial Narrow', sans-serif",
+  "'Helvetica Neue', Arial, sans-serif",
+  "'Courier New', monospace",
+];
+
+function applyState(state) {
+  for (const card of document.querySelectorAll('.card-wrap')) {
+    for (const k in VARS) {
+      if (state[k] === undefined) continue;
+      const [v, u] = VARS[k];
+      card.style.setProperty(v, state[k] + u);
+    }
+    for (const k in SHOW) {
+      if (state[k] === undefined) continue;
+      card.setAttribute('data-show-' + SHOW[k], state[k] ? '1' : '0');
+    }
+    if (typeof state.nameFontIdx === 'number') {
+      card.style.setProperty('--name-font', FONTS[state.nameFontIdx] || FONTS[0]);
+    }
+  }
+}
+function loadState() {
+  try { return JSON.parse(localStorage.getItem('tc-tune') || '{}'); } catch (_) { return {}; }
+}
+
+let current = loadState();
+applyState(current);
+
+document.getElementById('reload').addEventListener('click', () => {
+  current = loadState();
+  applyState(current);
+  document.getElementById('json-in').value = JSON.stringify(current, null, 2);
+});
+document.getElementById('apply').addEventListener('click', () => {
+  try {
+    const next = JSON.parse(document.getElementById('json-in').value);
+    current = next;
+    localStorage.setItem('tc-tune', JSON.stringify(next));
+    applyState(next);
+  } catch (e) { alert('Invalid JSON: ' + e.message); }
+});
+document.getElementById('copy').addEventListener('click', () => {
+  const txt = JSON.stringify(current, null, 2);
+  navigator.clipboard.writeText(txt).catch(() => {
+    document.getElementById('json-in').value = txt;
+    document.getElementById('json-in').select();
+  });
+});
+
+// Live-sync — if the inspector is open in another tab and tweaks tc-tune,
+// these previews update in real time.
+window.addEventListener('storage', (e) => {
+  if (e.key !== 'tc-tune' || !e.newValue) return;
+  try {
+    current = JSON.parse(e.newValue);
+    applyState(current);
+  } catch (_) {}
+});
+</script>
+</body>
+</html>

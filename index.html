@@ -56,7 +56,9 @@
   body.touch #inspector-btn { display: none; }
   /* CARGENEDDON — mode toggle + HUD + game-over card */
   #mode-toggle {
-    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    /* Anchored top-left under the GAME CARD TUNER (which sits at top:14
+       collapsed, ~28px tall). 50px down keeps clear of the tuner header. */
+    position: absolute; top: 50px; left: 14px;
     z-index: 30; cursor: pointer; pointer-events: auto;
     background: rgba(0,0,0,0.55); color: #fff;
     border: 1px solid rgba(255,255,255,0.30);
@@ -660,17 +662,17 @@ function rebuildPlayerPreview() {
 }
 
 function fitToViewport() {
-  // Prefer visualViewport — on iOS Safari it tracks the *visible* area as
-  // the URL bar collapses/expands, while window.inner* lags behind and can
-  // leave the canvas at e.g. 2× viewport size (showing only one quadrant
-  // until the user pinch-zooms out).
+  // Prefer visualViewport on mobile (URL bar collapse), fall back to
+  // window.inner* on desktop. Either way we explicitly set the canvas CSS
+  // size in addition to the drawing buffer so a stale buffer never gets
+  // stretched into a new layout box.
   const vv = window.visualViewport;
   const w  = Math.round(vv ? vv.width  : window.innerWidth);
   const h  = Math.round(vv ? vv.height : window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  renderer.setSize(w, h);
+  renderer.setSize(w, h, true);
 }
 window.addEventListener('resize', fitToViewport);
 window.addEventListener('orientationchange', fitToViewport);
@@ -678,6 +680,23 @@ if (window.visualViewport) {
   visualViewport.addEventListener('resize', fitToViewport);
   visualViewport.addEventListener('scroll', fitToViewport);
 }
+// Multi-monitor switch — moving the Chrome window from a 27" 1× display
+// to a Retina 2× display changes devicePixelRatio without firing a
+// reliable resize event. ResizeObserver on the root catches the layout
+// change; a media-query listener catches the DPR change directly.
+if (typeof ResizeObserver !== 'undefined') {
+  new ResizeObserver(fitToViewport).observe(document.documentElement);
+}
+function watchDprChange() {
+  // Re-bind a one-shot media listener whenever DPR changes — the matched
+  // resolution shifts so we have to re-construct the query each time.
+  const dpr = window.devicePixelRatio;
+  matchMedia(`(resolution: ${dpr}dppx)`).addEventListener('change', () => {
+    fitToViewport();
+    watchDprChange();
+  }, { once: true });
+}
+watchDprChange();
 window.addEventListener('orientationchange', () => {
   // iOS reports the wrong size for a few frames after rotation — re-fit a bit later.
   setTimeout(fitToViewport, 100);
@@ -3365,6 +3384,9 @@ window.addEventListener('keydown', e => {
   if (e.code === 'KeyR') resetPlayer();
   if (e.code === 'KeyV') camMode = (camMode + 1) % 7;
   if (e.code === 'KeyM') Synth.setMute(!Synth.isMuted());
+  // G — re-randomise the player's design without respawning. Same path as
+  // levelling: applyTier rolls a new design, the morph ticker tweens.
+  if (e.code === 'KeyG') applyTierMaybeMorph(player, player.level || 1);
   Synth.ensureRunning();
   const block = ['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyQ','KeyE','KeyV','KeyM'];
   if (block.includes(e.code)) e.preventDefault();
