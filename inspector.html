@@ -8,72 +8,184 @@
   html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
   body { background: #15171c; color: #ddd; font-family: 'Courier New', monospace; font-size: 12px; }
   #layout { display: flex; height: 100vh; }
-  #scene  { flex: 1; display: flex; flex-direction: column; background: #f4f4f4; }
+  #scene  { flex: 1; display: flex; align-items: center; justify-content: center;
+            background: #15171c; padding: 14px; min-height: 0; min-width: 0; }
+  /* CARD-WRAP — single white frame holding both the 3D scene and the
+     turbo-card data strip. All visual values are CSS vars so the live
+     tuner panel can drive them. */
+  #card-wrap {
+    --card-bg:        #f4f4f4;
+    --scene-bg:       #1c2026;
+    --frame-side:     30px;   /* top + L + R white margin */
+    --bottom-pad-y:   26px;
+    --bottom-pad-x:   32px;
+    --col-gap:        24px;
+    --row-gap:        5px;
+    --pair-gap:       8px;    /* label ↔ value, intra-row */
+    --font-color:     #000;
+    --name-font:      'Arial Narrow', 'Helvetica Neue Condensed', 'Roboto Condensed', 'Oswald', Impact, sans-serif;
+    --name-size:      38px;
+    --name-weight:    900;
+    --name-letter:    2px;
+    --sub-gap:        2px;    /* margin-top of sub under name */
+    --sub-size:       12px;
+    --sub-weight:     700;
+    --sub-letter:     2.5px;
+    --seed-size:      11px;
+    --seed-weight:    700;
+    --row-size:       12px;
+    --label-weight:   700;
+    --value-weight:   900;
+    --logo-name-size: 28px;
+    --logo-num-size:  56px;
+    --logo-weight:    900;
+
+    /* Aspect-ratio locked to 8:6 (= 4:3) — the classic Turbo gum-card
+       photograph proportion. Sized via min() so we never overflow either
+       axis: take whichever is tighter — 100% width or 100%-height-as-width. */
+    width:  min(100%, calc(100cqh * 4 / 3));
+    height: min(100%, calc(100cqw * 3 / 4));
+    aspect-ratio: 4 / 3;
+    display: flex; flex-direction: column;
+    background: var(--card-bg);
+    padding: var(--frame-side) var(--frame-side) 0;
+    border-radius: 2px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.10);
+    min-height: 0;
+  }
+  /* Container query unit — needs a containment context on the parent. */
+  #scene { container-type: size; }
   #scene-frame {
-    /* 2× thicker frame on top + sides — leaves the canvas a tighter aspect
-       like a real Turbo card photograph mat. */
-    flex: 1; margin: 30px 30px 0; position: relative; overflow: hidden;
-    background: #1c2026; border-radius: 2px;
+    flex: 1; position: relative; overflow: hidden;
+    background: var(--scene-bg); border-radius: 2px;
     box-shadow: inset 0 0 0 1px rgba(0,0,0,0.18);
+    min-height: 0;
   }
   #c      { display: block; width: 100%; height: 100%; }
-  /* Temporary FOV slider — sits inside the scene-frame so you can dial in
-     the lens angle. Tell me the value and I'll bake it in. */
-  #fov-tune {
-    position: absolute; top: 10px; right: 10px;
-    background: rgba(0,0,0,0.55); color: #ddd;
-    padding: 6px 10px; border-radius: 4px;
-    font-size: 10px; font-family: 'Courier New', monospace;
-    display: flex; gap: 8px; align-items: center; z-index: 12;
-  }
-  #fov-tune input { width: 110px; }
-  #fov-tune .v   { width: 30px; text-align: right; opacity: 0.85; }
-  /* TURBO-CARD — the gum-card data block. ~2× the side margin in height,
-     huge bold black type, no rounded pill on DERBY. */
   #turbo-card {
-    margin: 18px 30px 30px;
     display: grid;
     grid-template-columns: 1.4fr 1.2fr 1.2fr 1.2fr 1fr;
-    background: #f4f4f4; color: #000;
-    padding: 26px 32px;
+    color: var(--font-color);
+    padding: var(--bottom-pad-y) var(--bottom-pad-x);
     font-family: 'Courier New', monospace;
-    font-size: 14px; line-height: 1.25;
+    line-height: 1.25;
     align-items: center;
-    gap: 24px;
-    border-radius: 2px;
-    box-shadow: 0 1px 0 rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.10);
+    gap: var(--col-gap);
   }
-  .tc-brand   { display: flex; flex-direction: column; gap: 1px; }
-  .tc-name    { font-size: 38px; font-weight: 900; letter-spacing: 2px;
-                line-height: 1; color: #000; }
-  .tc-sub     { font-size: 12px; opacity: 0.65; letter-spacing: 2.5px;
-                margin-top: 4px; font-weight: 700; }
-  .tc-stats   { display: flex; flex-direction: column; gap: 5px; }
-  .tc-row     { display: flex; justify-content: space-between;
-                gap: 10px; font-size: 12px; }
-  .tc-l       { opacity: 0.55; letter-spacing: 0.5px; font-weight: 700; }
-  .tc-v       { font-weight: 900; text-align: right; color: #000;
-                white-space: nowrap; max-width: 65%;
+  .tc-brand   { display: flex; flex-direction: column; gap: 0;
+                align-items: center; text-align: center; }
+  .tc-name    { font-family: var(--name-font);
+                font-size: var(--name-size); font-weight: var(--name-weight);
+                letter-spacing: var(--name-letter); line-height: 1;
+                color: var(--font-color);
+                font-stretch: condensed; }
+  /* Sub-line — single text block holding both the descriptor (FENDER/etc.)
+     and the seed. Same font + size, separated by a middle dot, wraps on
+     long content. seedSize/seedWeight are no longer used (one shared style). */
+  .tc-subline { font-size: var(--sub-size); color: var(--font-color);
+                letter-spacing: var(--sub-letter);
+                margin-top: var(--sub-gap);
+                font-weight: var(--sub-weight); line-height: 1.15;
+                text-align: center; max-width: 100%; }
+  .tc-sub, .tc-seed { font: inherit; color: inherit; letter-spacing: inherit; }
+  .tc-stats   { display: flex; flex-direction: column; gap: var(--row-gap); }
+  .tc-row     { display: flex; justify-content: flex-start;
+                gap: var(--pair-gap); font-size: var(--row-size); }
+  .tc-l       { color: var(--font-color); letter-spacing: 0.5px;
+                font-weight: var(--label-weight); white-space: nowrap; }
+  .tc-v       { font-weight: var(--value-weight); text-align: left;
+                color: var(--font-color); white-space: nowrap;
                 overflow: hidden; text-overflow: ellipsis; }
   .tc-logo    { display: flex; flex-direction: column;
-                align-items: flex-end; gap: 0; line-height: 0.95; }
-  .tc-logo-name { font-size: 22px; font-weight: 900; letter-spacing: 1.5px;
-                  color: #000; font-style: italic; }
-  .tc-logo-num  { font-size: 56px; font-weight: 900; line-height: 1;
-                  color: #000; letter-spacing: -1px; }
+                align-items: flex-end; gap: 0; line-height: 0.95;
+                align-self: start; }
+  .tc-logo-name { font-family: var(--name-font);
+                  font-size: var(--logo-name-size); font-weight: var(--logo-weight);
+                  letter-spacing: 1.5px; color: var(--font-color);
+                  font-style: italic; font-stretch: condensed; }
+  .tc-logo-num  { font-size: var(--logo-num-size); font-weight: var(--logo-weight);
+                  line-height: 1; color: var(--font-color); letter-spacing: -1px;
+                  margin-top: 2px; }
+  /* Field visibility — toggled by the tuner via data-show-* attributes. */
+  #card-wrap[data-show-name="0"]      .tc-name      { display: none; }
+  /* Hide separator dot when either side is hidden so we don't end up with
+     " · TEXT" or "TEXT · ". */
+  #card-wrap[data-show-sub="0"]       .tc-sub       { display: none; }
+  #card-wrap[data-show-sub="0"]       .tc-sep       { display: none; }
+  #card-wrap[data-show-seed="0"]      .tc-seed      { display: none; }
+  #card-wrap[data-show-seed="0"]      .tc-sep       { display: none; }
+  #card-wrap[data-show-sub="0"][data-show-seed="0"] .tc-subline { display: none; }
+  #card-wrap[data-show-len="0"]       .tc-row.r-len { display: none; }
+  #card-wrap[data-show-wid="0"]       .tc-row.r-wid { display: none; }
+  #card-wrap[data-show-hgt="0"]       .tc-row.r-hgt { display: none; }
+  #card-wrap[data-show-wbs="0"]       .tc-row.r-wbs { display: none; }
+  #card-wrap[data-show-trk="0"]       .tc-row.r-trk { display: none; }
+  #card-wrap[data-show-whd="0"]       .tc-row.r-whd { display: none; }
+  #card-wrap[data-show-hdl="0"]       .tc-row.r-hdl { display: none; }
+  #card-wrap[data-show-tll="0"]       .tc-row.r-tll { display: none; }
+  #card-wrap[data-show-fnd="0"]       .tc-row.r-fnd { display: none; }
+  #card-wrap[data-show-logo-name="0"] .tc-logo-name { display: none; }
+  #card-wrap[data-show-logo-num="0"]  .tc-logo-num  { display: none; }
+
   @media (max-width: 900px) {
-    #scene-frame { margin: 12px 12px 0; }
-    #turbo-card  { margin: 8px 12px 12px; padding: 12px 14px; gap: 10px;
-                   font-size: 11px;
-                   grid-template-columns: 1.1fr 1fr 1fr 0.7fr; }
-    .tc-name     { font-size: 22px; letter-spacing: 1.5px; }
-    .tc-sub      { font-size: 10px; }
-    .tc-row      { font-size: 10px; }
+    #scene { padding: 8px; }
+    #card-wrap { --frame-side: 12px; --bottom-pad-y: 12px; --bottom-pad-x: 14px;
+                 --col-gap: 10px; --name-size: 22px; --name-letter: 1.5px;
+                 --sub-size: 10px; --row-size: 10px;
+                 --logo-name-size: 13px; --logo-num-size: 30px; }
+    #turbo-card { grid-template-columns: 1.1fr 1fr 1fr 0.7fr; }
     .tc-stats:nth-child(4) { display: none; }
-    .tc-logo-name { font-size: 13px; }
-    .tc-logo-num  { font-size: 30px; }
-    #fov-tune     { font-size: 9px; padding: 4px 6px; }
-    #fov-tune input { width: 70px; }
+  }
+  /* TUNE — temporary live-tuning panel overlaid on the 3D scene. Has every
+     knob the user asked for. Hide via the eye button at top-left. */
+  #tc-tune {
+    position: absolute; top: 10px; right: 10px; z-index: 20;
+    width: 260px; max-height: calc(100% - 20px);
+    background: rgba(8, 10, 14, 0.92); color: #ddd;
+    border: 1px solid rgba(255,255,255,0.18); border-radius: 6px;
+    font-family: 'Courier New', monospace; font-size: 10px;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  #tc-tune.collapsed > .tc-body { display: none; }
+  #tc-tune.collapsed { width: auto; }
+  #tc-tune > .tc-head { padding: 6px 10px; cursor: pointer;
+    display: flex; justify-content: space-between; gap: 10px;
+    background: rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.1);
+    font-weight: bold; letter-spacing: 1.5px; user-select: none; }
+  #tc-tune > .tc-body { padding: 8px 10px 12px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 4px; }
+  #tc-tune .tc-section { font-weight: bold; color: #ffd060; letter-spacing: 1.5px;
+    margin: 8px 0 2px; padding-bottom: 2px;
+    border-bottom: 1px solid rgba(255,255,255,0.08); }
+  #tc-tune .tc-row2 { display: grid; grid-template-columns: 90px 1fr 38px;
+    gap: 6px; align-items: center; }
+  #tc-tune .tc-row2 input[type=range] { width: 100%; }
+  #tc-tune .tc-row2 input[type=color],
+  #tc-tune .tc-row2 select { background: #2a2d34; color: #fff;
+    border: 1px solid rgba(255,255,255,0.2); padding: 2px 4px;
+    font-family: inherit; font-size: 10px; border-radius: 3px; }
+  #tc-tune .tc-row2 input[type=color] { padding: 0; height: 18px; width: 100%; }
+  #tc-tune .tc-row2 .tcv { text-align: right; opacity: 0.75;
+    font-variant-numeric: tabular-nums; }
+  #tc-tune .tc-checks { display: grid; grid-template-columns: 1fr 1fr;
+    gap: 2px 8px; }
+  #tc-tune .tc-checks label { display: flex; gap: 4px; align-items: center;
+    font-size: 9px; opacity: 0.85; }
+  #tc-tune .tc-acts { display: flex; gap: 6px; margin-top: 8px; }
+  #tc-tune .tc-acts button { flex: 1; background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.25); color: #fff;
+    padding: 5px 8px; font-family: inherit; font-size: 9px;
+    letter-spacing: 1px; cursor: pointer; border-radius: 3px;
+    text-transform: uppercase; }
+  #tc-tune .tc-acts button:hover { background: rgba(255,255,255,0.13); }
+  #tc-tune .tc-export { margin-top: 6px; width: 100%;
+    background: #15171c; color: #ffd060;
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 3px;
+    font-family: inherit; font-size: 9px; padding: 4px;
+    height: 60px; resize: vertical; }
+  @media (max-width: 900px) {
+    #tc-tune { width: 200px; font-size: 9px; }
+    #tc-tune .tc-row2 { grid-template-columns: 70px 1fr 32px; }
   }
   #info   { position: absolute; top: 16px; left: 16px; opacity: 0.8;
             font-size: 11px; letter-spacing: 1.5px; line-height: 1.7; }
@@ -128,41 +240,43 @@
 <body>
 <div id="layout">
   <div id="scene">
-    <div id="scene-frame">
-      <canvas id="c"></canvas>
-      <!-- SEED + dims overlay removed — same data now lives in the Turbo card. -->
-      <span id="seed" style="display:none">·······</span>
-      <span id="dims" style="display:none">·</span>
-      <div id="fov-tune" title="Camera lens angle — tune until it looks right, tell me the value">
-        FOV
-        <input type="range" id="fov-slider" min="15" max="80" step="1" value="40"/>
-        <span class="v" id="fov-val">40°</span>
+    <div id="card-wrap">
+      <div id="scene-frame">
+        <canvas id="c"></canvas>
+        <span id="seed" style="display:none">·······</span>
+        <span id="dims" style="display:none">·</span>
+        <div id="tc-tune">
+          <div class="tc-head"><span>CARD TUNER</span><span id="tc-tune-toggle">▾</span></div>
+          <div class="tc-body" id="tc-tune-body"></div>
+        </div>
+        <div id="hint">DRAG to rotate · SCROLL to zoom · SHIFT+DRAG to pan</div>
       </div>
-      <div id="hint">DRAG to rotate · SCROLL to zoom · SHIFT+DRAG to pan</div>
-    </div>
-    <div id="turbo-card">
-      <div class="tc-brand">
-        <div class="tc-name" id="tc-name">SEDAN</div>
-        <div class="tc-sub"  id="tc-sub">STANDARD</div>
-      </div>
-      <div class="tc-stats">
-        <div class="tc-row"><span class="tc-l">Length</span><span class="tc-v" id="tc-len">·</span></div>
-        <div class="tc-row"><span class="tc-l">Width</span><span class="tc-v" id="tc-wid">·</span></div>
-        <div class="tc-row"><span class="tc-l">Height</span><span class="tc-v" id="tc-hgt">·</span></div>
-      </div>
-      <div class="tc-stats">
-        <div class="tc-row"><span class="tc-l">Wheelbase</span><span class="tc-v" id="tc-wbs">·</span></div>
-        <div class="tc-row"><span class="tc-l">Track</span><span class="tc-v" id="tc-trk">·</span></div>
-        <div class="tc-row"><span class="tc-l">Wheel Ø</span><span class="tc-v" id="tc-whd">·</span></div>
-      </div>
-      <div class="tc-stats">
-        <div class="tc-row"><span class="tc-l">Headlight</span><span class="tc-v" id="tc-hdl">·</span></div>
-        <div class="tc-row"><span class="tc-l">Tail</span><span class="tc-v" id="tc-tll">·</span></div>
-        <div class="tc-row"><span class="tc-l">Fenders</span><span class="tc-v" id="tc-fnd">·</span></div>
-      </div>
-      <div class="tc-logo">
-        <span class="tc-logo-name">DERBY</span>
-        <span class="tc-logo-num" id="tc-num">29</span>
+      <div id="turbo-card">
+        <div class="tc-brand">
+          <div class="tc-name" id="tc-name">SEDAN</div>
+          <div class="tc-subline">
+            <span class="tc-sub"  id="tc-sub">STANDARD</span><span class="tc-sep"> · </span><span class="tc-seed" id="tc-seed">SEED ·······</span>
+          </div>
+        </div>
+        <div class="tc-stats">
+          <div class="tc-row r-len"><span class="tc-l">Length</span><span class="tc-v" id="tc-len">·</span></div>
+          <div class="tc-row r-wid"><span class="tc-l">Width</span><span class="tc-v" id="tc-wid">·</span></div>
+          <div class="tc-row r-hgt"><span class="tc-l">Height</span><span class="tc-v" id="tc-hgt">·</span></div>
+        </div>
+        <div class="tc-stats">
+          <div class="tc-row r-wbs"><span class="tc-l">Wbase</span><span class="tc-v" id="tc-wbs">·</span></div>
+          <div class="tc-row r-trk"><span class="tc-l">Track</span><span class="tc-v" id="tc-trk">·</span></div>
+          <div class="tc-row r-whd"><span class="tc-l">Wheel</span><span class="tc-v" id="tc-whd">·</span></div>
+        </div>
+        <div class="tc-stats">
+          <div class="tc-row r-hdl"><span class="tc-l">Hlight</span><span class="tc-v" id="tc-hdl">·</span></div>
+          <div class="tc-row r-tll"><span class="tc-l">Tail</span><span class="tc-v" id="tc-tll">·</span></div>
+          <div class="tc-row r-fnd"><span class="tc-l">Fender</span><span class="tc-v" id="tc-fnd">·</span></div>
+        </div>
+        <div class="tc-logo">
+          <span class="tc-logo-name">DERBY</span>
+          <span class="tc-logo-num" id="tc-num"></span>
+        </div>
       </div>
     </div>
   </div>
@@ -1886,21 +2000,368 @@ for (const { id, axle, key } of FENDER_SLIDERS) {
     rebuildCar();
   });
 }
-// Temporary FOV slider — live-tune the camera lens angle. Tell me the
-// value that looks right and I'll bake it into the PerspectiveCamera.
-(function bindFovSlider() {
-  const sl = document.getElementById('fov-slider');
-  const v  = document.getElementById('fov-val');
-  if (!sl || !v) return;
-  sl.value = camera.fov;
-  v.textContent = camera.fov + '°';
-  sl.addEventListener('input', () => {
-    const fov = parseInt(sl.value, 10);
-    camera.fov = fov;
-    camera.updateProjectionMatrix();
-    v.textContent = fov + '°';
+// ── CARD TUNER ─────────────────────────────────────────────────────────────
+// Live-tuning panel overlaid on the 3D scene. Every value lives as a CSS
+// var on #card-wrap (or as a data-show-* attribute), is persisted to
+// localStorage under 'tc-tune-inspector', and is broadcast cross-window
+// (the 'storage' event in the game tab) so the game's #game-tc and iso
+// preview re-apply the same theme.
+const TC_STORE = 'tc-tune';
+const TC_DEFAULTS = {
+  // frame
+  cardBg: '#f4f4f4',
+  sceneBg: '#1c2026',
+  frameSide: 30,        // top + L + R white margin (px)
+  bottomPadY: 26,       // turbo-card padding-y
+  bottomPadX: 32,
+  colGap: 24,
+  rowGap: 5,
+  pairGap: 8,           // label ↔ value
+  // typography
+  fontColor: '#000000',
+  nameFontIdx: 0,        // index into TC_NAME_FONTS
+  nameSize: 38, nameWeight: 900, nameLetter: 2.0,
+  subGap: 2,
+  subSize: 12,  subWeight: 700,  subLetter: 2.5,
+  seedSize: 11, seedWeight: 700,
+  rowSize: 12,  labelWeight: 700, valueWeight: 900,
+  logoNameSize: 28, logoNumSize: 56, logoWeight: 900,
+  // visibility
+  showName: 1, showSub: 1, showSeed: 1,
+  showLen: 1, showWid: 1, showHgt: 1,
+  showWbs: 1, showTrk: 1, showWhd: 1,
+  showHdl: 1, showTll: 1, showFnd: 1,
+  showLogoName: 1, showLogoNum: 1,
+  // camera
+  fov: 40, camYaw: -0.6, camPitch: 0.35, camDist: 8.5,
+  camTgtY: 0.6,
+  camAutoFit: 1, camFitMargin: 1.15,
+};
+const TC_NAME_FONTS = [
+  "'Arial Narrow', 'Helvetica Neue Condensed', 'Roboto Condensed', 'Oswald', Impact, sans-serif",
+  "'Oswald', 'Arial Narrow', Impact, sans-serif",
+  "Impact, 'Arial Narrow', sans-serif",
+  "'Helvetica Neue', Arial, sans-serif",
+  "'Courier New', monospace",
+];
+const TC_NAME_FONT_LABELS = ['Arial Narrow', 'Oswald', 'Impact', 'Helvetica', 'Courier'];
+function tcLoad() {
+  try { return Object.assign({}, TC_DEFAULTS, JSON.parse(localStorage.getItem(TC_STORE) || '{}')); }
+  catch (_) { return Object.assign({}, TC_DEFAULTS); }
+}
+function tcSave(state) {
+  localStorage.setItem(TC_STORE, JSON.stringify(state));
+}
+const tcState = tcLoad();
+const tcWrap = document.getElementById('card-wrap');
+
+// var-name → CSS-var name and unit
+const TC_CSS_VARS = {
+  cardBg:        ['--card-bg', ''],
+  sceneBg:       ['--scene-bg', ''],
+  frameSide:     ['--frame-side', 'px'],
+  bottomPadY:    ['--bottom-pad-y', 'px'],
+  bottomPadX:    ['--bottom-pad-x', 'px'],
+  colGap:        ['--col-gap', 'px'],
+  rowGap:        ['--row-gap', 'px'],
+  pairGap:       ['--pair-gap', 'px'],
+  fontColor:     ['--font-color', ''],
+  nameSize:      ['--name-size', 'px'],
+  nameWeight:    ['--name-weight', ''],
+  nameLetter:    ['--name-letter', 'px'],
+  subGap:        ['--sub-gap', 'px'],
+  subSize:       ['--sub-size', 'px'],
+  subWeight:     ['--sub-weight', ''],
+  subLetter:     ['--sub-letter', 'px'],
+  seedSize:      ['--seed-size', 'px'],
+  seedWeight:    ['--seed-weight', ''],
+  rowSize:       ['--row-size', 'px'],
+  labelWeight:   ['--label-weight', ''],
+  valueWeight:   ['--value-weight', ''],
+  logoNameSize:  ['--logo-name-size', 'px'],
+  logoNumSize:   ['--logo-num-size', 'px'],
+  logoWeight:    ['--logo-weight', ''],
+};
+const TC_SHOW_KEYS = {
+  showName: 'name', showSub: 'sub', showSeed: 'seed',
+  showLen: 'len', showWid: 'wid', showHgt: 'hgt',
+  showWbs: 'wbs', showTrk: 'trk', showWhd: 'whd',
+  showHdl: 'hdl', showTll: 'tll', showFnd: 'fnd',
+  showLogoName: 'logo-name', showLogoNum: 'logo-num',
+};
+function tcApply(state) {
+  for (const key in TC_CSS_VARS) {
+    const [cssVar, unit] = TC_CSS_VARS[key];
+    if (state[key] === undefined) continue;
+    tcWrap.style.setProperty(cssVar, state[key] + unit);
+  }
+  for (const key in TC_SHOW_KEYS) {
+    if (state[key] === undefined) continue;
+    tcWrap.setAttribute('data-show-' + TC_SHOW_KEYS[key], state[key] ? '1' : '0');
+  }
+  // Name font family — selected from a small allowlist of condensed faces.
+  const fontIdx = Math.max(0, Math.min(TC_NAME_FONTS.length - 1, state.nameFontIdx | 0));
+  tcWrap.style.setProperty('--name-font', TC_NAME_FONTS[fontIdx]);
+  // Camera — orbit vars are declared further down the script, so on the
+  // initial run they're still in their TDZ. Guard with a try/catch so the
+  // first paint goes through; the storage handler and live edits will hit
+  // this code AFTER the orbit block has run.
+  if (camera) { camera.fov = state.fov; camera.updateProjectionMatrix(); }
+  try {
+    camYaw   = state.camYaw;
+    camPitch = state.camPitch;
+    camDist  = state.camDist;
+    camTarget.y = state.camTgtY;
+    if (typeof updateCamera === 'function') updateCamera();
+  } catch (_) { /* orbit not ready yet — initial paint */ }
+}
+function hexToRgba(hex, a) {
+  const v = hex.replace('#','');
+  const r = parseInt(v.slice(0,2),16), g = parseInt(v.slice(2,4),16), b = parseInt(v.slice(4,6),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// Build the panel UI from a spec.
+const TC_PANEL_SPEC = [
+  ['§', 'Frame'],
+  ['cardBg', 'Card BG', 'color'],
+  ['sceneBg', 'Scene BG', 'color'],
+  ['frameSide', 'Frame top/sides', 'range', 0, 100, 1],
+  ['bottomPadY', 'Bottom pad Y', 'range', 0, 80, 1],
+  ['bottomPadX', 'Bottom pad X', 'range', 0, 80, 1],
+  ['colGap', 'Col gap', 'range', 0, 60, 1],
+  ['rowGap', 'Row gap', 'range', 0, 30, 1],
+  ['pairGap', 'Label↔Value', 'range', 0, 30, 1],
+  ['§', 'Typography'],
+  ['fontColor', 'Color', 'color'],
+  ['nameFontIdx', 'Name font', 'select', TC_NAME_FONT_LABELS],
+  ['nameSize', 'Name size', 'range', 8, 120, 1],
+  ['nameWeight', 'Name weight', 'range', 100, 900, 100],
+  ['nameLetter', 'Name letter', 'range', 0, 8, 0.1],
+  ['subGap', 'Sub gap', 'range', -20, 30, 1],
+  ['subSize', 'Sub size', 'range', 6, 40, 1],
+  ['subWeight', 'Sub weight', 'range', 100, 900, 100],
+  ['subLetter', 'Sub letter', 'range', 0, 8, 0.1],
+  ['rowSize', 'Row size', 'range', 6, 40, 1],
+  ['labelWeight', 'Label weight', 'range', 100, 900, 100],
+  ['valueWeight', 'Value weight', 'range', 100, 900, 100],
+  ['logoNameSize', 'Logo name', 'range', 8, 140, 1],
+  ['logoNumSize', 'Logo num', 'range', 0, 140, 1],
+  ['logoWeight', 'Logo weight', 'range', 100, 900, 100],
+  ['§', 'Visibility'],
+  ['__checks__', null, [
+    ['showName','Type'], ['showSub','Sub'], ['showSeed','Seed'],
+    ['showLen','L'], ['showWid','W'], ['showHgt','H'],
+    ['showWbs','WB'], ['showTrk','Tr'], ['showWhd','Ø'],
+    ['showHdl','Hlt'], ['showTll','Tl'], ['showFnd','Fn'],
+    ['showLogoName','DERBY'], ['showLogoNum','Number'],
+  ]],
+  ['§', 'Camera'],
+  ['fov', 'FOV', 'range', 15, 90, 1],
+  ['camYaw', 'Yaw', 'range', -3.14, 3.14, 0.01],
+  ['camPitch', 'Pitch', 'range', -1.2, 1.2, 0.01],
+  ['__checks__', null, [['camAutoFit','Auto-fit']]],
+  ['camFitMargin', 'Fit margin', 'range', 1.0, 2.0, 0.01],
+  ['camDist', 'Distance', 'range', 3, 25, 0.1],
+  ['camTgtY', 'Target Y', 'range', -1, 3, 0.01],
+];
+
+function tcBuildPanel() {
+  const body = document.getElementById('tc-tune-body');
+  body.innerHTML = '';
+  for (const item of TC_PANEL_SPEC) {
+    const [k, label] = item;
+    if (k === '§') {
+      const h = document.createElement('div');
+      h.className = 'tc-section'; h.textContent = label;
+      body.appendChild(h);
+      continue;
+    }
+    if (k === '__checks__') {
+      const wrap = document.createElement('div');
+      wrap.className = 'tc-checks';
+      for (const [vk, vl] of item[2]) {
+        const lbl = document.createElement('label');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = !!tcState[vk];
+        cb.addEventListener('change', () => {
+          tcState[vk] = cb.checked ? 1 : 0;
+          tcApply(tcState); tcSave(tcState);
+        });
+        lbl.appendChild(cb);
+        lbl.appendChild(document.createTextNode(vl));
+        wrap.appendChild(lbl);
+      }
+      body.appendChild(wrap);
+      continue;
+    }
+    const type = item[2];
+    const row = document.createElement('div');
+    row.className = 'tc-row2';
+    const lab = document.createElement('span');
+    lab.textContent = label;
+    row.appendChild(lab);
+    let inp;
+    const valSpan = document.createElement('span');
+    valSpan.className = 'tcv';
+    if (type === 'color') {
+      inp = document.createElement('input');
+      inp.type = 'color';
+      inp.value = tcState[k];
+      inp.addEventListener('input', () => {
+        tcState[k] = inp.value; tcApply(tcState); tcSave(tcState);
+        valSpan.textContent = inp.value;
+      });
+      valSpan.textContent = tcState[k];
+    } else if (type === 'select') {
+      inp = document.createElement('select');
+      const opts = item[3];
+      for (let i = 0; i < opts.length; i++) {
+        const o = document.createElement('option');
+        o.value = i; o.textContent = opts[i];
+        if ((tcState[k] | 0) === i) o.selected = true;
+        inp.appendChild(o);
+      }
+      inp.addEventListener('change', () => {
+        tcState[k] = parseInt(inp.value, 10); tcApply(tcState); tcSave(tcState);
+        valSpan.textContent = opts[tcState[k]] || '';
+      });
+      valSpan.textContent = opts[tcState[k] | 0] || '';
+    } else {
+      inp = document.createElement('input');
+      inp.type = 'range';
+      inp.min = item[3]; inp.max = item[4]; inp.step = item[5];
+      inp.value = tcState[k];
+      inp.addEventListener('input', () => {
+        tcState[k] = parseFloat(inp.value); tcApply(tcState); tcSave(tcState);
+        valSpan.textContent = formatTcVal(tcState[k]);
+      });
+      valSpan.textContent = formatTcVal(tcState[k]);
+    }
+    row.appendChild(inp);
+    row.appendChild(valSpan);
+    body.appendChild(row);
+  }
+  // Reset / Export / Copy actions
+  const acts = document.createElement('div');
+  acts.className = 'tc-acts';
+  const bReset = document.createElement('button'); bReset.textContent = 'Reset';
+  const bCopy  = document.createElement('button'); bCopy.textContent  = 'Copy JSON';
+  acts.appendChild(bReset); acts.appendChild(bCopy);
+  body.appendChild(acts);
+  const ta = document.createElement('textarea');
+  ta.className = 'tc-export';
+  ta.readOnly  = true;
+  ta.value = JSON.stringify(tcState, null, 2);
+  body.appendChild(ta);
+  bReset.addEventListener('click', () => {
+    Object.assign(tcState, TC_DEFAULTS);
+    tcApply(tcState); tcSave(tcState);
+    tcBuildPanel();
   });
-})();
+  bCopy.addEventListener('click', () => {
+    ta.value = JSON.stringify(tcState, null, 2);
+    ta.select(); document.execCommand('copy');
+  });
+}
+function formatTcVal(v) {
+  if (typeof v !== 'number') return String(v);
+  if (Math.abs(v) >= 100 || Number.isInteger(v)) return String(v);
+  return v.toFixed(2);
+}
+
+document.querySelector('#tc-tune .tc-head').addEventListener('click', () => {
+  document.getElementById('tc-tune').classList.toggle('collapsed');
+});
+
+tcApply(tcState);
+tcBuildPanel();
+
+// ── AUTO-FIT — tight projective fit of the car bbox into the viewport.
+// Old version used bounding sphere → always overestimates (treats a long
+// flat car as if it were a cube). This version walks all 8 bbox corners,
+// transforms them into the camera's view space at the current orbit aim,
+// and computes the smallest distance D such that every corner stays inside
+// the frustum (vertical AND horizontal half-FOVs). Result: the car fills
+// the frame, almost touching the edges, like a classic gum-card photograph.
+function tcAutoFit() {
+  if (!tcState.camAutoFit) return;
+  if (typeof carGroup === 'undefined' || typeof camera === 'undefined') return;
+  carGroup.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(carGroup);
+  if (!isFinite(box.min.x) || box.isEmpty()) return;
+
+  // Centre orbit pivot on the actual car centre so off-axis bodies sit in
+  // the middle of the frame.
+  const centre = box.getCenter(new THREE.Vector3());
+  camTarget.x = centre.x;
+  camTarget.z = centre.z;
+  // Keep camTgtY whatever the user set — vertical aim is theirs.
+
+  const fovRad = camera.fov * Math.PI / 180;
+  const aspect = camera.aspect || 1;
+  const tanV   = Math.tan(fovRad / 2);
+  const tanH   = tanV * aspect;
+
+  // Build a forward axis from current yaw/pitch. Camera position will be
+  // camTarget + forward * D for some D>0 (mirror of updateCamera).
+  const f = new THREE.Vector3(
+    Math.cos(camPitch) * Math.cos(camYaw),
+    Math.sin(camPitch),
+    Math.cos(camPitch) * Math.sin(camYaw),
+  );
+  // Right and up axes that match THREE's lookAt up=+Y convention.
+  const worldUp = new THREE.Vector3(0, 1, 0);
+  const right   = new THREE.Vector3().crossVectors(worldUp, f).normalize();
+  const up      = new THREE.Vector3().crossVectors(f, right).normalize();
+
+  // For each bbox corner, project its offset from camTarget onto the three
+  // axes. Required distance for that corner along the forward axis is
+  //   D = forwardComp + max(|rightComp|/tanH, |upComp|/tanV)
+  // (camera depth such that corner sits exactly on the frustum edge.)
+  let maxD = 0;
+  const corners = [
+    new THREE.Vector3(box.min.x, box.min.y, box.min.z),
+    new THREE.Vector3(box.min.x, box.min.y, box.max.z),
+    new THREE.Vector3(box.min.x, box.max.y, box.min.z),
+    new THREE.Vector3(box.min.x, box.max.y, box.max.z),
+    new THREE.Vector3(box.max.x, box.min.y, box.min.z),
+    new THREE.Vector3(box.max.x, box.min.y, box.max.z),
+    new THREE.Vector3(box.max.x, box.max.y, box.min.z),
+    new THREE.Vector3(box.max.x, box.max.y, box.max.z),
+  ];
+  for (const c of corners) {
+    const v = c.clone().sub(camTarget);
+    const fwd = v.dot(f);    // depth toward camera (positive = behind target)
+    const rt  = v.dot(right);
+    const upv = v.dot(up);
+    // Distance from corner to camera along forward axis is D - fwd (since
+    // camera sits at +D along f from target; +fwd means corner is closer to
+    // camera). For the corner to be inside the frustum:
+    //   |rt|  / (D - fwd) <= tanH  →  D >= fwd + |rt|/tanH
+    //   |upv| / (D - fwd) <= tanV  →  D >= fwd + |upv|/tanV
+    const dH = fwd + Math.abs(rt)  / tanH;
+    const dV = fwd + Math.abs(upv) / tanV;
+    if (dH > maxD) maxD = dH;
+    if (dV > maxD) maxD = dV;
+  }
+  // Margin = 1.0 → corners exactly on edges. >1 = padding, <1 = clip.
+  camDist = Math.max(2.5, maxD * (tcState.camFitMargin || 1.0));
+  if (typeof updateCamera === 'function') updateCamera();
+}
+
+// Cross-window sync — the game tab writes to the same key, this listener
+// pulls those changes in and re-renders the panel.
+window.addEventListener('storage', (e) => {
+  if (e.key !== TC_STORE || !e.newValue) return;
+  try {
+    const next = JSON.parse(e.newValue);
+    Object.assign(tcState, TC_DEFAULTS, next);
+    tcApply(tcState);
+    tcBuildPanel();
+  } catch (_) {}
+});
 
 document.getElementById('genClassic').addEventListener('click', () => randomizeCar());
 document.getElementById('genCrazy').addEventListener('click', () => randomizeCrazy());
@@ -1931,6 +2392,12 @@ function updateTurboCard(p) {
     : 1;
   $('tc-name').textContent = (currentType || 'sedan').toUpperCase();
   $('tc-sub').textContent  = _tcSub(p);
+  $('tc-seed').textContent = currentSeed ? ('SEED ' + currentSeed.toUpperCase()) : '';
+  // Hide the separator dot if either side ends up empty so we don't print
+  // "FENDER ·" or "· SEED ABC".
+  const subEmpty  = !$('tc-sub').textContent.trim();
+  const seedEmpty = !$('tc-seed').textContent.trim();
+  document.querySelectorAll('.tc-sep').forEach(s => { s.style.display = (subEmpty || seedEmpty) ? 'none' : ''; });
   $('tc-len').textContent  = _tcM(p.bodyLength);
   $('tc-wid').textContent  = _tcM(p.bodyWidth);
   $('tc-hgt').textContent  = _tcM(totalH);
@@ -1940,7 +2407,12 @@ function updateTurboCard(p) {
   $('tc-hdl').textContent  = p.headlightStyle  || '—';
   $('tc-tll').textContent  = p.taillightStyle  || '—';
   $('tc-fnd').textContent  = (p.fenders && p.fenders.enabled) ? 'on' : 'off';
-  $('tc-num').textContent  = num;
+  // Inspector has no game level — leave the number empty so it stays hidden
+  // visually unless the game injects one. (Number sticks around in localStorage
+  // for game side via showLogoNum.)
+  $('tc-num').textContent  = '';
+  // Auto-fit camera to the rebuilt car bbox.
+  if (typeof tcAutoFit === 'function') tcAutoFit();
 }
 
 // ── MORPHING ────────────────────────────────────────────────────────────────
@@ -2003,6 +2475,14 @@ function tickMorph() {
 // ── ORBIT CAMERA (manual) ───────────────────────────────────────────────────
 let camYaw = -0.6, camPitch = 0.35, camDist = 8.5;
 const camTarget = new THREE.Vector3(0, 0.6, 0);
+// Tuner ran before these were declared (TDZ), so re-apply saved camera now
+// that orbit vars exist. Subsequent live edits hit tcApply normally.
+if (typeof tcState !== 'undefined') {
+  camYaw   = tcState.camYaw;
+  camPitch = tcState.camPitch;
+  camDist  = tcState.camDist;
+  camTarget.y = tcState.camTgtY;
+}
 function updateCamera() {
   camera.position.set(
     camTarget.x + camDist * Math.cos(camPitch) * Math.cos(camYaw),

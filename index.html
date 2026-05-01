@@ -169,40 +169,154 @@
     cursor: pointer;
   }
   #settings-drawer button:hover { background: rgba(220,80,80,0.30); }
-  /* Click target sitting on top of the iso preview — opens the constructor
-     in a modal preloaded with the player's current design. */
+  /* GAME-CARD-WRAP — single white frame around the iso preview slot AND the
+     turbo data strip. Same CSS-var scheme as the inspector, driven by the
+     shared 'tc-tune' localStorage state (see #gtc-tune below). */
+  #game-card-wrap {
+    --card-bg:        #f4f4f4;
+    --scene-bg:       #1c2026;
+    --frame-side:     14px;
+    --bottom-pad-y:   10px;
+    --bottom-pad-x:   12px;
+    --col-gap:        10px;
+    --row-gap:        2px;
+    --pair-gap:       6px;
+    --font-color:     #000;
+    --name-font:      'Arial Narrow', 'Helvetica Neue Condensed', 'Roboto Condensed', 'Oswald', Impact, sans-serif;
+    --name-size:      18px;
+    --name-weight:    900;
+    --name-letter:    1.5px;
+    --sub-gap:        2px;
+    --sub-size:       9px;
+    --sub-weight:     700;
+    --sub-letter:     1.5px;
+    --seed-size:      8px;
+    --seed-weight:    700;
+    --row-size:       10px;
+    --label-weight:   700;
+    --value-weight:   900;
+    --logo-name-size: 14px;
+    --logo-num-size:  26px;
+    --logo-weight:    900;
+
+    position: absolute; top: 14px; right: 14px; z-index: 5;
+    background: var(--card-bg);
+    padding: var(--frame-side) var(--frame-side) 0;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.08);
+    display: flex; flex-direction: column;
+    /* Same 8:6 lock as the inspector. Width is fixed by JS (preview-slot
+       size). Card height is derived from that via aspect-ratio so the whole
+       white frame stays in classic Turbo proportion. */
+    aspect-ratio: 4 / 3;
+  }
+  /* Card stays visible on touch — user wants to see / tune it everywhere. */
+  /* Click target — invisible div on top of the slot that opens the inspector. */
+  #preview-slot {
+    position: relative; width: 320px; height: 198px;
+    background: var(--scene-bg); border-radius: 2px;
+    cursor: pointer;
+  }
   #preview-click {
-    position: absolute; top: 14px; right: 14px;
-    cursor: pointer; pointer-events: auto;
-    border: 2px solid transparent; border-radius: 6px;
-    transition: border-color 0.15s; z-index: 5;
+    position: absolute; inset: 0; cursor: pointer;
+    border: 2px solid transparent; border-radius: 2px;
+    transition: border-color 0.15s; z-index: 1;
   }
   #preview-click:hover { border-color: rgba(255,255,255,0.55); }
-  body.touch #preview-click { display: none; }
-  /* GAME TURBO-CARD — compact mirror of the inspector card. Sits under the
-     iso preview, top-right, updates whenever the player's design changes. */
   #game-tc {
-    position: absolute; right: 14px;
-    background: #f4f4f4; color: #1a1a1a;
-    font-family: 'Courier New', monospace; font-size: 10px;
-    padding: 8px 10px; border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.08);
-    z-index: 5; pointer-events: none;
-    display: grid; gap: 4px;
-    grid-template-columns: 1.1fr 1fr 1fr;
-    align-items: start; max-width: 320px;
+    color: var(--font-color);
+    padding: var(--bottom-pad-y) var(--bottom-pad-x);
+    font-family: 'Courier New', monospace;
+    line-height: 1.2; pointer-events: none;
+    display: grid; gap: var(--col-gap);
+    grid-template-columns: 1.4fr 1fr 1fr 1fr 0.8fr;
+    align-items: center;
   }
-  body.touch #game-tc { display: none; }
-  #game-tc .gtc-brand   { display: flex; flex-direction: column; gap: 0; }
-  #game-tc .gtc-name    { font-size: 13px; font-weight: 800; letter-spacing: 1.5px; line-height: 1; }
-  #game-tc .gtc-sub     { font-size: 8px;  opacity: 0.6; letter-spacing: 1.5px; margin-top: 2px; }
-  #game-tc .gtc-seed    { font-size: 8px;  opacity: 0.45; margin-top: 4px; }
-  #game-tc .gtc-stats   { display: flex; flex-direction: column; gap: 2px; }
-  #game-tc .gtc-row     { display: flex; justify-content: space-between; gap: 4px; font-size: 9px; }
-  #game-tc .gtc-l       { opacity: 0.55; }
-  #game-tc .gtc-v       { font-weight: 700; text-align: right;
-                          white-space: nowrap; max-width: 65%;
+  #game-tc .gtc-brand   { display: flex; flex-direction: column; gap: 0;
+                          align-items: center; text-align: center; }
+  #game-tc .gtc-name    { font-family: var(--name-font);
+                          font-size: var(--name-size); font-weight: var(--name-weight);
+                          letter-spacing: var(--name-letter); line-height: 1;
+                          color: var(--font-color); font-stretch: condensed; }
+  #game-tc .gtc-subline { font-size: var(--sub-size); color: var(--font-color);
+                          letter-spacing: var(--sub-letter);
+                          margin-top: var(--sub-gap);
+                          font-weight: var(--sub-weight); line-height: 1.15;
+                          text-align: center; max-width: 100%; }
+  #game-tc .gtc-sub, #game-tc .gtc-seed { font: inherit; color: inherit; letter-spacing: inherit; }
+  #game-tc .gtc-stats   { display: flex; flex-direction: column; gap: var(--row-gap); }
+  #game-tc .gtc-row     { display: flex; justify-content: flex-start;
+                          gap: var(--pair-gap); font-size: var(--row-size); }
+  #game-tc .gtc-l       { color: var(--font-color); white-space: nowrap;
+                          font-weight: var(--label-weight); }
+  #game-tc .gtc-v       { font-weight: var(--value-weight); text-align: left;
+                          color: var(--font-color);
+                          white-space: nowrap;
                           overflow: hidden; text-overflow: ellipsis; }
+  #game-tc .gtc-logo    { display: flex; flex-direction: column;
+                          align-items: flex-end; gap: 0; line-height: 0.95;
+                          align-self: start; }
+  #game-tc .gtc-logo-name { font-family: var(--name-font);
+                            font-size: var(--logo-name-size); font-weight: var(--logo-weight);
+                            letter-spacing: 1.2px; color: var(--font-color);
+                            font-style: italic; font-stretch: condensed; }
+  #game-tc .gtc-logo-num  { font-size: var(--logo-num-size); font-weight: var(--logo-weight);
+                            line-height: 1; color: var(--font-color); letter-spacing: -0.5px;
+                            margin-top: 2px; }
+  #game-card-wrap[data-show-sub="0"]       .gtc-sub       { display: none; }
+  #game-card-wrap[data-show-sub="0"]       .gtc-sep       { display: none; }
+  #game-card-wrap[data-show-seed="0"]      .gtc-seed      { display: none; }
+  #game-card-wrap[data-show-seed="0"]      .gtc-sep       { display: none; }
+  #game-card-wrap[data-show-sub="0"][data-show-seed="0"] .gtc-subline { display: none; }
+  #game-card-wrap[data-show-name="0"]      .gtc-name      { display: none; }
+  #game-card-wrap[data-show-sub="0"]       .gtc-sub       { display: none; }
+  #game-card-wrap[data-show-len="0"]       .gtc-row.r-len { display: none; }
+  #game-card-wrap[data-show-wid="0"]       .gtc-row.r-wid { display: none; }
+  #game-card-wrap[data-show-hgt="0"]       .gtc-row.r-hgt { display: none; }
+  #game-card-wrap[data-show-wbs="0"]       .gtc-row.r-wbs { display: none; }
+  #game-card-wrap[data-show-trk="0"]       .gtc-row.r-trk { display: none; }
+  #game-card-wrap[data-show-whd="0"]       .gtc-row.r-whd { display: none; }
+  #game-card-wrap[data-show-hdl="0"]       .gtc-row.r-hdl { display: none; }
+  #game-card-wrap[data-show-tll="0"]       .gtc-row.r-tll { display: none; }
+  #game-card-wrap[data-show-fnd="0"]       .gtc-row.r-fnd { display: none; }
+  #game-card-wrap[data-show-logo-name="0"] .gtc-logo-name { display: none; }
+  #game-card-wrap[data-show-logo-num="0"]  .gtc-logo-num  { display: none; }
+  /* GTC-TUNE — same panel as the inspector but persisted to the same shared
+     'tc-tune' key, so changes here propagate back to the constructor. */
+  #gtc-tune {
+    position: fixed; top: 14px; left: 14px; z-index: 999;
+    width: 240px; max-height: calc(100vh - 28px);
+    background: rgba(8,10,14,0.92); color: #ddd;
+    border: 1px solid rgba(255,255,255,0.18); border-radius: 6px;
+    font-family: 'Courier New', monospace; font-size: 10px;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  #gtc-tune.collapsed > .gt-body { display: none; }
+  #gtc-tune.collapsed { width: auto; }
+  #gtc-tune > .gt-head { padding: 6px 10px; cursor: pointer;
+    display: flex; justify-content: space-between; gap: 10px;
+    background: rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.1);
+    font-weight: bold; letter-spacing: 1.5px; user-select: none; }
+  #gtc-tune > .gt-body { padding: 8px 10px 12px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 4px; }
+  #gtc-tune .gt-section { font-weight: bold; color: #ffd060; letter-spacing: 1.5px;
+    margin: 8px 0 2px; padding-bottom: 2px;
+    border-bottom: 1px solid rgba(255,255,255,0.08); }
+  #gtc-tune .gt-row2 { display: grid; grid-template-columns: 80px 1fr 36px;
+    gap: 6px; align-items: center; }
+  #gtc-tune .gt-row2 input[type=range] { width: 100%; }
+  #gtc-tune .gt-row2 input[type=color] { background: #2a2d34;
+    border: 1px solid rgba(255,255,255,0.2); padding: 0; height: 18px; width: 100%; border-radius: 3px; }
+  #gtc-tune .gt-row2 select { background: #2a2d34; color: #fff;
+    border: 1px solid rgba(255,255,255,0.2); padding: 2px 4px;
+    font-family: inherit; font-size: 9px; border-radius: 3px; width: 100%; }
+  #gtc-tune .gt-row2 .gtv { text-align: right; opacity: 0.75;
+    font-variant-numeric: tabular-nums; }
+  #gtc-tune .gt-checks { display: grid; grid-template-columns: 1fr 1fr;
+    gap: 2px 8px; }
+  #gtc-tune .gt-checks label { display: flex; gap: 4px; align-items: center;
+    font-size: 9px; opacity: 0.85; }
+  /* Tuner stays visible on touch too — same reason as the card. */
   /* Inspector modal: covers the whole game while open. Game loop pauses. */
   #inspector-modal {
     display: none; position: fixed; inset: 0;
@@ -355,23 +469,42 @@
       </div>
     </div>
   </div>
-  <div id="preview-click" title="Open this design in the constructor (game pauses)"></div>
-  <div id="game-tc">
-    <div class="gtc-brand">
-      <div class="gtc-name" id="gtc-name">SEDAN</div>
-      <div class="gtc-sub"  id="gtc-sub">STANDARD</div>
-      <div class="gtc-seed" id="gtc-seed">L··</div>
+  <div id="game-card-wrap">
+    <div id="preview-slot">
+      <div id="preview-click" title="Open this design in the constructor (game pauses)"></div>
     </div>
-    <div class="gtc-stats">
-      <div class="gtc-row"><span class="gtc-l">L</span><span class="gtc-v" id="gtc-len">·</span></div>
-      <div class="gtc-row"><span class="gtc-l">W</span><span class="gtc-v" id="gtc-wid">·</span></div>
-      <div class="gtc-row"><span class="gtc-l">H</span><span class="gtc-v" id="gtc-hgt">·</span></div>
+    <div id="game-tc">
+      <div class="gtc-brand">
+        <div class="gtc-name" id="gtc-name">SEDAN</div>
+        <div class="gtc-subline">
+          <span class="gtc-sub"  id="gtc-sub">STANDARD</span><span class="gtc-sep"> · </span><span class="gtc-seed" id="gtc-seed"></span>
+        </div>
+      </div>
+      <div class="gtc-stats">
+        <div class="gtc-row r-len"><span class="gtc-l">Length</span><span class="gtc-v" id="gtc-len">·</span></div>
+        <div class="gtc-row r-wid"><span class="gtc-l">Width</span><span class="gtc-v" id="gtc-wid">·</span></div>
+        <div class="gtc-row r-hgt"><span class="gtc-l">Height</span><span class="gtc-v" id="gtc-hgt">·</span></div>
+      </div>
+      <div class="gtc-stats">
+        <div class="gtc-row r-wbs"><span class="gtc-l">Wbase</span><span class="gtc-v" id="gtc-wbs">·</span></div>
+        <div class="gtc-row r-trk"><span class="gtc-l">Track</span><span class="gtc-v" id="gtc-trk">·</span></div>
+        <div class="gtc-row r-whd"><span class="gtc-l">Wheel</span><span class="gtc-v" id="gtc-whd">·</span></div>
+      </div>
+      <div class="gtc-stats">
+        <div class="gtc-row r-hdl"><span class="gtc-l">Hlight</span><span class="gtc-v" id="gtc-hdl">·</span></div>
+        <div class="gtc-row r-tll"><span class="gtc-l">Tail</span><span class="gtc-v" id="gtc-tll">·</span></div>
+        <div class="gtc-row r-fnd"><span class="gtc-l">Fender</span><span class="gtc-v" id="gtc-fnd">·</span></div>
+      </div>
+      <div class="gtc-logo">
+        <span class="gtc-logo-name">DERBY</span>
+        <span class="gtc-logo-num" id="gtc-num"></span>
+      </div>
     </div>
-    <div class="gtc-stats">
-      <div class="gtc-row"><span class="gtc-l">WB</span><span class="gtc-v" id="gtc-wbs">·</span></div>
-      <div class="gtc-row"><span class="gtc-l">TR</span><span class="gtc-v" id="gtc-trk">·</span></div>
-      <div class="gtc-row"><span class="gtc-l">Ø</span><span class="gtc-v" id="gtc-whd">·</span></div>
-    </div>
+  </div>
+  <span id="gtc-seed" style="display:none">L··</span>
+  <div id="gtc-tune">
+    <div class="gt-head"><span>GAME CARD TUNER</span><span>▾</span></div>
+    <div class="gt-body" id="gtc-tune-body"></div>
   </div>
   <button id="gear-btn" title="Tune cameras, sun, clouds, fog…">⚙</button>
   <div id="settings-drawer">
@@ -2490,16 +2623,13 @@ const previewClickEl  = document.getElementById('preview-click');
 const inspectorModal  = document.getElementById('inspector-modal');
 const inspectorIframe = document.getElementById('inspector-iframe');
 function syncPreviewClick() {
+  // Slot inside the white #game-card-wrap holds the iso preview render area.
+  // Sized once based on viewport; the WebGL viewport reads its bbox each
+  // frame so the frame and the rendered car always line up.
   const cssW = Math.min(320, Math.floor(window.innerWidth / 2.6));
   const cssH = Math.floor(cssW * 0.62);
-  previewClickEl.style.width  = cssW + 'px';
-  previewClickEl.style.height = cssH + 'px';
-  // Anchor the Turbo card directly under the iso preview.
-  const tc = document.getElementById('game-tc');
-  if (tc) {
-    tc.style.top   = (14 + cssH + 6) + 'px';
-    tc.style.width = cssW + 'px';
-  }
+  const slot = document.getElementById('preview-slot');
+  if (slot) { slot.style.width = cssW + 'px'; slot.style.height = cssH + 'px'; }
 }
 
 // ── GAME TURBO-CARD — compact mirror of the inspector card. ──────────────
@@ -2523,16 +2653,206 @@ function updateGameTurboCard() {
   // Type label from car's bodyType (set by applyTier), else fallback.
   _gtc$('gtc-name').textContent = (player.bodyType || 'sedan').toUpperCase();
   _gtc$('gtc-sub').textContent  = _gtcSub(p);
-  _gtc$('gtc-seed').textContent = 'L' + (player.level | 0);
+  // Seed line — best-effort; player.seed only exists once design is generated.
+  const seedTxt = (player.seed || player.designSeed || '');
+  const seedEl  = _gtc$('gtc-seed');
+  if (seedEl) seedEl.textContent = seedTxt ? ('SEED ' + String(seedTxt).toUpperCase()) : '';
+  const subEmpty  = !(_gtc$('gtc-sub')?.textContent?.trim());
+  const seedEmpty = !(seedEl?.textContent?.trim());
+  document.querySelectorAll('#game-tc .gtc-sep').forEach(s => { s.style.display = (subEmpty || seedEmpty) ? 'none' : ''; });
   _gtc$('gtc-len').textContent  = _gtcM(p.bodyLength);
   _gtc$('gtc-wid').textContent  = _gtcM(p.bodyWidth);
   _gtc$('gtc-hgt').textContent  = _gtcM(totalH);
   _gtc$('gtc-wbs').textContent  = _gtcM(p.wheelbase);
   _gtc$('gtc-trk').textContent  = _gtcM(p.trackWidth);
   _gtc$('gtc-whd').textContent  = _gtcM(wD);
+  if (_gtc$('gtc-hdl')) _gtc$('gtc-hdl').textContent = p.headlightStyle || '—';
+  if (_gtc$('gtc-tll')) _gtc$('gtc-tll').textContent = p.taillightStyle || '—';
+  if (_gtc$('gtc-fnd')) _gtc$('gtc-fnd').textContent = (p.fenders && p.fenders.enabled) ? 'on' : 'off';
+  // Number = player level. If no level, leave blank so DERBY sits alone.
+  if (_gtc$('gtc-num')) {
+    const lvl = (typeof player.level === 'number') ? (player.level | 0) : null;
+    _gtc$('gtc-num').textContent = (lvl !== null && lvl > 0) ? String(lvl) : '';
+  }
 }
 syncPreviewClick();
 window.addEventListener('resize', syncPreviewClick);
+
+// ── GAME CARD TUNER ───────────────────────────────────────────────────────
+// Same controls as the inspector's #tc-tune panel, persisted to the same
+// 'tc-tune' localStorage key so changes propagate both ways via storage
+// events. Camera fields are inspector-only — game ignores them.
+const GTC_STORE = 'tc-tune';
+const GTC_DEFAULTS = {
+  cardBg: '#f4f4f4', sceneBg: '#1c2026',
+  frameSide: 14, bottomPadY: 10, bottomPadX: 12,
+  colGap: 10, rowGap: 2, pairGap: 6,
+  fontColor: '#000000',
+  nameFontIdx: 0,
+  nameSize: 18, nameWeight: 900, nameLetter: 1.5,
+  subGap: 2,
+  subSize: 9,   subWeight: 700,  subLetter: 1.5,
+  seedSize: 8,  seedWeight: 700,
+  rowSize: 10,  labelWeight: 700, valueWeight: 900,
+  logoNameSize: 14, logoNumSize: 26, logoWeight: 900,
+  showName: 1, showSub: 1, showSeed: 1,
+  showLen: 1, showWid: 1, showHgt: 1,
+  showWbs: 1, showTrk: 1, showWhd: 1,
+  showHdl: 1, showTll: 1, showFnd: 1,
+  showLogoName: 1, showLogoNum: 1,
+};
+const GTC_NAME_FONTS = [
+  "'Arial Narrow', 'Helvetica Neue Condensed', 'Roboto Condensed', 'Oswald', Impact, sans-serif",
+  "'Oswald', 'Arial Narrow', Impact, sans-serif",
+  "Impact, 'Arial Narrow', sans-serif",
+  "'Helvetica Neue', Arial, sans-serif",
+  "'Courier New', monospace",
+];
+const GTC_NAME_FONT_LABELS = ['Arial Narrow', 'Oswald', 'Impact', 'Helvetica', 'Courier'];
+function gtcLoad() {
+  try { return Object.assign({}, GTC_DEFAULTS, JSON.parse(localStorage.getItem(GTC_STORE) || '{}')); }
+  catch (_) { return Object.assign({}, GTC_DEFAULTS); }
+}
+function gtcSave(s) { localStorage.setItem(GTC_STORE, JSON.stringify(s)); }
+const gtcState = gtcLoad();
+const gtcWrap  = document.getElementById('game-card-wrap');
+const GTC_CSS_VARS = {
+  cardBg:['--card-bg',''], sceneBg:['--scene-bg',''],
+  frameSide:['--frame-side','px'], bottomPadY:['--bottom-pad-y','px'],
+  bottomPadX:['--bottom-pad-x','px'], colGap:['--col-gap','px'], rowGap:['--row-gap','px'],
+  pairGap:['--pair-gap','px'],
+  fontColor:['--font-color',''],
+  nameSize:['--name-size','px'], nameWeight:['--name-weight',''], nameLetter:['--name-letter','px'],
+  subGap:['--sub-gap','px'],
+  subSize:['--sub-size','px'], subWeight:['--sub-weight',''], subLetter:['--sub-letter','px'],
+  seedSize:['--seed-size','px'], seedWeight:['--seed-weight',''],
+  rowSize:['--row-size','px'], labelWeight:['--label-weight',''], valueWeight:['--value-weight',''],
+  logoNameSize:['--logo-name-size','px'], logoNumSize:['--logo-num-size','px'],
+  logoWeight:['--logo-weight',''],
+};
+const GTC_SHOW_KEYS = {
+  showName:'name', showSub:'sub', showSeed:'seed',
+  showLen:'len', showWid:'wid', showHgt:'hgt',
+  showWbs:'wbs', showTrk:'trk', showWhd:'whd',
+  showHdl:'hdl', showTll:'tll', showFnd:'fnd',
+  showLogoName:'logo-name', showLogoNum:'logo-num',
+};
+function gtcHexRgba(hex,a){const v=hex.replace('#','');const r=parseInt(v.slice(0,2),16),g=parseInt(v.slice(2,4),16),b=parseInt(v.slice(4,6),16);return `rgba(${r},${g},${b},${a})`;}
+function gtcApply(s) {
+  if (!gtcWrap) return;
+  for (const k in GTC_CSS_VARS) {
+    const [v, u] = GTC_CSS_VARS[k];
+    if (s[k] !== undefined) gtcWrap.style.setProperty(v, s[k] + u);
+  }
+  for (const k in GTC_SHOW_KEYS) {
+    if (s[k] !== undefined) gtcWrap.setAttribute('data-show-' + GTC_SHOW_KEYS[k], s[k] ? '1' : '0');
+  }
+  const fIdx = Math.max(0, Math.min(GTC_NAME_FONTS.length - 1, (s.nameFontIdx | 0) || 0));
+  gtcWrap.style.setProperty('--name-font', GTC_NAME_FONTS[fIdx]);
+}
+const GTC_PANEL_SPEC = [
+  ['§','Frame'],
+  ['cardBg','Card BG','color'], ['sceneBg','Scene BG','color'],
+  ['frameSide','Frame T/sides','range',0,60,1],
+  ['bottomPadY','Bottom pad Y','range',0,60,1],
+  ['bottomPadX','Bottom pad X','range',0,60,1],
+  ['colGap','Col gap','range',0,30,1],
+  ['rowGap','Row gap','range',0,20,1],
+  ['pairGap','Label↔Value','range',0,20,1],
+  ['§','Typography'],
+  ['fontColor','Color','color'],
+  ['nameFontIdx','Name font','select',GTC_NAME_FONT_LABELS],
+  ['nameSize','Name size','range',6,60,1],
+  ['nameWeight','Name weight','range',100,900,100],
+  ['nameLetter','Name letter','range',0,5,0.1],
+  ['subGap','Sub gap','range',-15,20,1],
+  ['subSize','Sub size','range',6,24,1],
+  ['subWeight','Sub weight','range',100,900,100],
+  ['rowSize','Row size','range',6,24,1],
+  ['labelWeight','Label weight','range',100,900,100],
+  ['valueWeight','Value weight','range',100,900,100],
+  ['logoNameSize','Logo name','range',6,60,1],
+  ['logoNumSize','Logo num','range',0,80,1],
+  ['logoWeight','Logo weight','range',100,900,100],
+  ['§','Visibility'],
+  ['__checks__', null, [
+    ['showName','Type'], ['showSub','Sub'], ['showSeed','Seed'],
+    ['showLen','L'], ['showWid','W'], ['showHgt','H'],
+    ['showWbs','WB'], ['showTrk','Tr'], ['showWhd','Ø'],
+    ['showHdl','Hlt'], ['showTll','Tl'], ['showFnd','Fn'],
+    ['showLogoName','DERBY'], ['showLogoNum','Level'],
+  ]],
+];
+function gtcFmt(v) {
+  if (typeof v !== 'number') return String(v);
+  if (Math.abs(v) >= 100 || Number.isInteger(v)) return String(v);
+  return v.toFixed(2);
+}
+function gtcBuildPanel() {
+  const body = document.getElementById('gtc-tune-body');
+  if (!body) return;
+  body.innerHTML = '';
+  for (const item of GTC_PANEL_SPEC) {
+    const [k, label] = item;
+    if (k === '§') { const h=document.createElement('div'); h.className='gt-section'; h.textContent=label; body.appendChild(h); continue; }
+    if (k === '__checks__') {
+      const w = document.createElement('div'); w.className = 'gt-checks';
+      for (const [vk,vl] of item[2]) {
+        const lbl = document.createElement('label');
+        const cb  = document.createElement('input'); cb.type='checkbox'; cb.checked=!!gtcState[vk];
+        cb.addEventListener('change', () => { gtcState[vk] = cb.checked?1:0; gtcApply(gtcState); gtcSave(gtcState); });
+        lbl.appendChild(cb); lbl.appendChild(document.createTextNode(vl));
+        w.appendChild(lbl);
+      }
+      body.appendChild(w); continue;
+    }
+    const type = item[2];
+    const row = document.createElement('div'); row.className = 'gt-row2';
+    const lab = document.createElement('span'); lab.textContent = label;
+    row.appendChild(lab);
+    let inp;
+    const valSpan = document.createElement('span'); valSpan.className = 'gtv';
+    if (type === 'color') {
+      inp = document.createElement('input'); inp.type = 'color'; inp.value = gtcState[k];
+      inp.addEventListener('input', () => { gtcState[k]=inp.value; gtcApply(gtcState); gtcSave(gtcState); valSpan.textContent=inp.value; });
+      valSpan.textContent = gtcState[k];
+    } else if (type === 'select') {
+      inp = document.createElement('select');
+      const opts = item[3];
+      for (let i = 0; i < opts.length; i++) {
+        const o = document.createElement('option');
+        o.value = i; o.textContent = opts[i];
+        if ((gtcState[k] | 0) === i) o.selected = true;
+        inp.appendChild(o);
+      }
+      inp.addEventListener('change', () => {
+        gtcState[k] = parseInt(inp.value, 10); gtcApply(gtcState); gtcSave(gtcState);
+        valSpan.textContent = opts[gtcState[k]] || '';
+      });
+      valSpan.textContent = opts[gtcState[k] | 0] || '';
+    } else {
+      inp = document.createElement('input');
+      inp.type = 'range'; inp.min = item[3]; inp.max = item[4]; inp.step = item[5]; inp.value = gtcState[k];
+      inp.addEventListener('input', () => { gtcState[k]=parseFloat(inp.value); gtcApply(gtcState); gtcSave(gtcState); valSpan.textContent=gtcFmt(gtcState[k]); });
+      valSpan.textContent = gtcFmt(gtcState[k]);
+    }
+    row.appendChild(inp); row.appendChild(valSpan);
+    body.appendChild(row);
+  }
+}
+const gtcHead = document.querySelector('#gtc-tune .gt-head');
+if (gtcHead) gtcHead.addEventListener('click', () => document.getElementById('gtc-tune').classList.toggle('collapsed'));
+gtcApply(gtcState);
+gtcBuildPanel();
+window.addEventListener('storage', (e) => {
+  if (e.key !== GTC_STORE || !e.newValue) return;
+  try {
+    const next = JSON.parse(e.newValue);
+    Object.assign(gtcState, GTC_DEFAULTS, next);
+    gtcApply(gtcState);
+    gtcBuildPanel();
+  } catch (_) {}
+});
 previewClickEl.addEventListener('click', () => {
   const json = JSON.stringify(player.design);
   inspectorIframe.src = 'inspector.html?design=' + encodeURIComponent(json);
@@ -3622,14 +3942,15 @@ function loop() {
     const dpr = renderer.getPixelRatio();
     const W = renderer.domElement.width;
     const H = renderer.domElement.height;
-    // Wider-than-tall inset so the car silhouette (4-5m long, ~1.5m tall)
-    // fits without empty rails of sky on the sides.
-    const cssW = Math.min(320, Math.floor(window.innerWidth / 2.6));
-    const cssH = Math.floor(cssW * 0.62);
+    // Read the iso slot's CSS bbox so the WebGL viewport stays glued to the
+    // white frame even as the user resizes / tunes the frame thickness.
+    const slot = document.getElementById('preview-slot');
+    const r    = slot ? slot.getBoundingClientRect() : null;
+    const cssW = r ? r.width  : Math.min(320, Math.floor(window.innerWidth / 2.6));
+    const cssH = r ? r.height : Math.floor(cssW * 0.62);
     const w = Math.floor(cssW * dpr), h = Math.floor(cssH * dpr);
-    const margin = Math.floor(14 * dpr);
-    const x = W - w - margin;
-    const y = H - h - margin;
+    const x = r ? Math.floor(r.left * dpr) : (W - w - Math.floor(14 * dpr));
+    const y = r ? (H - Math.floor(r.bottom * dpr)) : (H - h - Math.floor(14 * dpr));
 
     // Match the ortho frustum to the inset aspect so the car keeps its
     // real proportions (no vertical stretch).
