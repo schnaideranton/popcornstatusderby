@@ -1,0 +1,23 @@
+{
+  "name": "popcornstatusderby",
+  "version": "1.0.0",
+  "description": "Single-file browser car-bash arena. Drive a parametric car around 8 ramps, shoot at AI cars to climb the status ladder; getting hit drops you down. The shoot button plays the Popcorn melody (Gershon Kingsley / Hot Butter, 1972) one note per shot, in tempo. Engine runs the bass line.",
+  "main": "cannon-es.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/schnaideranton/popcornstatusderby.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/schnaideranton/popcornstatusderby/issues"
+  },
+  "homepage": "https://github.com/schnaideranton/popcornstatusderby#readme",
+  "dependencies": {
+    "puppeteer": "^24.42.0"
+  }
+}
