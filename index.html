@@ -809,11 +809,11 @@
 {
   "modes": [
     { "name": "chase",       "offset": [-4.6,  3.1,  0.0], "lerp": 0.30, "height_aware": true },
-    { "name": "chase-close", "offset": [-0.4,  0.6,  0.0], "lerp": 0.55, "height_aware": true },
+    { "name": "interior",    "offset": [ 0.0,  0.0,  0.0], "lerp": 1.00, "height_aware": false, "interior": true },
     { "name": "front-left",  "offset": [ 5.1,  1.0, -3.7], "lerp": 0.55, "height_aware": false },
     { "name": "front-right", "offset": [ 0.1,  1.6,  3.5], "lerp": 0.55, "height_aware": false },
-    { "name": "birds-eye",   "altitude": 98,               "lerp": 0.15, "rotates_with_player": true },
-    { "name": "below-floor", "offset": [-4.0, -8.0,  0.0], "lerp": 0.55, "height_aware": false },
+    { "name": "below-floor", "offset": [-4.0, -8.0,  0.0], "lerp": 0.55, "height_aware": false, "no_floor_clamp": true },
+    { "name": "overhead",    "altitude": 98,               "lerp": 0.08 },
     { "name": "spectator",   "height": 34, "dist": 84,     "lerp": 0.10 }
   ],
   "fov": 68,
@@ -836,6 +836,7 @@
       <button class="stage-btn" id="btn-camera">📷 CAM</button>
       <button class="stage-btn" id="btn-regen">⟲ REGEN</button>
       <button class="stage-btn" id="btn-mute">🔊</button>
+      <button class="stage-btn" id="btn-music" title="Switch soundtrack">POPCORN</button>
       <button class="stage-btn" id="btn-mode" title="Toggle Cargeneddon / Free Ride">
         <span id="btn-mode-label">FREE RIDE</span>
       </button>
@@ -863,10 +864,11 @@
       <h3>Camera</h3>
       <div class="sd-row"><label>Mode</label><select id="set-cam-mode">
         <option value="0">0 chase</option>
-        <option value="1">1 chase-close</option>
+        <option value="1">1 interior</option>
         <option value="2">2 front-left</option>
         <option value="3">3 front-right</option>
-        <option value="4">4 birds-eye</option>
+        <option value="4">4 below-floor</option>
+        <option value="5">5 overhead</option>
         <option value="5">5 below-floor</option>
         <option value="6">6 spectator</option>
       </select></div>
@@ -1554,7 +1556,7 @@ function buildGhostDynamics() {
   }
 }
 function syncGhostDynamics() {
-  const show = (typeof camMode !== 'undefined') && camMode !== 4;
+  const show = (typeof camMode !== 'undefined') && camMode !== 1 && camMode !== 4;
   for (const { body, ghosts } of ghostDynList) {
     const p = body.position, q = body.quaternion;
     for (const { m, dx, dz } of ghosts) {
@@ -2514,6 +2516,20 @@ function applyTier(car, level, seedIn) {
   normalizeFenders(p, true);
   normalizeSideMirrors(p, true);
 
+  // ── Oval/split-oval minimum gap: ensure taillights & headlights are never
+  // squeezed so close together that they look merged. Rule: center-to-center
+  // distance must be ≥ 3 × the light's Z-half-width (= one gap between them).
+  const _ensureLightGap = (style, spreadKey) => {
+    const halfZ = (HL_HALFZ[style] || 0.12) * (p[style.includes('tail') ? 'taillightW' : 'headlightW'] || 1);
+    const curZ  = Math.max(0.05, p.bodyWidth / 2 - 0.25 + (p[spreadKey] || 0));
+    const minZ  = halfZ * 3.5;
+    if (curZ < minZ) p[spreadKey] = (p[spreadKey] || 0) + (minZ - curZ);
+  };
+  if (p.taillightStyle === 'oval' || p.taillightStyle === 'split-oval')
+    _ensureLightGap(p.taillightStyle, 'taillightSpread');
+  if (p.headlightStyle === 'oval'  || p.headlightStyle === 'split-oval')
+    _ensureLightGap(p.headlightStyle, 'headlightSpread');
+
   applyDesignVisuals(car);
   _R = Math.random.bind(Math); // restore global randomness after seeded generation
 }
@@ -2700,7 +2716,7 @@ function makeCar(px, pz, color) {
     directionLocal: new CANNON.Vec3(0, -1, 0),
     suspensionStiffness: 42,
     suspensionRestLength: 0.40,
-    frictionSlip: 5.5,
+    frictionSlip: 3.2,
     dampingRelaxation: 2.0,
     dampingCompression: 3.4,
     maxSuspensionForce: 220000,
@@ -2926,8 +2942,8 @@ function rebuildShadowsFor(car) {
   }
 }
 function syncShadows() {
-  // Hide mirrors in bird's-eye (camMode 4) — they overlap into clutter.
-  const showMirrors = camMode !== 4;
+  // Hide mirrors in interior view (camMode 1) and below-floor (camMode 4).
+  const showMirrors = camMode !== 1 && camMode !== 4;
   for (const car of allCars) {
     if (!car.shadowBodies) continue;
     for (const s of car.shadowBodies) {
@@ -3005,8 +3021,15 @@ const Synth = (() => {
   const M = (m) => 440 * Math.pow(2, (m - 69) / 12);
   // Popcorn melody — extracted from MIDI (Kingsley/Hot Butter, 1972).
   // [dt-from-prev-ms, MIDI-pitch]. Tempo 147 BPM, 8th=204ms, 16th=102ms.
-  const MEL = [[0,71],[204,69],[204,71],[204,66],[204,62],[204,66],[204,59],[408,71],[204,69],[204,71],[204,66],[204,62],[204,66],[204,59],[408,71],[204,73],[204,74],[204,73],[204,74],[204,71],[204,73],[204,71],[204,73],[204,69],[204,71],[204,69],[204,71],[204,67],[204,71],[408,71],[204,69],[204,71],[204,66],[204,62],[204,66],[204,59],[408,71],[204,69],[204,71],[204,66],[204,62],[204,66],[204,59],[408,71],[204,73],[204,74],[204,73],[204,74],[204,71],[204,73],[204,71],[204,73],[204,69],[204,71],[204,69],[204,71],[204,73],[204,74],[408,66],[204,64],[204,66],[204,62],[204,57],[204,62],[204,54],[408,66],[204,64],[204,66],[204,62],[204,57],[204,62],[204,54],[408,66],[204,68],[204,69],[204,68],[204,69],[204,66],[204,68],[204,66],[204,68],[204,64],[204,66],[204,64],[204,66],[204,62],[204,66],[408,66],[204,64],[204,66],[204,62],[204,57],[204,62],[204,54],[408,66],[204,64],[204,66],[204,62],[204,57],[204,62],[204,54],[408,66],[204,68],[204,69],[204,68],[204,69],[204,66],[204,68],[204,66],[204,68],[204,64],[204,66],[204,64],[204,66],[204,62],[204,66]];
-  const BASS = [[0,35],[204,47],[102,42],[102,35],[204,47],[102,42],[102,35],[204,47],[102,42],[102,35],[102,39],[102,40],[102,42],[102,35],[204,47],[102,42],[102,35],[204,47],[102,42],[102,35],[204,47],[102,42],[102,35],[102,39]];
+  const MEL_POPCORN = [[0,71],[204,69],[204,71],[204,66],[204,62],[204,66],[204,59],[408,71],[204,69],[204,71],[204,66],[204,62],[204,66],[204,59],[408,71],[204,73],[204,74],[204,73],[204,74],[204,71],[204,73],[204,71],[204,73],[204,69],[204,71],[204,69],[204,71],[204,67],[204,71],[408,71],[204,69],[204,71],[204,66],[204,62],[204,66],[204,59],[408,71],[204,69],[204,71],[204,66],[204,62],[204,66],[204,59],[408,71],[204,73],[204,74],[204,73],[204,74],[204,71],[204,73],[204,71],[204,73],[204,69],[204,71],[204,69],[204,71],[204,73],[204,74],[408,66],[204,64],[204,66],[204,62],[204,57],[204,62],[204,54],[408,66],[204,64],[204,66],[204,62],[204,57],[204,62],[204,54],[408,66],[204,68],[204,69],[204,68],[204,69],[204,66],[204,68],[204,66],[204,68],[204,64],[204,66],[204,64],[204,66],[204,62],[204,66],[408,66],[204,64],[204,66],[204,62],[204,57],[204,62],[204,54],[408,66],[204,64],[204,66],[204,62],[204,57],[204,62],[204,54],[408,66],[204,68],[204,69],[204,68],[204,69],[204,66],[204,68],[204,66],[204,68],[204,64],[204,66],[204,64],[204,66],[204,62],[204,66]];
+  const BASS_POPCORN = [[0,35],[204,47],[102,42],[102,35],[204,47],[102,42],[102,35],[204,47],[102,42],[102,35],[102,39],[102,40],[102,42],[102,35],[204,47],[102,42],[102,35],[204,47],[102,42],[102,35],[204,47],[102,42],[102,35],[102,39]];
+  // Plastikman - Disconnect (Sheet One, 1993). ~107 BPM → 8th≈281ms, 16th≈140ms.
+  // Sparse acid bass + characteristic high pikalka melody.
+  const MEL_DISCONNECT = [[0,83],[562,83],[281,81],[562,83],[562,81],[562,83],[562,81],[1124,83],[562,83],[281,81],[562,83],[562,81],[562,83],[562,81],[1124,84],[562,81],[562,79],[562,81],[562,83],[562,81],[562,83],[562,81]];
+  const BASS_DISCONNECT = [[0,36],[281,36],[140,43],[140,36],[281,36],[281,48],[281,36],[140,43],[140,36],[281,39],[281,36],[140,43],[140,36],[281,41],[281,36],[140,43],[140,36],[281,36],[281,43],[140,36],[140,41]];
+  let _musicMode = 0; // 0 = Popcorn, 1 = Disconnect
+  let MEL  = MEL_POPCORN;
+  let BASS = BASS_POPCORN;
   const CHORDS = [[59,62,66],[64,67,71],[66,69,73],[57,60,64],[62,66,69]].map(c => c.map(M));
   const RISE = [[59,66],[62,69],[64,71],[57,64],[59,71]].map(p => p.map(M));
   const FALL = [[78,59],[76,57],[74,59],[71,55],[73,59]].map(p => p.map(M));
@@ -3019,7 +3042,11 @@ const Synth = (() => {
     const [, midi] = BASS[bassIdx];
     if (engineLevel > 0.04 && !muted && ctx.state === 'running') {
       const f = M(midi + _engPitch);
-      blip({ freq: f, dur: 0.16, type: 'sawtooth', cutoff: 280 + engineLevel * 500, vel: 0.06 + engineLevel * 0.18, q: 0.9 });
+      const isDisconnect = _musicMode === 1;
+      blip({ freq: f, dur: isDisconnect ? 0.22 : 0.16,
+             type: isDisconnect ? 'sawtooth' : 'sawtooth',
+             cutoff: isDisconnect ? 180 + engineLevel * 320 : 280 + engineLevel * 500,
+             vel: (isDisconnect ? 0.08 : 0.06) + engineLevel * 0.18, q: isDisconnect ? 1.4 : 0.9 });
     }
     const nextIdx = (bassIdx + 1) % BASS.length;
     const dtNext = BASS[nextIdx][0];
@@ -3031,10 +3058,23 @@ const Synth = (() => {
   return {
     setEngine, setMute, isMuted: () => muted, ensureRunning,
     setEngPitch, setFirePitch,
+    toggleMusic() {
+      _musicMode = _musicMode === 0 ? 1 : 0;
+      MEL  = _musicMode === 0 ? MEL_POPCORN  : MEL_DISCONNECT;
+      BASS = _musicMode === 0 ? BASS_POPCORN : BASS_DISCONNECT;
+      melIdx = 0; bassIdx = 0;
+      return _musicMode === 0 ? 'POPCORN' : 'DISCONNECT';
+    },
+    getMusicMode: () => _musicMode,
     shoot() {
       const [, midi] = MEL[melIdx];
       const f = M(midi + _firePitch) * J();
-      blip({ freq: f, dur: 0.09, type: 'square', cutoff: 1300, vel: 0.20, sweep: f * 0.93 });
+      const isDisconnect = _musicMode === 1;
+      blip({ freq: f, dur: isDisconnect ? 0.14 : 0.09,
+             type: isDisconnect ? 'sine' : 'square',
+             cutoff: isDisconnect ? 2200 : 1300,
+             vel: isDisconnect ? 0.28 : 0.20,
+             sweep: f * (isDisconnect ? 0.98 : 0.93) });
       melIdx = (melIdx + 1) % MEL.length;
       return MEL[melIdx][0];
     },
@@ -3740,6 +3780,10 @@ document.getElementById('btn-constructor').addEventListener('click', openConstru
 document.getElementById('btn-camera').addEventListener('click', () => { setCameraMode((camMode + 1) % SPEC.camera.modes.length); });
 document.getElementById('btn-regen').addEventListener('click', () => applyTierMaybeMorph(player, player.level || 1));
 document.getElementById('btn-mute').addEventListener('click', toggleMute);
+document.getElementById('btn-music').addEventListener('click', () => {
+  const label = Synth.toggleMusic();
+  document.getElementById('btn-music').textContent = label;
+});
 // Mode label button — clicking toggles between Free Ride and Cargeneddon.
 document.getElementById('btn-mode').addEventListener('click', () => { if (CG.active) cgExit(); else cgEnter(); });
 // Standalone Cargeneddon icon — bare PNG in the top-left row. Click = enter
@@ -3989,8 +4033,7 @@ function updateConstructorCamera() {
 // view (windshield to the left, rear to the right). Y axis is inverted
 // (SVG y = -world y) so positive y is up.
 const SX = (x) => -x;
-const HANDLE_R = 0.09;       // half of previous 0.18 — Anton: handles were
-                             // overlapping body↔cabin and impossible to pick.
+const HANDLE_R = 0.10;       // visual size; hit circle is 3× bigger so easy to grab
 const HANDLE_STROKE = 0.02;
 const EDITOR_COLORS = {
   ground: '#6c7480',
@@ -4023,7 +4066,7 @@ function drawEditorHandle(parent, x, y, color, key, dir) {
   });
   p.dataset.key = key;
   const hit = svgEl(parent, 'circle', {
-    cx: x, cy: y, r: r * 1.75, fill: 'transparent',
+    cx: x, cy: y, r: r * 3.2, fill: 'transparent',
     style: 'cursor:grab;pointer-events:all',
   });
   hit.dataset.key = key;
@@ -4510,7 +4553,7 @@ const PANEL_SPEC = [
   ['bodyColor',  'Color',    'color'],
   ['§', 'Cabin'],
   ['cabinOffset',     'Offset',     'range', -2.5, 2.5, 0.01],
-  ['cabinLength',     'Length',     'range', 0.8,  4.0, 0.01],
+  ['cabinLength',     'Length',     'range', 0.8,  6.5, 0.01],
   ['cabinHeight',     'Height',     'range', 0.20, 1.20, 0.01],
   ['cabinWidth',      'Width',      'range', 1.0,  2.5, 0.01],
   ['cabinColor',      'Paint',      'color'],
@@ -5561,7 +5604,20 @@ function loop() {
   v.applyEngineForce(ePer, 3);
   v.setSteeringValue(steer, 0);
   v.setSteeringValue(steer, 1);
-  const hb = (K['Space'] || (touchAssist && touchDrifting) || brakeSkid || jturnState) ? 85 : 0;
+  // ── Drift physics: reduce rear frictionSlip when turning hard at speed ──
+  // This lets the rear wheels slide naturally (like a rear-wheel-drive drift).
+  const _spd3d = Math.hypot(player.chassis.velocity.x, player.chassis.velocity.y, player.chassis.velocity.z);
+  const _steerAbs = Math.abs(steer);
+  const _handbrake = K['Space'] || (touchAssist && touchDrifting) || brakeSkid;
+  const _driftLoad  = Math.min(1, (_steerAbs / MAX_STEER) * (_spd3d / 12));
+  const _baseFriction = 3.2;
+  const _driftFriction = 1.2;  // rear slides freely at max drift load
+  const _rearFriction  = _baseFriction - (_baseFriction - _driftFriction) * _driftLoad;
+  v.wheelInfos[2].frictionSlip = _handbrake ? 0.9 : _rearFriction;
+  v.wheelInfos[3].frictionSlip = _handbrake ? 0.9 : _rearFriction;
+  v.wheelInfos[0].frictionSlip = _baseFriction;
+  v.wheelInfos[1].frictionSlip = _baseFriction;
+  const hb = (_handbrake || jturnState) ? 85 : 0;
   v.setBrake(0,  0); v.setBrake(0,  1);
   v.setBrake(hb, 2); v.setBrake(hb, 3);
   if (player.tailMat) {
@@ -5639,7 +5695,7 @@ function loop() {
       }
     }
   }
-  if ((playerWrapDX !== 0 || playerWrapDZ !== 0) && camMode < 4) {
+  if ((playerWrapDX !== 0 || playerWrapDZ !== 0) && camMode < 5) {
     camPos.x += playerWrapDX;
     camPos.z += playerWrapDZ;
     if (camAnchorReady) {
@@ -5783,7 +5839,7 @@ function loop() {
   const heightLift = Math.max(0, (carTotalH - 1.0)) * SPEC.camera.height_aware_lift_factor;
   _applyCameraFovForMode(camMode);
 
-  scene.background = (camMode === 4) ? FLAT_BG : SKY_BG;
+  scene.background = SKY_BG;
 
   if (camMode === 6) {
     // Spectator — fixed external camera viewing the whole arena
@@ -5792,19 +5848,29 @@ function loop() {
     camLook.lerp(new THREE.Vector3(0, 0, 0), 0.10);
     camera.position.copy(camPos);
     camera.lookAt(camLook);
-  } else if (camMode === 4) {
-    // Bird's-eye
-    const fwdL = new CANNON.Vec3(1, 0, 0);
-    const fwdW = new CANNON.Vec3();
-    cq.vmult(fwdL, fwdW);
-    const birdAlt = birdsEyeAlt * _clampN(activeTune.distance || 1, 0.55, 1.8) + (activeTune.lift || 0);
-    const birdK = 1 - Math.exp(-dt * (4.2 / camSoft));
-    camPos.lerp(new THREE.Vector3(camAnchor.x, camAnchor.y + birdAlt, camAnchor.z), birdK);
-    camLook.lerp(new THREE.Vector3(camAnchor.x, camAnchor.y + (activeTune.lookY || 0), camAnchor.z), 0.12);
+  } else if (camMode === 5) {
+    // Overhead static — fixed directly above arena center, no car rotation.
+    // Behaves like spectator but looking straight down.
+    camera.up.set(1, 0, 0); // north = car forward X
+    const overAlt = birdsEyeAlt * _clampN(activeTune.distance || 1, 0.55, 1.8) + (activeTune.lift || 0);
+    camPos.lerp(new THREE.Vector3(0, overAlt, 0), SPEC.camera.modes[5].lerp || 0.08);
     camera.position.copy(camPos);
-    const upX = fwdW.x, upZ = fwdW.z;
-    const len = Math.hypot(upX, upZ) || 1;
-    camera.up.set(upX / len, 0, upZ / len);
+    camera.lookAt(new THREE.Vector3(0, 0, 0));
+  } else if (camMode === 1 && SPEC.camera.modes[1].interior) {
+    // Interior cockpit — camera sits at windshield height, looks forward along car body.
+    const fwdL = new CANNON.Vec3(1, 0, 0), fwdW = new CANNON.Vec3();
+    cq.vmult(fwdL, fwdW);
+    const eyeH = 0.77 + (p.bodyLift || 0) + (p.bodyHeight || 0.5) + (p.cabinHeight || 0.5) * 0.60;
+    const eyeFwd = (p.bodyLength || 3.5) * 0.18;
+    const localEye = new CANNON.Vec3(eyeFwd, eyeH, 0);
+    const worldEye = new CANNON.Vec3();
+    cq.vmult(localEye, worldEye);
+    const eyeX = cp.x + worldEye.x, eyeY = cp.y + worldEye.y, eyeZ = cp.z + worldEye.z;
+    camPos.lerp(new THREE.Vector3(eyeX, eyeY, eyeZ), 1 - Math.exp(-dt * 22));
+    const lookX = eyeX + fwdW.x * 40, lookY = eyeY - 0.15, lookZ = eyeZ + fwdW.z * 40;
+    camLook.lerp(new THREE.Vector3(lookX, lookY, lookZ), 1 - Math.exp(-dt * 22));
+    camera.position.copy(camPos);
+    camera.up.set(0, 1, 0);
     camera.lookAt(camLook);
 	  } else {
 	    camera.up.set(0, 1, 0);
@@ -5855,10 +5921,20 @@ function loop() {
       gameOrbit.pitch *= 0.97;
     }
     camPos.lerp(new THREE.Vector3(targetX, targetY, targetZ), lerpK);
-    // Never let the camera clip below terrain surface
-    const camFloor = hillHeightAt(camPos.x, camPos.z) + 0.5;
-    if (camPos.y < camFloor) camPos.y = camFloor;
-    camLook.set(camAnchor.x, camYSmooth + 0.7 + heightLift * 0.5 + lookExtra, camAnchor.z);
+    // Clamp camera above terrain — skip for below-floor mode (it's supposed to be underground)
+    if (!mode.no_floor_clamp) {
+      const camFloor = hillHeightAt(camPos.x, camPos.z) + 0.5;
+      if (camPos.y < camFloor) camPos.y = camFloor;
+    }
+    // Side cameras (2 & 3): look at actual car position so car stays in frame even at speed.
+    // Chase/other cameras: look at the smooth camAnchor (gives the soft lag feel).
+    const lookAtX = (camMode === 2 || camMode === 3)
+      ? (camAnchor.x + (cp.x - camAnchor.x) * 0.55)
+      : camAnchor.x;
+    const lookAtZ = (camMode === 2 || camMode === 3)
+      ? (camAnchor.z + (cp.z - camAnchor.z) * 0.55)
+      : camAnchor.z;
+    camLook.set(lookAtX, camYSmooth + 0.7 + heightLift * 0.5 + lookExtra, lookAtZ);
     camera.position.copy(camPos);
     camera.lookAt(camLook);
   }
