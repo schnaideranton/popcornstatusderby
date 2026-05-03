@@ -50,13 +50,14 @@
   body.portrait .tc-btn-s { height: 100%; }
 
   /* ── CARD = root container, the game lives INSIDE it ──────────────────── */
-  /* Landscape: card fills viewport (no padding to edge).                    */
-  /* Portrait: card 4:3 stuck to top, scrollable area below.                 */
+  /* Landscape: card fills viewport. Portrait: card stays on top, taller than
+     the old 4:3 wrapper so the game never collapses into a tiny strip. */
   #card {
     background: var(--card-bg, #f4f4f4);
     color: #000;
     box-shadow: 0 4px 30px rgba(0,0,0,0.5);
     display: flex; flex-direction: column;
+    flex: 0 0 auto;
     position: relative;
     overflow: hidden;
     /* width/height set by fitCardToViewport() JS */
@@ -121,6 +122,9 @@
   .cb-logo {
     display: flex; flex-direction: column; align-items: stretch;
     line-height: 0.9;
+    transform: translate(var(--logo-offset-x, 0px), var(--logo-offset-y, 0px));
+    overflow: hidden;
+    max-height: 100%;
   }
   /* Bottom strip under the logo image — speed on the left, level on the
      right, both italic numerals matching the Popcorn typography. */
@@ -131,7 +135,7 @@
   }
   .cb-logo-speed {
     font-weight: var(--logo-weight, 900);
-    font-size: calc(var(--logo-num-size, 38px) * var(--card-scale, 1) * 0.42);
+    font-size: calc(var(--logo-num-size, 38px) * var(--card-scale, 1));
     line-height: 0.9;
     letter-spacing: calc(0.5px * var(--card-scale, 1));
     white-space: nowrap;
@@ -563,8 +567,8 @@
   .ct-row select { background: #2a2d34; color: #fff; border: 1px solid rgba(255,255,255,0.20); font-family: inherit; font-size: 9px; padding: 1px 3px; border-radius: 3px; }
   .ct-row .ct-v { text-align: right; opacity: 0.7; font-size: 9px; }
 
-  /* ── Touch controls — visible whenever body is in portrait mode (real
-        touch device OR narrow desktop window). Lives BELOW the card. ──── */
+  /* ── Touch controls. Portrait: below the card. Touch landscape: fixed
+        overlay, so controls never shrink the game/card into a strip. ──── */
   #touch-controls {
     display: none;
     flex: 0 0 auto;
@@ -574,8 +578,58 @@
     box-sizing: border-box;
     background: #1a1a1a;
   }
-  body.portrait #touch-controls { display: block; }
-  body.touch #touch-controls { display: block; }
+  body.portrait #touch-controls { display: flex; }
+  body.touch #touch-controls { display: flex; }
+  body.touch:not(.portrait) #touch-controls {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 40;
+    margin-top: 0;
+    height: clamp(84px, 24vh, 118px);
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(to top, rgba(18,18,18,0.86), rgba(18,18,18,0.24));
+    pointer-events: none;
+  }
+  body.touch:not(.portrait) #touch-controls .tc-rows {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-columns: minmax(88px, 0.8fr) minmax(120px, 1.1fr) minmax(220px, 2.0fr);
+    gap: 8px;
+    pointer-events: auto;
+  }
+  body.touch:not(.portrait) .tc-top-row,
+  body.touch:not(.portrait) .tc-action-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0;
+  }
+  body.touch:not(.portrait) .tc-btn-cam,
+  body.touch:not(.portrait) .tc-btn-mute,
+  body.touch:not(.portrait) .tc-btn-reset,
+  body.touch:not(.portrait) .tc-btn-c,
+  body.touch:not(.portrait) .tc-btn-q,
+  body.touch:not(.portrait) .tc-btn-e,
+  body.touch:not(.portrait) .tc-btn-s {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 0;
+    font-size: 9px;
+    letter-spacing: 1px;
+    border-radius: 6px;
+  }
+  body.touch:not(.portrait) .tc-steer-pad {
+    height: auto;
+    min-height: 0;
+    align-self: stretch;
+  }
+  body.touch:not(.portrait) .tc-drift-zone { height: 28px; }
+  body.touch:not(.portrait) .tc-steer-knob {
+    width: 46px;
+    height: 30px;
+    bottom: 6px;
+  }
   .tc-rows { display: flex; flex-direction: column; gap: 6px; }
   .tc-top-row {
     display: flex; justify-content: space-between; align-items: center; gap: 6px;
@@ -754,12 +808,12 @@
 <script type="application/json" id="spec-camera">
 {
   "modes": [
-    { "name": "chase",       "offset": [-7.8,  5.9,  0],   "lerp": 0.30, "height_aware": true },
-    { "name": "chase-close", "offset": [-1.4,  2.0,  0],   "lerp": 0.55, "height_aware": true },
-    { "name": "front-left",  "offset": [ 4.8,  4.1, -3.1], "lerp": 0.55, "height_aware": false },
-    { "name": "front-right", "offset": [11.4,  0.7,  7.7], "lerp": 0.55, "height_aware": false },
-    { "name": "birds-eye",   "altitude": 110,              "lerp": 0.15, "rotates_with_player": true },
-    { "name": "below-floor", "offset": [-3.9, -0.9,  0],   "lerp": 0.55, "height_aware": false },
+    { "name": "chase",       "offset": [-4.6,  3.1,  0.0], "lerp": 0.30, "height_aware": true },
+    { "name": "chase-close", "offset": [-0.4,  0.6,  0.0], "lerp": 0.55, "height_aware": true },
+    { "name": "front-left",  "offset": [ 5.1,  1.0, -3.7], "lerp": 0.55, "height_aware": false },
+    { "name": "front-right", "offset": [ 0.1,  1.6,  3.5], "lerp": 0.55, "height_aware": false },
+    { "name": "birds-eye",   "altitude": 98,               "lerp": 0.15, "rotates_with_player": true },
+    { "name": "below-floor", "offset": [-4.0, -8.0,  0.0], "lerp": 0.55, "height_aware": false },
     { "name": "spectator",   "height": 34, "dist": 84,     "lerp": 0.10 }
   ],
   "fov": 68,
@@ -819,6 +873,11 @@
       <div class="sd-row"><label>X (fwd)</label><input type="range" id="set-cam-x" min="-15" max="15" step="0.1"/><span class="sd-v" id="set-cam-x-v"></span></div>
       <div class="sd-row"><label>Y (up)</label><input type="range" id="set-cam-y" min="-8" max="20" step="0.1"/><span class="sd-v" id="set-cam-y-v"></span></div>
       <div class="sd-row"><label>Z (right)</label><input type="range" id="set-cam-z" min="-12" max="12" step="0.1"/><span class="sd-v" id="set-cam-z-v"></span></div>
+      <div class="sd-row"><label>Distance</label><input type="range" id="set-cam-dist" min="0.55" max="1.8" step="0.01"/><span class="sd-v" id="set-cam-dist-v"></span></div>
+      <div class="sd-row"><label>Lift</label><input type="range" id="set-cam-lift" min="-8" max="12" step="0.1"/><span class="sd-v" id="set-cam-lift-v"></span></div>
+      <div class="sd-row"><label>Look Y</label><input type="range" id="set-cam-look" min="-4" max="8" step="0.1"/><span class="sd-v" id="set-cam-look-v"></span></div>
+      <div class="sd-row"><label>Lens</label><input type="range" id="set-cam-fov" min="35" max="95" step="1"/><span class="sd-v" id="set-cam-fov-v"></span></div>
+      <div class="sd-row"><label>Soft</label><input type="range" id="set-cam-soft" min="0.5" max="2.0" step="0.05"/><span class="sd-v" id="set-cam-soft-v"></span></div>
       <div class="sd-row"><label>Birds alt</label><input type="range" id="set-be" min="20" max="160" step="2"/><span class="sd-v" id="set-be-v"></span></div>
       <div class="sd-row"><label>Spec H</label><input type="range" id="set-spec-h" min="20" max="400" step="2"/><span class="sd-v" id="set-spec-h-v"></span></div>
       <div class="sd-row"><label>Spec D</label><input type="range" id="set-spec-d" min="20" max="500" step="2"/><span class="sd-v" id="set-spec-d-v"></span></div>
@@ -841,6 +900,10 @@
 
       <h3>Fog</h3>
       <div class="sd-row"><label>Density</label><input type="range" id="set-fog" min="0" max="0.04" step="0.0005"/><span class="sd-v" id="set-fog-v"></span></div>
+
+      <h3>Audio Pitch</h3>
+      <div class="sd-row"><label>Engine (st)</label><input type="range" id="set-eng-pitch" min="-24" max="24" step="0.5"/><span class="sd-v" id="set-eng-pitch-v"></span></div>
+      <div class="sd-row"><label>Fire (st)</label><input type="range" id="set-fire-pitch" min="-24" max="24" step="0.5"/><span class="sd-v" id="set-fire-pitch-v"></span></div>
 
       <button id="set-reset">↻ RESET DEFAULTS</button>
     </div>
@@ -913,14 +976,14 @@
 
 <!-- Constructor side panel — sits OUTSIDE the card. Right side on desktop,
      below the card on portrait/mobile. Holds: action buttons (classic /
-     crazy / mutate / save / apply / cancel), SVG drag editors (front /
+     wild / calm / save / apply / cancel), SVG drag editors (front /
      side / rear), and all sliders. The card itself stays untouched and
      keeps showing the live (paused) game scene with the player car. -->
 <div id="constructor-side">
   <div id="constr-actions">
     <button id="constr-classic" title="Random classic — proportions stay realistic">🎲 CLASSIC</button>
-    <button id="constr-crazy"   title="Random crazy — wild swings">🌀 CRAZY</button>
-    <button id="constr-mutate"  title="Mutate — full re-roll">🧬 MUTATE</button>
+    <button id="constr-wild"    title="Random wild — radical swings">🌀 WILD</button>
+    <button id="constr-calm"    title="Calm this car into street-plausible proportions">◌ CALM</button>
     <button id="constr-save" class="alt"   title="Save JSON">💾 SAVE JSON</button>
     <button id="constr-apply" class="ok"   title="Apply edits">✓ APPLY</button>
     <button id="constr-cancel" class="danger" title="Discard edits">✕</button>
@@ -940,7 +1003,7 @@
 </div>
 
 <!-- Touch controls (visible in portrait — under the card) -->
-<div id="touch-controls"
+<div id="touch-controls">
   <div class="tc-rows">
     <div class="tc-top-row">
       <button class="tc-btn tc-btn-cam"   data-code="KeyV" data-tap>CAM</button>
@@ -1027,6 +1090,55 @@ scene.background = SKY_BG;
 scene.fog = new THREE.FogExp2(0x4a6891, 0);
 
 const camera = new THREE.PerspectiveCamera(SPEC.camera.fov, 1.33, SPEC.camera.near, SPEC.camera.far);
+let rendererCssW = 0;
+let rendererCssH = 0;
+let rendererDpr = 0;
+let nextRendererPoll = 0;
+function _stageCanvasSize() {
+  let sw = stageEl.clientWidth  || stageEl.offsetWidth  || 0;
+  let sh = stageEl.clientHeight || stageEl.offsetHeight || 0;
+  if (sw <= 0 || sh <= 0) {
+    const r = stageEl.getBoundingClientRect();
+    sw = r.width  || sw;
+    sh = r.height || sh;
+  }
+  return {
+    w: Math.max(1, Math.floor(sw)),
+    h: Math.max(1, Math.floor(sh)),
+  };
+}
+function resetMainViewport() {
+  // Three.js viewport/scissor APIs take CSS pixels and multiply by the
+  // renderer pixel ratio internally. Passing framebuffer pixels here makes
+  // Retina screens render into the lower-left quadrant.
+  const w = rendererCssW || Math.max(1, stageEl.clientWidth  || 1);
+  const h = rendererCssH || Math.max(1, stageEl.clientHeight || 1);
+  renderer.setRenderTarget(null);
+  renderer.autoClear = true;
+  renderer.setScissorTest(false);
+  renderer.setScissor(0, 0, w, h);
+  renderer.setViewport(0, 0, w, h);
+}
+function syncRendererToStage(force = false) {
+  const { w: sw, h: sh } = _stageCanvasSize();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dprChanged = Math.abs(dpr - rendererDpr) > 0.001;
+  if (force || dprChanged || sw !== rendererCssW || sh !== rendererCssH) {
+    renderer.setPixelRatio(dpr);
+    renderer.setSize(sw, sh, false);
+    camera.aspect = sw / sh;
+    camera.updateProjectionMatrix();
+    rendererCssW = sw;
+    rendererCssH = sh;
+    rendererDpr = dpr;
+  }
+  resetMainViewport();
+}
+function pollRendererToStage(now) {
+  if (now < nextRendererPoll) return;
+  nextRendererPoll = now + 250;
+  syncRendererToStage();
+}
 
 // Constructor now uses the MAIN scene + main camera (orbit mode) so the
 // player car stays right where it was driving — same hills, road, sky,
@@ -1062,17 +1174,19 @@ function fitCardToViewport() {
     // first so getBoundingClientRect reads the CSS-driven size.
     cardEl.style.width  = '';
     cardEl.style.height = '';
+    // Force layout flush
+    void cardEl.offsetHeight;
     const r = cardEl.getBoundingClientRect();
     cardW = Math.max(1, r.width);
     cardH = Math.max(1, r.height);
   } else if (portrait) {
-    // PORTRAIT — card is the classic Turbo 4:3 wrapper, stuck to the top.
+    // PORTRAIT — keep the card at the top, but give the game real height.
+    // The old strict 4:3 rule left only ~25% of an iPhone screen for play.
     cardW = vw;
-    cardH = cardW * 3 / 4;
-    if (cardH > vh * 0.95) {
-      cardH = vh * 0.85;
-      cardW = cardH * 4 / 3;
-    }
+    const maxPortraitH = vh * (SPEC.viewport.mobile_portrait.card_max_height_vh || 0.62);
+    const minPortraitH = cardW * 3 / 4;
+    cardH = Math.max(minPortraitH, maxPortraitH);
+    cardH = Math.min(cardH, vh * 0.72);
     cardEl.style.width  = Math.floor(cardW) + 'px';
     cardEl.style.height = Math.floor(cardH) + 'px';
   } else {
@@ -1091,19 +1205,21 @@ function fitCardToViewport() {
   const scale = Math.max(0.25, Math.min(2.5, cardW / baselineCardW));
   cardEl.style.setProperty('--card-scale', scale.toFixed(3));
 
-  // Frame thickness also scales from rendered card width.
-  const thin = Math.round(cardW * SPEC.card.padding.thin_pct);
-  cardEl.style.setProperty('--frame-thin', thin + 'px');
-
-  // Bottom strip auto-sizes via grid; padding-bottom stays at thin.
-  // Stage canvas size:
-  const sw = stageEl.clientWidth;
-  const sh = stageEl.clientHeight;
-  if (sw > 0 && sh > 0) {
-    renderer.setSize(sw, sh, false);
-    camera.aspect = sw / sh;
-    camera.updateProjectionMatrix();
+  // Frame thickness is owned by the card tuner. Older builds recalculated it
+  // from viewport width here, which made Anton's tuned bottom-card layout drift.
+  if (typeof tunerState !== 'undefined' && tunerState.frameThin !== undefined) {
+    cardEl.style.setProperty('--frame-thin', tunerState.frameThin + 'px');
+  } else {
+    const thin = Math.round(cardW * SPEC.card.padding.thin_pct);
+    cardEl.style.setProperty('--frame-thin', thin + 'px');
   }
+
+  // Force layout flush so stageEl has correct dimensions after card resize.
+  // The renderer sync also checks devicePixelRatio; moving the same browser
+  // window between Dell and MacBook screens can change DPR without a useful
+  // resize event, which otherwise leaves WebGL rendering into one quadrant.
+  void stageEl.offsetHeight;
+  syncRendererToStage(true);
 
   // Constructor canvas (only resize when overlay is open — otherwise
   // it has 0 size which throws GL errors).
@@ -1129,14 +1245,16 @@ const previewTyreGeom = new THREE.CylinderGeometry(0.37, 0.37, 0.32, 18);
 previewTyreGeom.rotateX(Math.PI / 2);
 const previewTyreMat = new THREE.MeshLambertMaterial({ color: 0x121214 });
 function rebuildPlayerPreview() {
-  while (previewGroup.children.length) previewGroup.remove(previewGroup.children[0]);
+  while (previewGroup.children.length) {
+    const c = previewGroup.children[0];
+    previewGroup.remove(c);
+    disposeCarVisualObject(c);
+  }
   // Clone the player car visuals into the preview group.
   // Re-use the same rebuildCarVisual on a synthetic car object.
   const fakeCar = {
     group: previewGroup,
     design: player.design,
-    archUniforms: player.archUniforms,
-    _bodyMat: player._bodyMat,
     tailMat: null,   // separate so we don't flash with brake lights
   };
   rebuildCarVisual(fakeCar);
@@ -1413,7 +1531,16 @@ for (let z of [-30, 30]) {
 // Built LAZILY after SHADOW_OFFSETS is defined further down in the script.
 const ghostDynList = [];
 function buildGhostDynamics() {
-  for (const { ghosts } of ghostDynList) for (const { m } of ghosts) scene.remove(m);
+  for (const { ghosts } of ghostDynList) {
+    for (const { m } of ghosts) {
+      scene.remove(m);
+      if (m.geometry) m.geometry.dispose();
+      if (m.material) {
+        if (Array.isArray(m.material)) m.material.forEach(mat => mat.dispose());
+        else m.material.dispose();
+      }
+    }
+  }
   ghostDynList.length = 0;
   if (typeof SHADOW_OFFSETS === 'undefined') return;
   const T = 2 * A;
@@ -1451,12 +1578,128 @@ function darkenHex(hex, f) {
   const b = Math.floor(( hex        & 255) * f);
   return (r << 16) | (g << 8) | b;
 }
+function cabinPaint(p) {
+  return (typeof p.cabinColor === 'number') ? p.cabinColor : darkenHex(p.bodyColor, 0.55);
+}
+function visualWheelRadius(p) {
+  return SPEC.physics.wheel_base_radius * (p.wheelScale || 1);
+}
+function _mirrorRail(p) {
+  const bodyFront = (p.bodyLength || 3.7) / 2 - 0.10;
+  const bodyRear = -(p.bodyLength || 3.7) / 2 + 0.12;
+  const cabinFront = (p.cabinOffset || 0) + (p.cabinLength || 1.8) / 2;
+  let min = Math.max(bodyRear, Math.min(cabinFront, bodyFront - 0.10));
+  let max = Math.max(min + 0.08, bodyFront);
+  if (max - min < 0.24) min = Math.max(bodyRear, max - 0.42);
+  return { min, max };
+}
+function defaultSideMirrors(p) {
+  const rail = _mirrorRail(p);
+  return {
+    enabled: true,
+    x: rail.min + (rail.max - rail.min) * 0.18,
+    y: 0.09,
+    length: 0.12,
+    height: 0.15,
+    depth: 0.24,
+    stalk: 0.09,
+    round: 0.03,
+  };
+}
+function normalizeSideMirrors(p, street = false) {
+  if (!p.sideMirrors) p.sideMirrors = defaultSideMirrors(p);
+  const m = p.sideMirrors;
+  const rail = _mirrorRail(p);
+  m.enabled = m.enabled !== false;
+  m.x = _clampN((typeof m.x === 'number' ? m.x : rail.min), rail.min, rail.max);
+  m.y = _clampN(m.y || 0.09, street ? 0.04 : -0.02, street ? 0.18 : 0.30);
+  m.length = _clampN(m.length || 0.12, street ? 0.08 : 0.05, street ? 0.18 : 0.28);
+  m.height = _clampN(m.height || 0.15, street ? 0.08 : 0.05, street ? 0.22 : 0.34);
+  m.depth  = _clampN(m.depth  || 0.24, street ? 0.14 : 0.08, street ? 0.34 : 0.48);
+  m.stalk  = _clampN(m.stalk  || 0.09, street ? 0.04 : 0.02, street ? 0.16 : 0.28);
+  m.round  = _clampN(m.round  || 0.03, 0.00, Math.min(0.10, m.length * 0.45, m.height * 0.45));
+  return m;
+}
+function randomSideMirrors(p, street = true) {
+  const rail = _mirrorRail(p);
+  // Bias toward the windshield/cabin edge, but keep the rail available.
+  const t = street ? Math.pow(Math.random(), 2.7) : Math.random();
+  return {
+    enabled: Math.random() < (street ? 0.88 : 0.95),
+    x: rail.min + (rail.max - rail.min) * t,
+    y: rng(street ? 0.05 : -0.02, street ? 0.15 : 0.24),
+    length: rng(street ? 0.08 : 0.05, street ? 0.16 : 0.24),
+    height: rng(street ? 0.10 : 0.07, street ? 0.20 : 0.30),
+    depth: rng(street ? 0.16 : 0.10, street ? 0.30 : 0.44),
+    stalk: rng(street ? 0.05 : 0.03, street ? 0.13 : 0.24),
+    round: rng(0.00, street ? 0.06 : 0.10),
+  };
+}
+function _ensureFenderCoversWheel(p, cfg) {
+  if (!cfg) return;
+  const minLen = visualWheelRadius(p) * 2.10;
+  cfg.front = Math.max(0.03, cfg.front || 0);
+  cfg.rear  = Math.max(0.03, cfg.rear  || 0);
+  const deficit = minLen - (cfg.front + cfg.rear);
+  if (deficit > 0) {
+    cfg.front += deficit * 0.5;
+    cfg.rear  += deficit * 0.5;
+  }
+}
+function _normalizeStreetFender(p, cfg, axleSign) {
+  if (!cfg) return;
+  _ensureFenderCoversWheel(p, cfg);
+  const wR = visualWheelRadius(p);
+  const wW = p.wheelWidth || 0.32;
+  const halfBody = (p.bodyLength || 3.7) / 2;
+  const wbHalf = (p.wheelbase || 2.84) / 2;
+  const exteriorCap = Math.max(0.12, halfBody + (p.bodyLength || 3.7) * 0.10 - wbHalf);
+  const inwardCap = Math.max(wR * 2.25, (p.bodyLength || 3.7) * 0.38);
+  if (axleSign > 0) {
+    cfg.front = Math.min(cfg.front, exteriorCap);
+    cfg.rear = Math.min(cfg.rear, inwardCap);
+  } else {
+    cfg.front = Math.min(cfg.front, inwardCap);
+    cfg.rear = Math.min(cfg.rear, exteriorCap);
+  }
+  const minLen = wR * 2.10;
+  const deficit = minLen - (cfg.front + cfg.rear);
+  if (deficit > 0) {
+    if (axleSign > 0) cfg.rear += deficit;
+    else cfg.front += deficit;
+  }
+  cfg.width = _clampN(cfg.width || (wW + 0.08), wW + 0.035, Math.min(0.62, (p.bodyWidth || 1.8) * 0.34));
+  cfg.inset = _clampN(cfg.inset || 0, -(p.bodyWidth || 1.8) * 0.04, (p.bodyWidth || 1.8) * 0.10);
+  cfg.height = _clampN(cfg.height || (p.bodyHeight || 0.55) * 0.85, Math.max(0.16, wR * 0.48), Math.max(0.22, (p.bodyHeight || 0.55) * 1.04));
+  cfg.y = _clampN(cfg.y || 0, -0.42, 0.42);
+  const wheelBaseY = (wR - 0.77) + wR * 0.45;
+  const minBottom = (p.bodyLift || -0.4) + 0.02;
+  const maxTop = (p.bodyLift || -0.4) + (p.bodyHeight || 0.55) * 1.10;
+  if (wheelBaseY + cfg.y < minBottom) cfg.y = minBottom - wheelBaseY;
+  if (wheelBaseY + cfg.y + cfg.height > maxTop) cfg.y = maxTop - wheelBaseY - cfg.height;
+  if (wheelBaseY + cfg.y < minBottom) {
+    cfg.height = Math.max(0.16, maxTop - minBottom);
+    cfg.y = minBottom - wheelBaseY;
+  }
+  cfg.round = _clampN(cfg.round || 0.04, 0, Math.min(0.12, cfg.height * 0.28, (cfg.front + cfg.rear) * 0.18));
+}
+function normalizeFenders(p, street = false) {
+  if (!p.fenders) return;
+  if (street) {
+    _normalizeStreetFender(p, p.fenders.front, 1);
+    _normalizeStreetFender(p, p.fenders.rear, -1);
+  } else {
+    _ensureFenderCoversWheel(p, p.fenders.front);
+    _ensureFenderCoversWheel(p, p.fenders.rear);
+  }
+}
 
 function defaultDesign(color) {
   return {
     bodyColor: color,
     bodyLength: 3.7, bodyHeight: 0.55, bodyWidth: 1.7, bodyLift: -0.40,
     cabinOffset: -0.25, cabinLength: 1.85, cabinHeight: 0.56, cabinWidth: 1.5,
+    cabinColor: darkenHex(color, 0.55),
     cabinPosition: 'center',
     cabinSlopeFront: 0, cabinSlopeRear: 0, cabinSlopeSides: 0,
     bodyRound: 0.06, cabinRound: 0.06, cabinSink: 0,
@@ -1474,6 +1717,7 @@ function defaultDesign(color) {
     wheelScale: 1.0,
     wheelbase: 2.84, trackWidth: 1.84, wheelWidth: 0.32,
     rimDepth: -0.04, rimSize: 0.62, rimColor: 0xc8ccd0,
+    sideMirrors: { enabled: true, x: 1.0, y: 0.09, length: 0.12, height: 0.15, depth: 0.24, stalk: 0.09, round: 0.03 },
     fenders: {
       enabled: false,
       front: { front: 0.30, rear: 0.18, height: 0.28, y: 0, width: 0.40, inset: 0, round: 0.05 },
@@ -1626,6 +1870,46 @@ function updateArchUniformsForCar(car) {
   u.uArchRadius.value = wR * 1.05;
   u.uArchHalfW.value  = wW / 2 + 0.04;
 }
+function getArchFrameForCar(car) {
+  updateArchUniformsForCar(car);
+  return {
+    xs: car.archUniforms.uArchX.value.slice(),
+    zs: car.archUniforms.uArchZ.value.slice(),
+    y: car.archUniforms.uArchY.value,
+    radius: car.archUniforms.uArchRadius.value,
+  };
+}
+function makeArchUniformSet(arch, opts) {
+  return {
+    uArchX: { value: opts.xs.slice(0, 4) },
+    uArchZ: { value: opts.zs.slice(0, 4) },
+    uArchY: { value: arch.y },
+    uArchRadius: { value: arch.radius },
+    uArchHalfW: { value: opts.halfW },
+    uArchEnabled: { value: 1 },
+    uMeshOffset: { value: opts.meshOffset.clone() },
+  };
+}
+function makeCarArchMat(car, arch, opts) {
+  const mat = new THREE.MeshLambertMaterial({ color: car.design.bodyColor, side: THREE.DoubleSide });
+  mat.userData._carArchOwned = true;
+  patchMatForArches(mat, makeArchUniformSet(arch, opts));
+  return mat;
+}
+function singleArchArrays(x, z) {
+  return { xs: [x, 9999, 9999, 9999], zs: [z, 9999, 9999, 9999] };
+}
+function disposeCarVisualObject(obj) {
+  obj.traverse(node => {
+    if (node.geometry) node.geometry.dispose();
+    if (node.material) {
+      const mats = Array.isArray(node.material) ? node.material : [node.material];
+      for (const mat of mats) {
+        if (mat && !(mat.userData && mat.userData._keepOnCarDispose)) mat.dispose();
+      }
+    }
+  });
+}
 function patchMatForArches(mat, archUniforms) {
   if (mat.userData._archesPatched) return mat;
   mat.userData._archesPatched = true;
@@ -1666,16 +1950,6 @@ function patchMatForArches(mat, archUniforms) {
   };
   return mat;
 }
-function getBodyArchMat(car) {
-  if (!car._bodyMat) {
-    car._bodyMat = new THREE.MeshLambertMaterial({ side: THREE.DoubleSide });
-    setupArchesForCar(car);
-    patchMatForArches(car._bodyMat, car.archUniforms);
-  }
-  car._bodyMat.color.setHex(car.design.bodyColor);
-  return car._bodyMat;
-}
-
 function buildWheelChildren(wg, p) {
   while (wg.children.length) {
     const c = wg.children[0];
@@ -1730,18 +2004,24 @@ function rebuildCarVisual(car, targetScene) {
   while (g.children.length) {
     const c = g.children[0];
     g.remove(c);
-    if (c.geometry) c.geometry.dispose();
+    disposeCarVisualObject(c);
   }
   const p = car.design;
-  updateArchUniformsForCar(car);
+  const archFrame = getArchFrameForCar(car);
 
+  const bodyPosition = new THREE.Vector3(0, p.bodyLift + p.bodyHeight / 2, 0);
+  const bodyArchHalfW = (p.wheelWidth || 0.32) / 2 + 0.06;
   const body = new THREE.Mesh(
     makeRoundedBoxGeom(p.bodyLength, p.bodyHeight, p.bodyWidth, p.bodyRound || 0),
-    getBodyArchMat(car)
+    makeCarArchMat(car, archFrame, {
+      xs: archFrame.xs,
+      zs: archFrame.zs,
+      halfW: bodyArchHalfW,
+      meshOffset: bodyPosition,
+    })
   );
-  body.position.y = p.bodyLift + p.bodyHeight / 2;
+  body.position.copy(bodyPosition);
   body.castShadow = true;
-  body.onBeforeRender = function () { car.archUniforms.uMeshOffset.value.copy(body.position); };
   g.add(body);
 
   const cabinBaseY = p.bodyLift + p.bodyHeight;
@@ -1758,7 +2038,7 @@ function rebuildCarVisual(car, targetScene) {
     g.add(ws);
     const bar = new THREE.Mesh(
       new THREE.BoxGeometry(0.18, 0.22, p.cabinWidth * 0.6),
-      new THREE.MeshLambertMaterial({ color: darkenHex(p.bodyColor, 0.45) })
+      new THREE.MeshLambertMaterial({ color: cabinPaint(p) })
     );
     bar.position.set(p.cabinOffset - p.cabinLength * 0.3, cabinBaseY + 0.11, 0);
     g.add(bar);
@@ -1767,10 +2047,34 @@ function rebuildCarVisual(car, targetScene) {
     const cabGeom = (p.cabinRound > 0.001)
       ? makeRoundedCabGeom(effCabW, p.cabinLength, p.cabinHeight, p.cabinSlopeFront, p.cabinSlopeRear, p.cabinRound)
       : makeTaperedCab(effCabW, p.cabinLength, p.cabinHeight, p.cabinSlopeFront, p.cabinSlopeRear, p.cabinSlopeSides, p.cabinSlopeSides);
-    const cab = new THREE.Mesh(cabGeom, new THREE.MeshLambertMaterial({ color: darkenHex(p.bodyColor, 0.55) }));
+    const cab = new THREE.Mesh(cabGeom, new THREE.MeshLambertMaterial({ color: cabinPaint(p) }));
     cab.position.set(p.cabinOffset, cabinBaseY + (p.cabinSink || 0), 0);
     cab.castShadow = true;
     g.add(cab);
+  }
+
+  const mirrors = normalizeSideMirrors(p);
+  if (mirrors.enabled) {
+    const mirrorMat = new THREE.MeshLambertMaterial({ color: cabinPaint(p) });
+    const stalkMat = new THREE.MeshLambertMaterial({ color: darkenHex(cabinPaint(p), 0.65) });
+    const mL = mirrors.length || 0.12;
+    const mH = mirrors.height || 0.15;
+    const mD = mirrors.depth || 0.24;
+    const stalk = mirrors.stalk || 0.09;
+    const mY = bodyTopY + (mirrors.y || 0.09);
+    const mirrorGeom = makeRoundedBoxGeom(mL, mH, mD, mirrors.round || 0.02);
+    const stalkGeom = new THREE.BoxGeometry(Math.max(0.035, mL * 0.42), Math.max(0.035, mH * 0.32), stalk);
+    for (const side of [-1, 1]) {
+      const mirrorZ = side * (p.bodyWidth / 2 + stalk + mD / 2);
+      const stem = new THREE.Mesh(stalkGeom, stalkMat);
+      stem.position.set(mirrors.x, mY - mH * 0.18, side * (p.bodyWidth / 2 + stalk / 2));
+      stem.castShadow = true;
+      g.add(stem);
+      const mirror = new THREE.Mesh(mirrorGeom, mirrorMat);
+      mirror.position.set(mirrors.x, mY, mirrorZ);
+      mirror.castShadow = true;
+      g.add(mirror);
+    }
   }
 
   const maxOuter = p.bodyWidth / 2 + p.bodyWidth * 0.05;
@@ -1827,7 +2131,10 @@ function rebuildCarVisual(car, targetScene) {
   else [-zSideHL, zSideHL].forEach(z => placeHL(xFront, hlBaseY, z));
 
   // Taillights — mirror of the headlight snap.
-  if (!car.tailMat) car.tailMat = new THREE.MeshBasicMaterial({ color: 0x660000 });
+  if (!car.tailMat) {
+    car.tailMat = new THREE.MeshBasicMaterial({ color: 0x660000 });
+  }
+  car.tailMat.userData._keepOnCarDispose = true;
   const tlMat = car.tailMat;
   tlMat.color.setHex(0x660000);
   const tlDef = HL[p.taillightStyle] || HL['box-h'];
@@ -1852,25 +2159,39 @@ function rebuildCarVisual(car, targetScene) {
   else if (tlDef.quad) [-zSideTL, zSideTL].forEach(z => [-0.12, 0.12].forEach(yo => placeTL(xRear, tlBaseY + yo, z)));
   else [-zSideTL, zSideTL].forEach(z => placeTL(xRear, tlBaseY, z));
 
-  // ── Turn signals — orange markers on the SIDE of the body, ALWAYS ahead
-  // of the front wheel so the wheel can never hide them. Material is per-car
-  // so the main loop can blink them on steer.
+  function _signalSurfaceZ(tsX) {
+    if (!_ffEnabled) return p.bodyWidth / 2 + 0.012;
+    const candidates = [
+      { cfg: p.fenders.front, sign: 1 },
+      { cfg: p.fenders.rear,  sign: -1 },
+    ];
+    for (const f of candidates) {
+      const cfg = f.cfg;
+      if (!cfg || (cfg.front || 0) + (cfg.rear || 0) < 0.01) continue;
+      const minX = f.sign * _wbHalfFL - (cfg.rear || 0);
+      const maxX = f.sign * _wbHalfFL + (cfg.front || 0);
+      if (tsX >= minX - 0.02 && tsX <= maxX + 0.02) {
+        return _trkHalfL + _wWf / 2 + 0.04 - (cfg.inset || 0) + 0.014;
+      }
+    }
+    return p.bodyWidth / 2 + 0.012;
+  }
+
+  // ── Turn signals — orange markers on the SIDE of the body. Can be positioned
+  // anywhere on the body length and height, and ride on the fender if it protrudes.
+  // Material is per-car so the main loop can blink them on steer.
   car.turnSignals = { left: null, right: null };
-  if (p.turnSignal) {
+  if (p.turnSignal && p.turnSignal.enabled !== false) {
     const ts = p.turnSignal;
     const tw = ts.orient === 'h' ? ts.w : ts.h;
     const th = ts.orient === 'h' ? ts.h : ts.w;
-    // Position must be in front of the front wheel arch by at least the
-    // wheel radius + a small margin, otherwise the wheel cylinder visually
-    // covers the marker. We also keep it inside the body length.
-    const wR = 0.37 * (p.wheelScale || 1);
-    const minX = _wbHalfFL + wR + 0.05;
-    const maxX = p.bodyLength / 2 - 0.05;
-    const tsX = Math.max(minX, Math.min(maxX, ts.x));
+    // Turn signal can be positioned freely along the body, front to rear
+    const tsX = ts.x;
+    const tsZ = _signalSurfaceZ(tsX);
     for (const side of [-1, 1]) {
       const mat = new THREE.MeshBasicMaterial({ color: 0x884400 });
       const m = new THREE.Mesh(new THREE.BoxGeometry(tw, th, 0.018), mat);
-      m.position.set(tsX, bodyCenterY + ts.y, side * (p.bodyWidth / 2 + 0.005));
+      m.position.set(tsX, bodyCenterY + ts.y, side * tsZ);
       g.add(m);
       if (side > 0) car.turnSignals.right = m; else car.turnSignals.left = m;
     }
@@ -1918,7 +2239,6 @@ function rebuildCarVisual(car, targetScene) {
     const wYr = wRr - 0.77;
     const wbHalfF  = (p.wheelbase  || 2.84) / 2;
     const trkHalfF = (p.trackWidth || 1.84) / 2;
-    const fendMat = getBodyArchMat(car);
     const renderAxle = (cfg, wbSign) => {
       if (!cfg) return;
       const fL = (cfg.front || 0) + (cfg.rear || 0);
@@ -1934,11 +2254,27 @@ function rebuildCarVisual(car, targetScene) {
       const outerZ  = defaultOuterZ - (cfg.inset || 0);
       const centerZ = outerZ - fW / 2;
       const fGeom = makeRoundedBoxGeom(fL, fH, fW, Math.min(cfg.round || 0, fL * 0.45, fH * 0.45, fW * 0.45));
+      const fenderInnerZ = centerZ - fW / 2;
+      const fenderOuterZ = centerZ + fW / 2;
+      const fendArchHalfW = Math.max(
+        Math.abs(fenderInnerZ - trkHalfF),
+        Math.abs(fenderOuterZ - trkHalfF)
+      ) + 0.03;
+      const axleX = wbSign * wbHalfF;
       for (const trkSign of [1, -1]) {
-        const m = new THREE.Mesh(fGeom, fendMat);
-        m.position.set(wbSign * wbHalfF + fCXoff, fCY, trkSign * centerZ);
+        const fenderPosition = new THREE.Vector3(wbSign * wbHalfF + fCXoff, fCY, trkSign * centerZ);
+        const sideArch = singleArchArrays(axleX, trkSign * trkHalfF);
+        const m = new THREE.Mesh(
+          fGeom,
+          makeCarArchMat(car, archFrame, {
+            xs: sideArch.xs,
+            zs: sideArch.zs,
+            halfW: fendArchHalfW,
+            meshOffset: fenderPosition,
+          })
+        );
+        m.position.copy(fenderPosition);
         m.castShadow = true;
-        m.onBeforeRender = function () { car.archUniforms.uMeshOffset.value.copy(m.position); };
         g.add(m);
       }
     };
@@ -1969,8 +2305,14 @@ const PALETTES = [
   [100,  [0xffd700,0xff0033,0xffffff,0x000000,0xff5500,0x9b59b6,0xff00ff,0x00e5ff]],
   [9999, [0x00fff7,0xff00ff,0xffd700,0xc0c0c0,0xff66ee,0xfffeed,0xfff7d6,0x80ffaa,0xff7f50]],
 ];
+const CABIN_GLASS_COLORS = [0x08090a, 0x101316, 0x171b20, 0x20262c, 0x2a3035, 0x30363d, 0x1b2328, 0x121a24];
 function rng(a, b) { return a + Math.random() * (b - a); }
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function randomCabinPaint(bodyColor) {
+  return Math.random() < 0.58
+    ? darkenHex(bodyColor, rng(0.38, 0.62))
+    : pick(CABIN_GLASS_COLORS);
+}
 
 // ── Level-based visual progression — low levels stay simple, high levels
 // unlock more elaborate styles. Mirror of the original game's progression
@@ -2051,6 +2393,7 @@ function applyTier(car, level) {
     const pool = PALETTES.flatMap(pl => pl[1]);
     p.bodyColor = pool[Math.floor(Math.random() * pool.length)];
   }
+  p.cabinColor = randomCabinPaint(p.bodyColor);
   // Intersect TYPES envelope with level-unlocked styles so a level-1 jalopy
   // can only generate the simplest headlight shapes; "split-oval" only
   // appears once the car has earned ≥ L25.
@@ -2066,26 +2409,21 @@ function applyTier(car, level) {
   p.bodyRound = rng(rb[0], rb[1]);
   p.cabinRound = rng(rb[0], rb[1]);
   p.cabinSink = 0;
+  p.sideMirrors = randomSideMirrors(p, true);
   p.headlightX = 0; p.headlightY = 0; p.headlightW = 1; p.headlightH = 1; p.headlightSpread = 0;
   p.taillightX = 0; p.taillightY = 0; p.taillightW = 1; p.taillightH = 1; p.taillightSpread = 0;
   if (p.headlightStyle === 'wide') { p.headlightW = (p.bodyWidth / 0.60) * rng(0.95, 1.10); p.headlightY = pick([0, 0, p.bodyHeight * 0.30, -p.bodyHeight * 0.30]); }
   if (p.taillightStyle === 'wide') { p.taillightW = (p.bodyWidth / 0.60) * rng(0.95, 1.10); p.taillightY = pick([0, 0, p.bodyHeight * 0.30, -p.bodyHeight * 0.30]); }
 
-  // Turn signal — ALWAYS in front of the front wheel arch by at least the
-  // wheel radius + margin. Earlier the random offset (0.05–0.20) was too
-  // small and the wheel often covered the marker visually. Now it always
-  // lives between the wheel front edge and the body nose.
+  // Turn signal — free placement anywhere on the fender/side of the body
   {
-    const wR = 0.37 * p.wheelScale;
-    const wbH = wheelbase / 2;
-    const minTsX = wbH + wR + 0.05;
+    const minTsX = -p.bodyLength / 2 + 0.05;
     const maxTsX = p.bodyLength / 2 - 0.05;
-    const tsXRange = Math.max(0.02, maxTsX - minTsX);
-    const tsX = minTsX + Math.random() * tsXRange;
+    const tsX = minTsX + Math.random() * (maxTsX - minTsX);
     p.turnSignal = {
       enabled: true,
       x: tsX,
-      y: p.bodyHeight * rng(0.30, 0.45),
+      y: p.bodyHeight * rng(0.15, 0.60),
       w: rng(0.12, 0.22), h: rng(0.03, 0.07), orient: 'h',
     };
   }
@@ -2155,33 +2493,14 @@ function applyTier(car, level) {
   p.wheelbase  = wheelbase;
   p.trackWidth = p.bodyWidth * rng(0.92, 0.99);
   p.wheelWidth = wWr;
+  normalizeFenders(p, true);
+  normalizeSideMirrors(p, true);
 
   applyDesignVisuals(car);
 }
 
-// ── Field groups for partial mutation — each "axis" re-rolls or reverts ───
-// independently, so a mutate call changes ~50% of the design and the rest
-// stays from the previous generation. The car evolves gradually instead of
-// switching identity on every press.
-const MUTATE_GROUPS = {
-  shape:      ['bodyLength','bodyWidth','bodyHeight','bodyLift','bodyRound'],
-  color:      ['bodyColor','rimColor'],
-  cabin:      ['cabinOffset','cabinLength','cabinHeight','cabinWidth',
-               'cabinSlopeFront','cabinSlopeRear','cabinSlopeSides',
-               'cabinRound','cabinSink','cabinPosition','convertible'],
-  wheels:     ['wheelScale','wheelbase','trackWidth','wheelWidth','rimSize','rimDepth'],
-  headlights: ['headlightStyle','headlightX','headlightY','headlightW','headlightH','headlightSpread'],
-  taillights: ['taillightStyle','taillightX','taillightY','taillightW','taillightH','taillightSpread'],
-  turn:       ['__turnSignal__'],
-  accessories:['accessories','antennaMount','spoilerHeight',
-               'scoopRise','scoopX','scoopZ',
-               'roofboxLength','roofboxWidth','roofboxHeight','roofboxRound'],
-  fenders:    ['__fenders__'],
-  type:       ['__bodyType__'],
-};
-// applyTier(car, level) — single full re-roll. The two wrappers below pick
-// MODE: classic (no wild swing), crazy (force the wild-swing pass) and
-// mutate (partial — keep half of the old design's axes).
+// applyTier(car, level) — single full re-roll. The wrappers below expose
+// classic, wild, and calm modes for the constructor.
 function applyTierClassic(car, level) {
   // applyTier's "crazy bend" branch only fires at L>=10 with 30% chance,
   // so for low levels there's nothing to suppress. For high levels we
@@ -2189,7 +2508,7 @@ function applyTierClassic(car, level) {
   // by TYPES envelopes so the result stays plausible.
   applyTier(car, level);
 }
-function applyTierCrazy(car, level) {
+function applyTierWild(car, level) {
   applyTier(car, level);
   // Force a crazy bend regardless of level / probability.
   const p = car.design;
@@ -2205,48 +2524,105 @@ function applyTierCrazy(car, level) {
   if (p.accessories.spoiler) p.spoilerHeight = rng(0.25, 0.75);
   if (Math.random() < 0.40) p.accessories.scoop = true;
   if (Math.random() < 0.30) p.accessories.antenna = true;
+  if (p.sideMirrors) {
+    const rail = _mirrorRail(p);
+    p.sideMirrors.x = rng(rail.min, rail.max);
+    p.sideMirrors.y = rng(-0.02, 0.24);
+    p.sideMirrors.length = rng(0.06, 0.24);
+    p.sideMirrors.height = rng(0.08, 0.30);
+    p.sideMirrors.depth = rng(0.12, 0.44);
+    p.sideMirrors.stalk = rng(0.04, 0.24);
+    p.sideMirrors.round = rng(0.00, 0.10);
+  }
+  normalizeFenders(p, false);
   applyDesignVisuals(car);
 }
-// Partial mutation — re-roll, then revert (1-fraction) of the axes back to
-// the snapshot. So at fraction=0.5 about half the axes change per press,
-// the car evolves gradually. classicMix sets the chance the underlying
-// roll is classic vs crazy (Anton: 80% classic / 20% crazy in game).
-function applyTierMutate(car, level, opts) {
-  const fraction   = (opts && opts.fraction)   != null ? opts.fraction   : 0.5;
-  const classicMix = (opts && opts.classicMix) != null ? opts.classicMix : 0.8;
-  // 1) Snapshot the existing design + body type.
-  const snapDesign = JSON.parse(JSON.stringify(car.design));
-  const snapType   = car.bodyType;
-  // 2) Full fresh re-roll (classic or crazy).
-  if (Math.random() < classicMix) applyTierClassic(car, level);
-  else                             applyTierCrazy(car, level);
-  // 3) Revert (1 - fraction) of the axes back to the snapshot.
-  const fresh = car.design;
-  for (const group in MUTATE_GROUPS) {
-    if (Math.random() >= (1 - fraction)) continue;       // keep fresh
-    // Revert this entire group from the snapshot.
-    for (const f of MUTATE_GROUPS[group]) {
-      if (f === '__turnSignal__') {
-        if (snapDesign.turnSignal) fresh.turnSignal = JSON.parse(JSON.stringify(snapDesign.turnSignal));
-      } else if (f === '__fenders__') {
-        if (snapDesign.fenders)    fresh.fenders    = JSON.parse(JSON.stringify(snapDesign.fenders));
-      } else if (f === '__bodyType__') {
-        car.bodyType = snapType;
-      } else if (snapDesign[f] !== undefined) {
-        fresh[f] = snapDesign[f];
-      }
-    }
+function _towardStreet(v, min, max, strength) {
+  const cur = (typeof v === 'number') ? v : (min + max) / 2;
+  const target = rng(min, max);
+  return _clampN(cur + (target - cur) * strength, min, max);
+}
+function _calmFender(cfg) {
+  if (!cfg) return cfg;
+  cfg.front = _towardStreet(cfg.front || 0, 0.18, 0.72, 0.62);
+  cfg.rear  = _towardStreet(cfg.rear  || 0, 0.18, 0.72, 0.62);
+  cfg.height = _towardStreet(cfg.height || 0.28, 0.18, 0.48, 0.66);
+  cfg.y      = _towardStreet(cfg.y || 0, -0.16, 0.14, 0.72);
+  cfg.width  = _towardStreet(cfg.width || 0.40, 0.24, 0.56, 0.70);
+  cfg.inset  = _towardStreet(cfg.inset || 0, -0.04, 0.16, 0.70);
+  cfg.round  = _towardStreet(cfg.round || 0.04, 0.00, 0.12, 0.60);
+  return cfg;
+}
+function applyTierCalm(car, level) {
+  const p = car.design;
+  const L = _towardStreet(p.bodyLength, 3.45, 5.35, 0.58);
+  p.bodyLength = L;
+  p.bodyWidth  = _towardStreet(p.bodyWidth, 1.62, 2.05, 0.62);
+  p.bodyHeight = _towardStreet(p.bodyHeight, 0.34, 0.76, 0.66);
+  p.bodyLift   = _towardStreet(p.bodyLift, -0.56, -0.20, 0.72);
+  p.bodyRound  = _towardStreet(p.bodyRound || 0.06, 0.03, 0.18, 0.60);
+  p.cabinLength = _towardStreet(p.cabinLength, L * 0.34, L * 0.62, 0.60);
+  p.cabinOffset = _towardStreet(p.cabinOffset, -L * 0.16, L * 0.16, 0.58);
+  p.cabinHeight = _towardStreet(p.cabinHeight, 0.34, 0.92, 0.62);
+  p.cabinWidth  = Math.min(_towardStreet(p.cabinWidth, p.bodyWidth * 0.74, p.bodyWidth * 0.95, 0.68), p.bodyWidth - 0.04);
+  p.cabinSlopeFront = _towardStreet(p.cabinSlopeFront || 0, 0.00, Math.min(0.70, p.cabinLength * 0.36), 0.65);
+  p.cabinSlopeRear  = _towardStreet(p.cabinSlopeRear  || 0, 0.00, Math.min(0.70, p.cabinLength * 0.36), 0.65);
+  p.cabinSlopeSides = _towardStreet(p.cabinSlopeSides || 0, 0.00, 0.10, 0.70);
+  p.cabinRound      = _towardStreet(p.cabinRound || 0.06, 0.02, 0.18, 0.62);
+  p.cabinSink       = _towardStreet(p.cabinSink || 0, -0.08, 0.04, 0.75);
+  p.wheelScale = _towardStreet(p.wheelScale || 1, 0.86, 1.22, 0.78);
+  p.wheelbase  = _towardStreet(p.wheelbase || L * 0.58, L * 0.54, L * 0.66, 0.64);
+  p.trackWidth = _towardStreet(p.trackWidth || 1.84, Math.max(1.45, p.bodyWidth * 0.88), Math.min(2.14, p.bodyWidth * 1.10), 0.72);
+  p.wheelWidth = _towardStreet(p.wheelWidth || 0.32, 0.26, 0.42, 0.68);
+  p.rimSize    = _towardStreet(p.rimSize || 0.62, 0.50, 0.74, 0.62);
+  p.rimDepth   = _towardStreet(p.rimDepth || 0, -0.05, 0.16, 0.68);
+  p.headlightSpread = _towardStreet(p.headlightSpread || 0, -0.24, 0.24, 0.70);
+  p.taillightSpread = _towardStreet(p.taillightSpread || 0, -0.24, 0.24, 0.70);
+  p.headlightW = _towardStreet(p.headlightW || 1, 0.70, 1.55, 0.62);
+  p.headlightH = _towardStreet(p.headlightH || 1, 0.70, 1.55, 0.62);
+  p.taillightW = _towardStreet(p.taillightW || 1, 0.70, 1.55, 0.62);
+  p.taillightH = _towardStreet(p.taillightH || 1, 0.70, 1.55, 0.62);
+  if (p.turnSignal) {
+    p.turnSignal.x = _towardStreet(p.turnSignal.x || 0, -L / 2 + 0.12, L / 2 - 0.12, 0.55);
+    p.turnSignal.y = _towardStreet(p.turnSignal.y || 0, -0.12, p.bodyHeight * 0.52, 0.70);
+    p.turnSignal.w = _towardStreet(p.turnSignal.w || 0.18, 0.12, 0.26, 0.65);
+    p.turnSignal.h = _towardStreet(p.turnSignal.h || 0.05, 0.03, 0.09, 0.65);
+  }
+  if (p.fenders) {
+    _calmFender(p.fenders.front);
+    _calmFender(p.fenders.rear);
+    normalizeFenders(p, true);
+  }
+  if (p.sideMirrors) {
+    const rail = _mirrorRail(p);
+    p.sideMirrors.x = _towardStreet(p.sideMirrors.x, rail.min, rail.max, 0.62);
+    p.sideMirrors.y = _towardStreet(p.sideMirrors.y || 0.09, 0.05, 0.15, 0.70);
+    p.sideMirrors.length = _towardStreet(p.sideMirrors.length || 0.12, 0.08, 0.16, 0.70);
+    p.sideMirrors.height = _towardStreet(p.sideMirrors.height || 0.15, 0.10, 0.20, 0.70);
+    p.sideMirrors.depth = _towardStreet(p.sideMirrors.depth || 0.24, 0.16, 0.30, 0.70);
+    p.sideMirrors.stalk = _towardStreet(p.sideMirrors.stalk || 0.09, 0.05, 0.13, 0.70);
+    p.sideMirrors.round = _towardStreet(p.sideMirrors.round || 0.03, 0.00, 0.06, 0.70);
+    normalizeSideMirrors(p, true);
+  }
+  if (p.accessories && p.accessories.spoiler) p.spoilerHeight = _towardStreet(p.spoilerHeight || 0.3, 0.18, 0.42, 0.70);
+  if (p.accessories && p.accessories.roofbox) {
+    p.roofboxHeight = _towardStreet(p.roofboxHeight || 0.2, 0.12, 0.28, 0.70);
+    p.roofboxWidth  = _towardStreet(p.roofboxWidth || 0.78, 0.62, 0.88, 0.62);
+    p.roofboxLength = _towardStreet(p.roofboxLength || 0.85, 0.62, 0.95, 0.62);
   }
   applyDesignVisuals(car);
 }
-
 let _inApplyDesignVisuals = 0;
 function applyDesignVisuals(car) {
   if (_inApplyDesignVisuals > 4) return;   // re-entry guard
   _inApplyDesignVisuals++;
-  try {
-  const p = car.design;
-  if (car.vehicle && car.vehicle.wheelInfos) {
+	  try {
+	  const p = car.design;
+	  if (typeof p.cabinColor !== 'number') p.cabinColor = darkenHex(p.bodyColor, 0.55);
+	  if (!p.sideMirrors) p.sideMirrors = defaultSideMirrors(p);
+	  normalizeSideMirrors(p, false);
+	  normalizeFenders(p, false);
+	  if (car.vehicle && car.vehicle.wheelInfos) {
     const wbHalf  = (p.wheelbase  || 2.84) / 2;
     const trkHalf = (p.trackWidth || 1.84) / 2;
     const offsets = [[ wbHalf, trkHalf], [ wbHalf, -trkHalf], [-wbHalf, trkHalf], [-wbHalf, -trkHalf]];
@@ -2256,7 +2632,18 @@ function applyDesignVisuals(car) {
       wi.chassisConnectionPointLocal.z = o[1];
     });
   }
+  // Pull badge meshes OUT before rebuild — rebuildCarVisual disposes every
+  // child's geometry, which would trash the shared PlaneGeometry used by all
+  // three badge planes.  Remove them first so they survive untouched.
+  if (car.badge && car.badge.mesh) {
+    _badgeMeshes(car.badge).forEach(m => { if (car.group.children.includes(m)) car.group.remove(m); });
+  }
   rebuildCarVisual(car);
+  // Re-attach badge meshes now that the rest of the group is rebuilt
+  if (car.badge && car.badge.mesh) {
+    _badgeMeshes(car.badge).forEach(m => { if (!car.group.children.includes(m)) car.group.add(m); });
+  }
+  updateBadgePosition(car);
   if (car.wheels) {
     const s = p.wheelScale || 1;
     car.wheels.forEach(wg => {
@@ -2326,43 +2713,143 @@ const aiCars = [
 ];
 const allCars = [player, ...aiCars];
 
-// ── LEVEL BADGES (white digit, yellow if leader) ──────────────────────────
-function makeBadge() {
+// ── LEVEL BADGES — vinyl sticker digit on door area, moves to fender if reached ──
+function _badgeZ(p) {
+  // Badge lives on the outer side face. If a front fender is enabled and
+  // extends past the body half-width, badge rides on the fender's outer face.
+  const wW = p.wheelWidth || 0.32;
+  const wbHalf = (p.wheelbase || 2.84) / 2;
+  if (p.fenders && p.fenders.enabled) {
+    const fc = p.fenders.front;
+    const fenderFrontX = wbHalf + (fc ? (fc.front || 0) : 0);
+    // Fender reaches door area (X ≈ 0) if it extends from wheel toward center
+    const fenderRearX = wbHalf - (fc ? (fc.rear || 0) : 0);
+    const trkHalf = (p.trackWidth || 1.84) / 2;
+    const outerZ = trkHalf + wW / 2 + 0.04 - ((fc && fc.inset) || 0);
+    if (outerZ > p.bodyWidth / 2 + 0.01) return outerZ + 0.01;
+  }
+  return p.bodyWidth / 2 + 0.01;
+}
+const BADGE_CANVAS_W = 384;
+const BADGE_CANVAS_H = 160;
+const BADGE_ASPECT = BADGE_CANVAS_W / BADGE_CANVAS_H;
+function _badgeHeight(p) {
+  return Math.max(0.26, Math.min(0.62, (p.bodyHeight || 0.5) * 0.78));
+}
+function _rearBadgeX(p) {
+  const bodyRear = -(p.bodyLength || 3.7) / 2;
+  const wbHalf = (p.wheelbase || 2.84) / 2;
+  const fenderRear = (p.fenders && p.fenders.enabled && p.fenders.rear)
+    ? -wbHalf - (p.fenders.rear.rear || 0)
+    : bodyRear;
+  return Math.min(bodyRear, fenderRear) - 0.09;
+}
+function _badgeMeshes(badge) {
+  if (!badge || !badge.mesh) return [];
+  return [badge.mesh, badge.mesh._mirrorMesh, badge.mesh._rearMesh].filter(Boolean);
+}
+function makeBadge(car) {
   const canvas = document.createElement('canvas');
-  canvas.width = 256; canvas.height = 128;
+  canvas.width = BADGE_CANVAS_W; canvas.height = BADGE_CANVAS_H;
   const ctx = canvas.getContext('2d');
   const tex = new THREE.CanvasTexture(canvas);
   tex.minFilter = THREE.LinearFilter;
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: tex, transparent: true, depthTest: false, depthWrite: false,
-  }));
-  sprite.scale.set(2.6, 1.3, 1);
-  sprite.renderOrder = 999;
-  scene.add(sprite);
-  return { canvas, ctx, tex, sprite, key: '' };
+  // Unit plane — actual size is set via scale so it tracks bodyHeight changes
+  const geom = new THREE.PlaneGeometry(BADGE_ASPECT, 1);
+  // depthWrite:false so digit appears as transparent vinyl decal with no frame
+  const p = car.design;
+  const bZ = _badgeZ(p);
+  const bY = p.bodyLift + p.bodyHeight / 2;
+  const _badgeSz = () => _badgeHeight(car.design);
+  // Right side badge (faces +Z, readable from outside on right)
+  const matR = new THREE.MeshBasicMaterial({
+    map: tex, transparent: true, depthTest: true, depthWrite: false, side: THREE.FrontSide,
+  });
+  const meshR = new THREE.Mesh(geom, matR);
+  meshR.position.set(0, bY, bZ);
+  meshR.scale.setScalar(_badgeSz());
+  car.group.add(meshR);
+  // Left side badge (faces -Z, mirrored on canvas so it reads forward from left)
+  const matL = new THREE.MeshBasicMaterial({
+    map: tex, transparent: true, depthTest: true, depthWrite: false, side: THREE.FrontSide,
+  });
+  const meshL = new THREE.Mesh(geom, matL);
+  meshL.position.set(0, bY, -bZ);
+  meshL.rotation.y = Math.PI; // flip to face -Z and un-mirror the digit
+  meshL.scale.setScalar(_badgeSz());
+  car.group.add(meshL);
+  // Rear badge — vertical, centered between taillights on the rear face.
+  const matT = new THREE.MeshBasicMaterial({
+    map: tex, transparent: true, depthTest: true, depthWrite: false, side: THREE.FrontSide,
+  });
+  const meshT = new THREE.Mesh(geom, matT);
+  meshT.position.set(_rearBadgeX(p), p.bodyLift + p.bodyHeight * 0.56, 0);
+  meshT.rotation.y = -Math.PI / 2;
+  meshT.scale.setScalar(_badgeSz() * 0.82);
+  meshT.renderOrder = 20;
+  car.group.add(meshT);
+  // Return meshR as the primary handle; store meshL and rear for toggling
+  const mesh = meshR;
+  mesh._mirrorMesh = meshL;
+  mesh._rearMesh   = meshT;
+  return { canvas, ctx, tex, mesh, key: '' };
 }
-function paintBadge(badge, level, isLeader) {
-  const key = level + (isLeader ? 'Y' : 'W');
+function paintBadge(badge, level, isLeader, bodyColor) {
+  const key = level + '|' + (bodyColor | 0);
   if (badge.key === key) return;
   badge.key = key;
   const ctx = badge.ctx;
   const W = badge.canvas.width, H = badge.canvas.height;
   ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = isLeader ? '#ffd700' : '#ffffff';
-  ctx.font = 'bold 110px sans-serif';
+  // Auto-contrast: white digit on dark cars, dark digit on light cars
+  const r = (bodyColor >> 16) & 0xff;
+  const g = (bodyColor >> 8) & 0xff;
+  const b = bodyColor & 0xff;
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+  let fontSize = 124;
+  ctx.font = `bold ${fontSize}px sans-serif`;
+  const label = String(level);
+  while (fontSize > 54 && ctx.measureText(label).width > W * 0.84) {
+    fontSize -= 4;
+    ctx.font = `bold ${fontSize}px sans-serif`;
+  }
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.shadowColor = 'rgba(0,0,0,0.85)'; ctx.shadowBlur = 10;
-  ctx.fillText(String(level), W / 2, H / 2 + 4);
   ctx.shadowBlur = 0;
+  ctx.fillStyle = lum > 127 ? '#1a1a1a' : '#ffffff';
+  ctx.fillText(label, W / 2, H / 2 + 4);
   badge.tex.needsUpdate = true;
+}
+function updateBadgePosition(car) {
+  if (!car.badge || !car.badge.mesh) return;
+  const p = car.design;
+  const bZ = _badgeZ(p);
+  const bY = p.bodyLift + p.bodyHeight / 2;
+  const sz = _badgeHeight(p);
+  car.badge.mesh.position.set(0, bY, bZ);
+  car.badge.mesh.scale.setScalar(sz);
+  if (car.badge.mesh._mirrorMesh) {
+    car.badge.mesh._mirrorMesh.position.set(0, bY, -bZ);
+    car.badge.mesh._mirrorMesh.scale.setScalar(sz);
+  }
+	  if (car.badge.mesh._rearMesh) {
+	    car.badge.mesh._rearMesh.position.set(
+	      _rearBadgeX(p),
+	      p.bodyLift + p.bodyHeight * 0.56,
+	      0
+    );
+    car.badge.mesh._rearMesh.scale.setScalar(sz * 0.82);
+  }
 }
 function updateBadges() {
   let maxLevel = -Infinity;
   for (const c of allCars) if (c.level > maxLevel) maxLevel = c.level;
-  for (const c of allCars) paintBadge(c.badge, c.level, c.level === maxLevel);
+  for (const c of allCars) {
+    paintBadge(c.badge, c.level, c.level === maxLevel, c.design.bodyColor);
+    updateBadgePosition(c);
+  }
 }
 
-allCars.forEach(c => { c.level = 1; c.badge = makeBadge(); });
+allCars.forEach(c => { c.level = 1; c.badge = makeBadge(c); });
 allCars.forEach(c => applyTier(c, 1));
 updateBadges();
 scene.add(previewGroup);
@@ -2503,11 +2990,15 @@ const Synth = (() => {
   const CHORDS = [[59,62,66],[64,67,71],[66,69,73],[57,60,64],[62,66,69]].map(c => c.map(M));
   const RISE = [[59,66],[62,69],[64,71],[57,64],[59,71]].map(p => p.map(M));
   const FALL = [[78,59],[76,57],[74,59],[71,55],[73,59]].map(p => p.map(M));
+  // Manual pitch offsets in semitones (set by settings sliders)
+  let _engPitch = 0, _firePitch = 0;
+  function setEngPitch(st)  { _engPitch  = st; }
+  function setFirePitch(st) { _firePitch = st; }
   let bassIdx = 0;
   function bassTick() {
     const [, midi] = BASS[bassIdx];
     if (engineLevel > 0.04 && !muted && ctx.state === 'running') {
-      const f = M(midi);
+      const f = M(midi + _engPitch);
       blip({ freq: f, dur: 0.16, type: 'sawtooth', cutoff: 280 + engineLevel * 500, vel: 0.06 + engineLevel * 0.18, q: 0.9 });
     }
     const nextIdx = (bassIdx + 1) % BASS.length;
@@ -2519,9 +3010,10 @@ const Synth = (() => {
   let melIdx = 0;
   return {
     setEngine, setMute, isMuted: () => muted, ensureRunning,
+    setEngPitch, setFirePitch,
     shoot() {
       const [, midi] = MEL[melIdx];
-      const f = M(midi) * J();
+      const f = M(midi + _firePitch) * J();
       blip({ freq: f, dur: 0.09, type: 'square', cutoff: 1300, vel: 0.20, sweep: f * 0.93 });
       melIdx = (melIdx + 1) % MEL.length;
       return MEL[melIdx][0];
@@ -2558,7 +3050,7 @@ const MORPH_NUMERIC = [
   'rimSize','rimDepth',
   'wheelbase','trackWidth','wheelWidth',
 ];
-const MORPH_COLOR = ['bodyColor', 'rimColor'];
+const MORPH_COLOR = ['bodyColor', 'cabinColor', 'rimColor'];
 function _lerpN(a, b, t) { return a + (b - a) * t; }
 function _lerpHex(a, b, t) {
   const ar=(a>>16)&255, ag=(a>>8)&255, ab=a&255;
@@ -2578,6 +3070,15 @@ function lerpDesign(a, b, t) {
     out.turnSignal = { ...(t < 0.5 ? a.turnSignal : b.turnSignal) };
     for (const k of ['x','y','w','h']) {
       out.turnSignal[k] = _lerpN(a.turnSignal[k], b.turnSignal[k], t);
+    }
+  }
+  if (a.sideMirrors && b.sideMirrors) {
+    out.sideMirrors = { ...(t < 0.5 ? a.sideMirrors : b.sideMirrors) };
+    out.sideMirrors.enabled = t < 0.5 ? !!a.sideMirrors.enabled : !!b.sideMirrors.enabled;
+    for (const k of ['x','y','length','height','depth','stalk','round']) {
+      if (typeof a.sideMirrors[k] === 'number' && typeof b.sideMirrors[k] === 'number') {
+        out.sideMirrors[k] = _lerpN(a.sideMirrors[k], b.sideMirrors[k], t);
+      }
     }
   }
   if (a.fenders && b.fenders) {
@@ -2680,7 +3181,8 @@ function cgSpawnPed() {
   body.linearDamping = 0.45; body.angularDamping = 0.55;
   world.addBody(body);
   return { group: grp, body, torsoMat, alive: true, killTime: 0,
-           wanderDir: Math.random() * Math.PI * 2, wanderUntil: 0 };
+           wanderDir: Math.random() * Math.PI * 2, wanderUntil: 0,
+           hopState: 0, hopUntil: 0 };
 }
 function cgSpawnAll() { for (let i = 0; i < CG_PED_COUNT; i++) CG.peds.push(cgSpawnPed()); }
 function cgDespawnAll() {
@@ -2709,8 +3211,8 @@ function cgKill(ped, hitter) {
       280 + speed * 8,
       (dz / len) * launch + v.z * 6),
     new CANNON.Vec3(0, 0, 0));
-  ped.body.angularVelocity.set(
-    (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12);
+  ped.body.angularVelocity.set(0, 0, 0);
+  ped.hopState = 1; ped.hopUntil = performance.now() + 1800;
   if (ped.torsoMat) ped.torsoMat.color.setHex(0xff0000);
   Synth.hit();
 }
@@ -2721,6 +3223,11 @@ function cgUpdatePeds() {
     if (!ped.body) continue;
     ped.group.position.copy(ped.body.position);
     ped.group.quaternion.copy(ped.body.quaternion);
+    // Hopping animation for dead pedestrians — pik-pik-pik hops
+    if (ped.hopState > 0 && now < ped.hopUntil) {
+      const hopPhase = ((now - ped.killTime) / 150) % 1;
+      if (hopPhase < 0.25) ped.body.applyImpulse(new CANNON.Vec3(0, 10, 0), new CANNON.Vec3(0, 0, 0));
+    }
     if (ped.alive) {
       if (now > ped.wanderUntil) {
         ped.wanderDir   = Math.random() * Math.PI * 2;
@@ -2970,6 +3477,8 @@ function updateProjectiles(dt) {
     if (pj.life <= 0 || pj.dead) {
       world.removeBody(pj.body);
       scene.remove(pj.mesh);
+      if (pj.mesh.geometry) pj.mesh.geometry.dispose();
+      if (pj.mesh.material) pj.mesh.material.dispose();
       projectiles.splice(i, 1);
     } else {
       pj.body.velocity.y = 0;
@@ -3128,15 +3637,19 @@ let lastJTurn = 0;
 let jturnState = null;
 const camPos  = new THREE.Vector3(0, 9, -44);
 const camLook = new THREE.Vector3(0, 1, -32);
+const camAnchor = new THREE.Vector3();
+let camAnchorReady = false;
 
 window.addEventListener('keydown', e => {
   if (constrOverlay.classList.contains('open')) {
     if (e.code === 'KeyC' || e.code === 'Escape') closeConstructor();
+    if (e.code === 'KeyG') _randomizeConstr(applyTier);
+    if (['KeyC','Escape','KeyG'].includes(e.code)) e.preventDefault();
     return;  // freeze game input while constructor is open
   }
   K[e.code] = true;
   if (e.code === 'KeyR') resetPlayer();
-  if (e.code === 'KeyV') camMode = (camMode + 1) % SPEC.camera.modes.length;
+  if (e.code === 'KeyV') setCameraMode((camMode + 1) % SPEC.camera.modes.length);
   if (e.code === 'KeyM') toggleMute();
   if (e.code === 'KeyG') applyTierMaybeMorph(player, player.level || 1);
   if (e.code === 'KeyC') openConstructor();
@@ -3181,7 +3694,7 @@ document.querySelectorAll('.tc-btn').forEach(btn => {
     e.preventDefault(); btn.classList.add('pressed');
     if (isTap) {
       if (code === 'KeyR') resetPlayer();
-      else if (code === 'KeyV') camMode = (camMode + 1) % SPEC.camera.modes.length;
+      else if (code === 'KeyV') setCameraMode((camMode + 1) % SPEC.camera.modes.length);
       else if (code === 'KeyM') toggleMute();
       else if (code === 'KeyC') openConstructor();
     } else {
@@ -3204,7 +3717,7 @@ document.querySelectorAll('.tc-btn').forEach(btn => {
 
 // Stage HUD buttons
 document.getElementById('btn-constructor').addEventListener('click', openConstructor);
-document.getElementById('btn-camera').addEventListener('click', () => { camMode = (camMode + 1) % SPEC.camera.modes.length; });
+document.getElementById('btn-camera').addEventListener('click', () => { setCameraMode((camMode + 1) % SPEC.camera.modes.length); });
 document.getElementById('btn-regen').addEventListener('click', () => applyTierMaybeMorph(player, player.level || 1));
 document.getElementById('btn-mute').addEventListener('click', toggleMute);
 // Mode label button — clicking toggles between Free Ride and Cargeneddon.
@@ -3224,6 +3737,7 @@ function toggleMute() {
 function resetPlayer() {
   applyTierMaybeMorph(player, Math.max(1, player.level - SPEC.game.rules.respawn_cost));
   respawnCarTo(player);
+  camAnchorReady = false;
   updateBadges();
   Synth.respawn();
 }
@@ -3241,6 +3755,7 @@ function openConstructor() {
   constructorCar.bodyType = player.bodyType;
   constrOverlay.classList.add('open');
   document.body.classList.add('constr-open');
+  drawerEl.classList.remove('open');
   gamePaused = true;
   player.chassis.velocity.set(0, 0, 0);
   player.chassis.angularVelocity.set(0, 0, 0);
@@ -3253,7 +3768,9 @@ function openConstructor() {
   for (const c of aiCars) {
     if (c.group)  { _constrHidden.push(c.group);  c.group.visible = false; }
     if (c.wheels) for (const w of c.wheels) { _constrHidden.push(w); w.visible = false; }
-    if (c.badge && c.badge.sprite) { _constrHidden.push(c.badge.sprite); c.badge.sprite.visible = false; }
+    if (c.badge && c.badge.mesh) {
+      for (const m of _badgeMeshes(c.badge)) { _constrHidden.push(m); m.visible = false; }
+    }
   }
   // Hide all car shadow mirrors (player + AI)
   for (const c of allCars) {
@@ -3266,8 +3783,10 @@ function openConstructor() {
   // Hide clouds + iso preview group
   if (cloudGroup) { _constrHidden.push(cloudGroup); cloudGroup.visible = false; }
   if (typeof previewGroup !== 'undefined') { _constrHidden.push(previewGroup); previewGroup.visible = false; }
-  // Show the player's own badge so the user can see their level
-  if (player.badge && player.badge.sprite) player.badge.sprite.visible = false;  // also hide own badge — clean shot
+  // Hide badges in constructor mode
+  for (const c of allCars) {
+    if (c.badge && c.badge.mesh) for (const m of _badgeMeshes(c.badge)) m.visible = false;
+  }
   resetConstrOrbit();
   _setConstr3qView();   // snap camera to 3/4 face view of player
   // Telephoto FOV — small angle, camera will push back further to compensate.
@@ -3288,7 +3807,9 @@ function _restoreFromConstructor() {
   // Bring back all the meshes hidden during the fake pause.
   for (const m of _constrHidden) m.visible = true;
   _constrHidden = [];
-  if (player.badge && player.badge.sprite) player.badge.sprite.visible = true;
+  for (const c of allCars) {
+    if (c.badge && c.badge.mesh) for (const m of _badgeMeshes(c.badge)) m.visible = true;
+  }
 }
 function _restoreCamFovIfNeeded() {
   if (_savedCamFov !== null) {
@@ -3302,6 +3823,8 @@ function closeConstructor() {
   _restoreFromConstructor();
   constrOverlay.classList.remove('open');
   document.body.classList.remove('constr-open');
+  // Sync camPos so the game lerp starts from the constructor's camera angle
+  camPos.copy(camera.position);
   gamePaused = false;
   _restoreCamFovIfNeeded();
   requestAnimationFrame(() => { try { fitCardToViewport(); } catch(e) {} });
@@ -3315,6 +3838,8 @@ function cancelConstructor() {
   _restoreFromConstructor();
   constrOverlay.classList.remove('open');
   document.body.classList.remove('constr-open');
+  // Sync camPos so the game lerp starts from the constructor's camera angle
+  camPos.copy(camera.position);
   gamePaused = false;
   _restoreCamFovIfNeeded();
   requestAnimationFrame(() => { try { fitCardToViewport(); } catch(e) {} });
@@ -3364,9 +3889,9 @@ function rebuildConstructorPreview() {
 // car is shown front-3/4 from slightly above no matter how the player was
 // oriented when they hit CONSTRUCTOR.
 //
-// CAR FACES LEFT — i.e. its front (the headlights) points to the LEFT side
+// CAR FACES RIGHT — i.e. its front (the headlights) points to the RIGHT side
 // of the screen, so the windshield is visible in the foreground. Camera is
-// up-and-to-the-back-right of the car.
+// up-and-to-the-back-left of the car.
 function _setConstr3qView() {
   try {
     const fwdL = new CANNON.Vec3(1, 0, 0);
@@ -3375,9 +3900,10 @@ function _setConstr3qView() {
     // World yaw of the car's forward direction.
     const fwdYaw = Math.atan2(fwdW.z, fwdW.x);
     // Place the camera in front-and-to-one-side of the car so the front
-    // 3/4 face fills the frame and the headlights point LEFT on screen.
-    gameOrbit.yaw   = fwdYaw + 0.55;
+    // 3/4 face fills the frame and the headlights point RIGHT on screen.
+    gameOrbit.yaw   = fwdYaw - 0.55;
     gameOrbit.pitch = 0.30;             // ~17° elevation
+    gameOrbit.zoom  = 1;
     gameOrbit.blendOut = 0;
     gameOrbit.active = false;
   } catch (e) { /* fall back to defaults */ }
@@ -3446,11 +3972,41 @@ const SX = (x) => -x;
 const HANDLE_R = 0.09;       // half of previous 0.18 — Anton: handles were
                              // overlapping body↔cabin and impossible to pick.
 const HANDLE_STROKE = 0.02;
+const EDITOR_COLORS = {
+  ground: '#6c7480',
+  body: '#ffffff',
+  cabin: '#ff4fd8',
+  wheel: '#39ff14',
+  fenderFront: '#ffbf2f',
+  fenderRear: '#ff7a30',
+  headlight: '#fff6a8',
+  taillight: '#ff3b58',
+  signal: '#ff8c00',
+};
 function svgEl(parent, tag, attrs) {
   const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
   for (const k in attrs) el.setAttribute(k, attrs[k]);
   parent.appendChild(el);
   return el;
+}
+function drawEditorHandle(parent, x, y, color, key, dir) {
+  const r = HANDLE_R;
+  let pts;
+  if (dir === 'up') pts = `${x},${y-r} ${x-r},${y+r} ${x+r},${y+r}`;
+  else if (dir === 'down') pts = `${x},${y+r} ${x-r},${y-r} ${x+r},${y-r}`;
+  else if (dir === 'left') pts = `${x-r},${y} ${x+r},${y-r} ${x+r},${y+r}`;
+  else if (dir === 'right') pts = `${x+r},${y} ${x-r},${y-r} ${x-r},${y+r}`;
+  else pts = `${x},${y-r} ${x+r},${y} ${x},${y+r} ${x-r},${y}`;
+  const p = svgEl(parent, 'polygon', {
+    points: pts, fill: color, stroke: '#050505', 'stroke-width': HANDLE_STROKE,
+    style: 'cursor:grab',
+  });
+  p.dataset.key = key;
+  const hit = svgEl(parent, 'circle', {
+    cx: x, cy: y, r: r * 1.75, fill: 'transparent',
+    style: 'cursor:grab;pointer-events:all',
+  });
+  hit.dataset.key = key;
 }
 function _hexStr(n) { return '#' + ('000000' + (n|0).toString(16)).slice(-6); }
 function _darken(hex, f) {
@@ -3470,12 +4026,12 @@ function redrawSide() {
   const groundY = -0.77;
   // Ground line
   svgEl(g, 'line', { x1: -3.6, y1: -groundY, x2: 3.6, y2: -groundY,
-                     stroke: '#3a3d44', 'stroke-width': 0.02 });
+	                     stroke: EDITOR_COLORS.ground, 'stroke-width': 0.02 });
   // Body rect (lift = bottom; with X mirrored, x = -bodyLength/2)
   svgEl(g, 'rect', { x: SX(p.bodyLength/2), y: -(p.bodyLift + p.bodyHeight),
-                     width: p.bodyLength, height: p.bodyHeight,
-                     fill: _hexStr(p.bodyColor), 'fill-opacity': 0.55,
-                     stroke: '#fff', 'stroke-opacity': 0.6, 'stroke-width': 0.012 });
+	                     width: p.bodyLength, height: p.bodyHeight,
+	                     fill: 'none',
+	                     stroke: EDITOR_COLORS.body, 'stroke-opacity': 0.96, 'stroke-width': 0.02 });
   // Cabin trapezoid
   const cy0 = p.bodyLift + p.bodyHeight;
   const cy1 = cy0 + p.cabinHeight;
@@ -3485,19 +4041,19 @@ function redrawSide() {
   const cTopRear  = cRear  + p.cabinSlopeRear;
   if (!p.convertible) {
     svgEl(g, 'polygon', {
-      points: `${SX(cRear)},${-cy0} ${SX(cFront)},${-cy0} ${SX(cTopFront)},${-cy1} ${SX(cTopRear)},${-cy1}`,
-      fill: _hexStr(_darken(p.bodyColor, 0.55)), 'fill-opacity': 0.55,
-      stroke: '#fff', 'stroke-opacity': 0.6, 'stroke-width': 0.012,
-    });
+	      points: `${SX(cRear)},${-cy0} ${SX(cFront)},${-cy0} ${SX(cTopFront)},${-cy1} ${SX(cTopRear)},${-cy1}`,
+	      fill: 'none',
+	      stroke: EDITOR_COLORS.cabin, 'stroke-opacity': 0.96, 'stroke-width': 0.02,
+	    });
   }
   // Wheels
   const wR = 0.37 * p.wheelScale;
   const wbHalf = p.wheelbase / 2;
   const wcy = -(wR + groundY);
   for (const sx of [-wbHalf, wbHalf]) {
-    svgEl(g, 'circle', { cx: SX(sx), cy: wcy, r: wR,
-                         fill: '#1a1a1c', stroke: '#fff',
-                         'stroke-opacity': 0.4, 'stroke-width': 0.012 });
+	    svgEl(g, 'circle', { cx: SX(sx), cy: wcy, r: wR,
+	                         fill: 'none', stroke: EDITOR_COLORS.wheel,
+	                         'stroke-opacity': 0.95, 'stroke-width': 0.02 });
   }
   // Fender outlines
   let ffRect = null, frRect = null;
@@ -3511,12 +4067,12 @@ function redrawSide() {
       const wcx = wbSign * wbHalf;
       const xL = wcx - cfg.rear, xR = wcx + cfg.front;
       const yTop = fCY + cfg.height / 2, yBot = fCY - cfg.height / 2;
-      const opa = p.fenders.enabled ? 0.5 : 0.18;
-      const stroke = p.fenders.enabled ? '#ffb060' : '#888';
+	      const opa = p.fenders.enabled ? 0.86 : 0.30;
+	      const stroke = wbSign > 0 ? EDITOR_COLORS.fenderFront : EDITOR_COLORS.fenderRear;
       svgEl(g, 'rect', {
         x: SX(xR), y: -yTop, width: xR - xL, height: cfg.height,
-        fill: _hexStr(p.bodyColor), 'fill-opacity': opa * 0.6,
-        stroke, 'stroke-opacity': opa, 'stroke-width': 0.012,
+        fill: 'none',
+	        stroke, 'stroke-opacity': Math.max(0.45, opa), 'stroke-width': 0.02,
         rx: cfg.round, ry: cfg.round,
       });
       return { wcx, xL, xR, yTop, yBot, cfg };
@@ -3527,48 +4083,61 @@ function redrawSide() {
   // Drag handles
   const bcy = p.bodyLift + p.bodyHeight/2;
   const hlWY = bcy + p.headlightY;
-  const tlWY = bcy + p.taillightY;
-  const tsWY = bcy + (p.turnSignal ? p.turnSignal.y : 0);
-  const tsWX = p.turnSignal ? p.turnSignal.x : 0;
-  const handles = [
+	  const tlWY = bcy + p.taillightY;
+	  const tsWY = bcy + (p.turnSignal ? p.turnSignal.y : 0);
+	  const tsWX = p.turnSignal ? p.turnSignal.x : 0;
+	  const mir = normalizeSideMirrors(p);
+	  if (mir.enabled) {
+	    svgEl(g, 'rect', {
+	      x: SX(mir.x + mir.length / 2),
+	      y: -(cy0 + mir.y + mir.height / 2),
+	      width: mir.length,
+	      height: mir.height,
+	      fill: 'none',
+	      stroke: EDITOR_COLORS.cabin,
+	      'stroke-opacity': 0.92,
+	      'stroke-width': 0.018,
+	      rx: mir.round,
+	      ry: mir.round,
+	    });
+	  }
+	  const handles = [
     // Body top/bottom handles offset to the RIGHT, cabin handles to the
     // LEFT, so they don't sit on top of each other when cabin is centred
     // over body and cabin top happens to coincide with body top X.
-    { key: 'body-top',          x:  0.30,            wy: p.bodyLift + p.bodyHeight, color: '#ffd060' },
-    { key: 'body-bottom',       x:  0.30,            wy: p.bodyLift,                color: '#ffd060' },
-    { key: 'body-front',        x: p.bodyLength/2,   wy: bcy,                       color: '#ffd060' },
-    { key: 'body-rear',         x: -p.bodyLength/2,  wy: bcy,                       color: '#ffd060' },
-    { key: 'cabin-top',         x: p.cabinOffset - 0.30, wy: cy1,                   color: '#9bd3ff' },
-    { key: 'cabin-front',       x: cFront,           wy: cy0 + p.cabinHeight*0.3,   color: '#9bd3ff' },
-    { key: 'cabin-rear',        x: cRear,            wy: cy0 + p.cabinHeight*0.3,   color: '#9bd3ff' },
-    { key: 'cabin-slope-front', x: cTopFront,        wy: cy1,                       color: '#9bd3ff' },
-    { key: 'cabin-slope-rear',  x: cTopRear,         wy: cy1,                       color: '#9bd3ff' },
-    { key: 'cabin-offset',      x: p.cabinOffset,    wy: cy0,                       color: '#9bd3ff' },
-    { key: 'wheel-front',       x: wbHalf,           wy: -wcy - wR - 0.10,          color: '#a8e0a0' },
-    { key: 'wheel-rear',        x: -wbHalf,          wy: -wcy - wR - 0.10,          color: '#a8e0a0' },
-    { key: 'headlight-y',       x: p.bodyLength/2 + 0.20, wy: hlWY,                 color: '#ffffff' },
-    { key: 'taillight-y',       x: -p.bodyLength/2 - 0.20, wy: tlWY,                color: '#ff5050' },
-    { key: 'turnsignal-pos',    x: tsWX,             wy: tsWY,                      color: '#ff8c00' },
-  ];
-  if (ffRect) handles.push(
-    { key: 'ff-front', x: ffRect.xR, wy: (ffRect.yTop + ffRect.yBot)/2, color: '#ffb060' },
-    { key: 'ff-rear',  x: ffRect.xL, wy: (ffRect.yTop + ffRect.yBot)/2, color: '#ffb060' },
-    { key: 'ff-top',   x: ffRect.wcx, wy: ffRect.yTop,                  color: '#ffb060' },
-    { key: 'ff-bot',   x: ffRect.wcx, wy: ffRect.yBot,                  color: '#ffb060' },
-  );
-  if (frRect) handles.push(
-    { key: 'fr-front', x: frRect.xR, wy: (frRect.yTop + frRect.yBot)/2, color: '#ff7a30' },
-    { key: 'fr-rear',  x: frRect.xL, wy: (frRect.yTop + frRect.yBot)/2, color: '#ff7a30' },
-    { key: 'fr-top',   x: frRect.wcx, wy: frRect.yTop,                  color: '#ff7a30' },
-    { key: 'fr-bot',   x: frRect.wcx, wy: frRect.yBot,                  color: '#ff7a30' },
-  );
+	    { key: 'body-top',          x:  0.30,            wy: p.bodyLift + p.bodyHeight, color: EDITOR_COLORS.body, dir: 'up' },
+	    { key: 'body-bottom',       x:  0.30,            wy: p.bodyLift,                color: EDITOR_COLORS.body, dir: 'down' },
+	    { key: 'body-front',        x: p.bodyLength/2,   wy: bcy,                       color: EDITOR_COLORS.body, dir: 'left' },
+	    { key: 'body-rear',         x: -p.bodyLength/2,  wy: bcy,                       color: EDITOR_COLORS.body, dir: 'right' },
+	    { key: 'cabin-top',         x: p.cabinOffset - 0.30, wy: cy1,                   color: EDITOR_COLORS.cabin, dir: 'up' },
+	    { key: 'cabin-front',       x: cFront,           wy: cy0 + p.cabinHeight*0.3,   color: EDITOR_COLORS.cabin, dir: 'left' },
+	    { key: 'cabin-rear',        x: cRear,            wy: cy0 + p.cabinHeight*0.3,   color: EDITOR_COLORS.cabin, dir: 'right' },
+	    { key: 'cabin-slope-front', x: cTopFront,        wy: cy1,                       color: EDITOR_COLORS.cabin, dir: 'left' },
+	    { key: 'cabin-slope-rear',  x: cTopRear,         wy: cy1,                       color: EDITOR_COLORS.cabin, dir: 'right' },
+	    { key: 'cabin-offset',      x: p.cabinOffset,    wy: cy0,                       color: EDITOR_COLORS.cabin, dir: 'down' },
+	    { key: 'wheel-front',       x: wbHalf,           wy: -wcy - wR - 0.10,          color: EDITOR_COLORS.wheel, dir: 'down' },
+	    { key: 'wheel-rear',        x: -wbHalf,          wy: -wcy - wR - 0.10,          color: EDITOR_COLORS.wheel, dir: 'down' },
+	    { key: 'headlight-y',       x: p.bodyLength/2 + 0.20, wy: hlWY,                 color: EDITOR_COLORS.headlight, dir: 'diamond' },
+	    { key: 'taillight-y',       x: -p.bodyLength/2 - 0.20, wy: tlWY,                color: EDITOR_COLORS.taillight, dir: 'diamond' },
+	    { key: 'turnsignal-pos',    x: tsWX,             wy: tsWY,                      color: EDITOR_COLORS.signal, dir: 'diamond' },
+	  ];
+	  if (mir.enabled) handles.push(
+	    { key: 'mirror-pos', x: mir.x, wy: cy0 + mir.y, color: EDITOR_COLORS.cabin, dir: 'diamond' },
+	  );
+	  if (ffRect) handles.push(
+	    { key: 'ff-front', x: ffRect.xR, wy: (ffRect.yTop + ffRect.yBot)/2, color: EDITOR_COLORS.fenderFront, dir: 'left' },
+	    { key: 'ff-rear',  x: ffRect.xL, wy: (ffRect.yTop + ffRect.yBot)/2, color: EDITOR_COLORS.fenderFront, dir: 'right' },
+	    { key: 'ff-top',   x: ffRect.wcx, wy: ffRect.yTop,                  color: EDITOR_COLORS.fenderFront, dir: 'up' },
+	    { key: 'ff-bot',   x: ffRect.wcx, wy: ffRect.yBot,                  color: EDITOR_COLORS.fenderFront, dir: 'down' },
+	  );
+	  if (frRect) handles.push(
+	    { key: 'fr-front', x: frRect.xR, wy: (frRect.yTop + frRect.yBot)/2, color: EDITOR_COLORS.fenderRear, dir: 'left' },
+	    { key: 'fr-rear',  x: frRect.xL, wy: (frRect.yTop + frRect.yBot)/2, color: EDITOR_COLORS.fenderRear, dir: 'right' },
+	    { key: 'fr-top',   x: frRect.wcx, wy: frRect.yTop,                  color: EDITOR_COLORS.fenderRear, dir: 'up' },
+	    { key: 'fr-bot',   x: frRect.wcx, wy: frRect.yBot,                  color: EDITOR_COLORS.fenderRear, dir: 'down' },
+	  );
   for (const h of handles) {
-    const c = svgEl(g, 'circle', {
-      cx: SX(h.x), cy: -h.wy, r: HANDLE_R,
-      fill: h.color, stroke: '#000', 'stroke-width': HANDLE_STROKE,
-      style: 'cursor:grab',
-    });
-    c.dataset.key = h.key;
+    drawEditorHandle(g, SX(h.x), -h.wy, h.color, h.key, h.dir);
   }
 }
 
@@ -3584,26 +4153,48 @@ function _drawAxleView(group, isFront) {
   const groundY = -0.77;
   // Ground line
   svgEl(group, 'line', { x1: -2.2, y1: -groundY, x2: 2.2, y2: -groundY,
-                         stroke: '#3a3d44', 'stroke-width': 0.02 });
+	                         stroke: EDITOR_COLORS.ground, 'stroke-width': 0.02 });
   // Body rect — width = bodyWidth, height = bodyHeight, lift = body bottom
   svgEl(group, 'rect', {
     x: -p.bodyWidth/2, y: -(p.bodyLift + p.bodyHeight),
     width: p.bodyWidth, height: p.bodyHeight,
-    fill: _hexStr(p.bodyColor), 'fill-opacity': 0.55,
-    stroke: '#fff', 'stroke-opacity': 0.6, 'stroke-width': 0.012,
+    fill: 'none',
+    stroke: EDITOR_COLORS.body, 'stroke-opacity': 0.96, 'stroke-width': 0.02,
   });
   // Cabin (constant width view — straight rect from cabinBaseY up cabinHeight)
   const cy0 = p.bodyLift + p.bodyHeight;
   const cy1 = cy0 + p.cabinHeight;
-  if (!p.convertible) {
-    svgEl(group, 'rect', {
-      x: -p.cabinWidth/2, y: -cy1,
-      width: p.cabinWidth, height: p.cabinHeight,
-      fill: _hexStr(_darken(p.bodyColor, 0.55)), 'fill-opacity': 0.55,
-      stroke: '#fff', 'stroke-opacity': 0.6, 'stroke-width': 0.012,
-    });
-  }
-  // Wheels — viewed head-on a wheel is a thin tall rectangle (tyre tread
+	  if (!p.convertible) {
+	    svgEl(group, 'rect', {
+	      x: -p.cabinWidth/2, y: -cy1,
+	      width: p.cabinWidth, height: p.cabinHeight,
+	      fill: 'none',
+	      stroke: EDITOR_COLORS.cabin, 'stroke-opacity': 0.96, 'stroke-width': 0.02,
+	    });
+	  }
+	  const mirrorSpec = normalizeSideMirrors(p);
+	  if (mirrorSpec.enabled) {
+	    const mY = cy0 + mirrorSpec.y;
+	    const mW = mirrorSpec.depth || 0.24;
+	    const mH = mirrorSpec.height || 0.15;
+	    const stalk = mirrorSpec.stalk || 0.09;
+	    for (const sign of [-1, 1]) {
+	      const x = sign * (p.bodyWidth / 2 + stalk + mW / 2);
+	      svgEl(group, 'rect', {
+	        x: x - mW / 2,
+	        y: -(mY + mH / 2),
+	        width: mW,
+	        height: mH,
+	        fill: 'none',
+	        stroke: EDITOR_COLORS.cabin,
+	        'stroke-opacity': 0.92,
+	        'stroke-width': 0.018,
+	        rx: mirrorSpec.round,
+	        ry: mirrorSpec.round,
+	      });
+	    }
+	  }
+	  // Wheels — viewed head-on a wheel is a thin tall rectangle (tyre tread
   // width × full diameter), NOT a circle. Circles only show when viewed
   // from the side.
   const wR = 0.37 * p.wheelScale;
@@ -3612,16 +4203,17 @@ function _drawAxleView(group, isFront) {
   const trkHalf = p.trackWidth / 2;
   for (const s of [-trkHalf, trkHalf]) {
     svgEl(group, 'rect', {
-      x: s - wW / 2, y: wcy - wR,
-      width: wW, height: wR * 2,
-      rx: wW * 0.18, ry: wW * 0.18,
-      fill: '#1a1a1c', stroke: '#fff',
-      'stroke-opacity': 0.4, 'stroke-width': 0.012,
-    });
-  }
-  // Fender — front or rear depending on view
-  const fcfg = isFront ? p.fenders.front : p.fenders.rear;
-  if (fcfg && (fcfg.front + fcfg.rear) > 0.01) {
+	      x: s - wW / 2, y: wcy - wR,
+	      width: wW, height: wR * 2,
+	      rx: wW * 0.18, ry: wW * 0.18,
+	      fill: 'none', stroke: EDITOR_COLORS.wheel,
+	      'stroke-opacity': 0.95, 'stroke-width': 0.02,
+	    });
+	  }
+	  // Fender — front or rear depending on view
+	  const fcfg = isFront ? p.fenders.front : p.fenders.rear;
+	  const fenderStroke = isFront ? EDITOR_COLORS.fenderFront : EDITOR_COLORS.fenderRear;
+	  if (fcfg && (fcfg.front + fcfg.rear) > 0.01) {
     const fH = fcfg.height;
     const fW = fcfg.width || (p.wheelWidth + 0.08);
     const baseFCY = (wR - 0.77) + wR * 0.45 + fH / 2;
@@ -3630,16 +4222,15 @@ function _drawAxleView(group, isFront) {
     if (fCY - fH / 2 < minBottom) fCY = minBottom + fH / 2;
     const defOZ = trkHalf + p.wheelWidth / 2 + 0.04;
     const outerZ = defOZ - (fcfg.inset || 0);
-    const innerZ = outerZ - fW;
-    const opa = p.fenders.enabled ? 0.5 : 0.18;
-    const stroke = p.fenders.enabled ? '#ffb060' : '#888';
-    for (const sign of [-1, 1]) {
+	    const innerZ = outerZ - fW;
+	    const opa = p.fenders.enabled ? 0.86 : 0.30;
+	    for (const sign of [-1, 1]) {
       svgEl(group, 'rect', {
         x: sign > 0 ? innerZ : -outerZ,
         y: -(fCY + fH/2),
         width: fW, height: fH,
-        fill: _hexStr(p.bodyColor), 'fill-opacity': opa * 0.6,
-        stroke, 'stroke-opacity': opa, 'stroke-width': 0.012,
+	        fill: 'none',
+	        stroke: fenderStroke, 'stroke-opacity': Math.max(0.45, opa), 'stroke-width': 0.02,
         rx: fcfg.round, ry: fcfg.round,
       });
     }
@@ -3649,7 +4240,7 @@ function _drawAxleView(group, isFront) {
   const spread = isFront ? p.headlightSpread : p.taillightSpread;
   const yLight = p.bodyLift + p.bodyHeight/2 + (isFront ? p.headlightY : p.taillightY);
   const zSide = Math.max(0.05, p.bodyWidth / 2 - 0.25 + spread);
-  const lightColor = isFront ? '#ffffcc' : '#ff5050';
+	  const lightColor = isFront ? EDITOR_COLORS.headlight : EDITOR_COLORS.taillight;
   const placeLight = (z) => {
     svgEl(group, 'rect', {
       x: z - 0.1, y: -(yLight + 0.05),
@@ -3662,29 +4253,24 @@ function _drawAxleView(group, isFront) {
   else { placeLight(-zSide); placeLight(zSide); }
   // Drag handles — track width, body width, fender outer edge, cabin width.
   const handles = [
-    { key: (isFront ? 'f-' : 'r-') + 'track-r', x:  trkHalf, wy: -wcy, color: '#a8e0a0' },
-    { key: (isFront ? 'f-' : 'r-') + 'track-l', x: -trkHalf, wy: -wcy, color: '#a8e0a0' },
-    { key: (isFront ? 'f-' : 'r-') + 'body-r',  x:  p.bodyWidth/2,  wy: p.bodyLift + p.bodyHeight/2, color: '#ffd060' },
-    { key: (isFront ? 'f-' : 'r-') + 'body-l',  x: -p.bodyWidth/2,  wy: p.bodyLift + p.bodyHeight/2, color: '#ffd060' },
-    { key: (isFront ? 'f-' : 'r-') + 'cabin-r', x:  p.cabinWidth/2, wy: cy0 + p.cabinHeight/2,        color: '#9bd3ff' },
-    { key: (isFront ? 'f-' : 'r-') + 'cabin-l', x: -p.cabinWidth/2, wy: cy0 + p.cabinHeight/2,        color: '#9bd3ff' },
-    { key: (isFront ? 'f-' : 'r-') + 'spread',  x:  zSide,  wy: yLight, color: lightColor },
+	    { key: (isFront ? 'f-' : 'r-') + 'track-r', x:  trkHalf, wy: -wcy, color: EDITOR_COLORS.wheel, dir: 'right' },
+	    { key: (isFront ? 'f-' : 'r-') + 'track-l', x: -trkHalf, wy: -wcy, color: EDITOR_COLORS.wheel, dir: 'left' },
+	    { key: (isFront ? 'f-' : 'r-') + 'body-r',  x:  p.bodyWidth/2,  wy: p.bodyLift + p.bodyHeight/2, color: EDITOR_COLORS.body, dir: 'right' },
+	    { key: (isFront ? 'f-' : 'r-') + 'body-l',  x: -p.bodyWidth/2,  wy: p.bodyLift + p.bodyHeight/2, color: EDITOR_COLORS.body, dir: 'left' },
+	    { key: (isFront ? 'f-' : 'r-') + 'cabin-r', x:  p.cabinWidth/2, wy: cy0 + p.cabinHeight/2,        color: EDITOR_COLORS.cabin, dir: 'right' },
+	    { key: (isFront ? 'f-' : 'r-') + 'cabin-l', x: -p.cabinWidth/2, wy: cy0 + p.cabinHeight/2,        color: EDITOR_COLORS.cabin, dir: 'left' },
+    { key: (isFront ? 'f-' : 'r-') + 'spread',  x:  zSide,  wy: yLight, color: lightColor, dir: 'diamond' },
   ];
   if (fcfg && (fcfg.front + fcfg.rear) > 0.01) {
     const defOZ = trkHalf + p.wheelWidth / 2 + 0.04;
     const outerZ = defOZ - (fcfg.inset || 0);
     handles.push(
-      { key: (isFront ? 'f-' : 'r-') + 'fnd-out', x:  outerZ, wy: p.bodyLift + p.bodyHeight/2, color: '#ffb060' },
-      { key: (isFront ? 'f-' : 'r-') + 'fnd-in',  x:  outerZ - (fcfg.width || 0.4), wy: p.bodyLift + p.bodyHeight/2, color: '#ffb060' },
+	      { key: (isFront ? 'f-' : 'r-') + 'fnd-out', x:  outerZ, wy: p.bodyLift + p.bodyHeight/2, color: fenderStroke, dir: 'right' },
+	      { key: (isFront ? 'f-' : 'r-') + 'fnd-in',  x:  outerZ - (fcfg.width || 0.4), wy: p.bodyLift + p.bodyHeight/2, color: fenderStroke, dir: 'left' },
     );
   }
   for (const h of handles) {
-    const c = svgEl(group, 'circle', {
-      cx: h.x, cy: -h.wy, r: HANDLE_R,
-      fill: h.color, stroke: '#000', 'stroke-width': HANDLE_STROKE,
-      style: 'cursor:grab',
-    });
-    c.dataset.key = h.key;
+    drawEditorHandle(group, h.x, -h.wy, h.color, h.key, h.dir);
   }
 }
 function redrawFront() { _drawAxleView(document.getElementById('front-group'), true); }
@@ -3813,11 +4399,17 @@ function bindAxleDrag(svgId, isFront) {
       case 'wheel-rear':        p.wheelbase = _clampN((p.wheelbase/2 - dx) * 2, 1.8, 3.6); break;
       case 'headlight-y':       p.headlightY = _clampN(p.headlightY + dy, -0.50, 0.50); break;
       case 'taillight-y':       p.taillightY = _clampN(p.taillightY + dy, -0.50, 0.50); break;
-      case 'turnsignal-pos':
-        if (!p.turnSignal) break;
-        p.turnSignal.x = _clampN(p.turnSignal.x + dx, -2.0, 2.0);
-        p.turnSignal.y = _clampN(p.turnSignal.y + dy, -0.40, 0.50);
-        break;
+	      case 'turnsignal-pos':
+	        if (!p.turnSignal) break;
+	        p.turnSignal.x = _clampN(p.turnSignal.x + dx, -3.0, 3.0);
+	        p.turnSignal.y = _clampN(p.turnSignal.y + dy, -0.50, 1.20);
+	        break;
+	      case 'mirror-pos':
+	        if (!p.sideMirrors) p.sideMirrors = defaultSideMirrors(p);
+	        p.sideMirrors.x += dx;
+	        p.sideMirrors.y += dy;
+	        normalizeSideMirrors(p, false);
+	        break;
       case 'ff-front': p.fenders.front.front = _clampN(p.fenders.front.front + dx, 0.00, 1.80); break;
       case 'ff-rear':  p.fenders.front.rear  = _clampN(p.fenders.front.rear  - dx, 0.00, 1.80); break;
       case 'ff-top':
@@ -3893,7 +4485,7 @@ const PANEL_SPEC = [
   ['bodyLength', 'Length',   'range', 2.5, 6.5, 0.01],
   ['bodyWidth',  'Width',    'range', 1.4, 2.5, 0.01],
   ['bodyHeight', 'Height',   'range', 0.20, 1.20, 0.01],
-  ['bodyLift',   'Lift',     'range', -0.80, 0.50, 0.01],
+  ['bodyLift',   'Lift',     'range', -1.0, 0.80, 0.01],
   ['bodyRound',  'Round',    'range', 0,    0.50, 0.005],
   ['bodyColor',  'Color',    'color'],
   ['§', 'Cabin'],
@@ -3901,28 +4493,38 @@ const PANEL_SPEC = [
   ['cabinLength',     'Length',     'range', 0.8,  4.0, 0.01],
   ['cabinHeight',     'Height',     'range', 0.20, 1.20, 0.01],
   ['cabinWidth',      'Width',      'range', 1.0,  2.5, 0.01],
+  ['cabinColor',      'Paint',      'color'],
   ['cabinSlopeFront', 'Slope F',    'range', 0,    1.5, 0.01],
   ['cabinSlopeRear',  'Slope R',    'range', 0,    1.5, 0.01],
   ['cabinSlopeSides', 'Slope S',    'range', 0,    0.5, 0.01],
   ['cabinRound',      'Round',      'range', 0,    0.50, 0.005],
   ['cabinSink',       'Sink',       'range', -0.50, 0.30, 0.01],
   ['convertible',     'Cabriolet',  'toggle'],
+  ['§', 'Mirrors'],
+  ['sideMirrors.enabled', 'Enabled', 'toggle'],
+  ['sideMirrors.x',      'Rail X',  'range', -3.0, 3.0, 0.01],
+  ['sideMirrors.y',      'Height',  'range', -0.10, 0.35, 0.01],
+  ['sideMirrors.length', 'Length',  'range', 0.04, 0.30, 0.005],
+  ['sideMirrors.height', 'Size Y',  'range', 0.04, 0.36, 0.005],
+  ['sideMirrors.depth',  'Size Z',  'range', 0.08, 0.50, 0.005],
+  ['sideMirrors.stalk',  'Stalk',   'range', 0.02, 0.30, 0.005],
+  ['sideMirrors.round',  'Round',   'range', 0,    0.12, 0.005],
   // FENDERS bumped above WHEELS — Anton: "фендеры должны быть сразу после
   // кабины, а потом колеса. в самом низу это тупо".
   ['§', 'Fenders'],
   ['fenders.enabled',      'Enabled',   'toggle'],
   ['fenders.front.front',  'F → front', 'range', 0, 1.0, 0.01],
   ['fenders.front.rear',   'F → rear',  'range', 0, 1.0, 0.01],
-  ['fenders.front.height', 'F height',  'range', 0.10, 0.80, 0.01],
+  ['fenders.front.height', 'F height',  'range', 0.02, 1.0, 0.01],
   ['fenders.front.width',  'F width',   'range', 0.10, 0.80, 0.01],
-  ['fenders.front.y',      'F y',       'range', -0.50, 0.50, 0.01],
+  ['fenders.front.y',      'F y',       'range', -1.20, 0.80, 0.01],
   ['fenders.front.inset',  'F inset',   'range', -0.20, 0.50, 0.01],
   ['fenders.front.round',  'F round',   'range', 0, 0.20, 0.005],
   ['fenders.rear.front',   'R → front', 'range', 0, 1.0, 0.01],
   ['fenders.rear.rear',    'R → rear',  'range', 0, 1.0, 0.01],
-  ['fenders.rear.height',  'R height',  'range', 0.10, 0.80, 0.01],
+  ['fenders.rear.height',  'R height',  'range', 0.02, 1.0, 0.01],
   ['fenders.rear.width',   'R width',   'range', 0.10, 0.80, 0.01],
-  ['fenders.rear.y',       'R y',       'range', -0.50, 0.50, 0.01],
+  ['fenders.rear.y',       'R y',       'range', -1.20, 0.80, 0.01],
   ['fenders.rear.inset',   'R inset',   'range', -0.20, 0.50, 0.01],
   ['fenders.rear.round',   'R round',   'range', 0, 0.20, 0.005],
   ['§', 'Wheels'],
@@ -3947,6 +4549,12 @@ const PANEL_SPEC = [
   ['taillightW',      'W',      'range', 0.3,   2.5,  0.01],
   ['taillightH',      'H',      'range', 0.3,   2.5,  0.01],
   ['taillightSpread', 'Spread', 'range', -0.60, 0.60, 0.01],
+  ['§', 'Turn Signals'],
+  ['turnSignal.enabled', 'Enabled', 'toggle'],
+  ['turnSignal.x',    'X pos',  'range', -3.0, 3.0, 0.01],
+  ['turnSignal.y',    'Y pos',  'range', -0.50, 1.20, 0.01],
+  ['turnSignal.w',    'Width',  'range', 0.10, 0.40, 0.01],
+  ['turnSignal.h',    'Height', 'range', 0.03, 0.15, 0.005],
   ['§', 'Accessories'],
   ['accessories.spoiler',  'Spoiler',   'toggle'],
   ['accessories.antenna',  'Antenna',   'toggle'],
@@ -4096,8 +4704,8 @@ function _randomizeConstr(generator) {
 // Wire the constructor top-bar action buttons (created in DOM, not panel).
 function _bindConstrActions() {
   document.getElementById('constr-classic').addEventListener('click', () => _randomizeConstr(applyTierClassic));
-  document.getElementById('constr-crazy').addEventListener('click',   () => _randomizeConstr(applyTierCrazy));
-  document.getElementById('constr-mutate').addEventListener('click',  () => _randomizeConstr(applyTier));
+  document.getElementById('constr-wild').addEventListener('click',    () => _randomizeConstr(applyTierWild));
+  document.getElementById('constr-calm').addEventListener('click',    () => _randomizeConstr(applyTierCalm));
   document.getElementById('constr-save').addEventListener('click', saveDesignAsJson);
   document.getElementById('constr-apply').addEventListener('click', closeConstructor);
   document.getElementById('constr-cancel').addEventListener('click', cancelConstructor);
@@ -4165,8 +4773,8 @@ const TUNER_DEFAULTS = {
   cardBg: '#f1f2ee',
   frameThin: 30,
   bottomPadY: 0, bottomPadX: 0,
-  bottomPadFloor: 16,
-  colGap: 40, pairGap: 6, rowGap: 0,
+  bottomPadFloor: 25,
+  colGap: 0, pairGap: 6, rowGap: 0,
   // Typography
   fontIdx: 0,                                 // Arial Narrow
   fontColor: '#000000',
@@ -4174,6 +4782,7 @@ const TUNER_DEFAULTS = {
   subSize: 16, subWeight: 900, subLetter: 2,
   rowSize: 19, labelWeight: 100, valueWeight: 900,
   logoNameSize: 48, logoNumSize: 27, logoWeight: 900,
+  logoOffsetX: -7, logoOffsetY: 7,           // Logo position sliders
   // Visibility (1 = show, 0 = hide)
   showName: 1, showSub: 1,
   showLen: 1, showWid: 1, showHgt: 1,
@@ -4181,7 +4790,7 @@ const TUNER_DEFAULTS = {
   showHdl: 1, showTll: 1, showFnd: 1,
   showLogoName: 1, showLogoNum: 1,
 };
-const TUNER_KEY = 'psd-card-tuner-v2';   // bumped — old localStorage had col-gap=80, baked too wide
+const TUNER_KEY = 'psd-card-tuner-v3';   // bumped — applies Anton's 2026-05-03 card frame tune
 const tunerState = (() => {
   try { return Object.assign({}, TUNER_DEFAULTS, JSON.parse(localStorage.getItem(TUNER_KEY) || '{}')); }
   catch { return Object.assign({}, TUNER_DEFAULTS); }
@@ -4211,6 +4820,8 @@ const TUNER_SPEC = [
   ['logoNameSize','Logo name',   'range', 4,  140, 1],
   ['logoNumSize', 'Logo num',    'range', 4,  180, 1],
   ['logoWeight',  'Logo weight', 'range', 100,900,100],
+  ['logoOffsetX', 'Logo X',      'range', -80, 80,  1],
+  ['logoOffsetY', 'Logo Y',      'range', -80, 80,  1],
   ['§', 'Visibility'],
   ['__checks__',  null, [
     ['showName','Type'],['showSub','Sub'],
@@ -4242,6 +4853,8 @@ const TUNER_VAR_MAP = {
   logoNameSize:['--logo-name-size', 'px'],
   logoNumSize: ['--logo-num-size', 'px'],
   logoWeight:  ['--logo-weight', ''],
+  logoOffsetX: ['--logo-offset-x', 'px'],
+  logoOffsetY: ['--logo-offset-y', 'px'],
 };
 const TUNER_SHOW_KEYS = {
   showName:'name', showSub:'sub',
@@ -4331,18 +4944,58 @@ tunerBtn.addEventListener('click', () => tunerPanel.classList.toggle('open'));
 // ── SETTINGS DRAWER (sun/clouds/track/cam offsets/fog) — persisted ────────
 // Per-mode camera offsets — load from localStorage, fall back to spec defaults.
 const CAM_OFF_DEFAULTS = SPEC.camera.modes.map(m => m.offset ? m.offset.slice() : [0, 0, 0]);
-const camOffs = (() => {
+const CAM_TUNE_DEFAULTS = SPEC.camera.modes.map(() => ({
+  distance: 1.00,
+  lift: 0.0,
+  lookY: 0.0,
+  fov: SPEC.camera.fov,
+  soft: 1.00,
+}));
+const CAM_STORE_VERSION = 'v4-soft-camera';
+const CAM_KEYS = {
+  offs: 'camOffs:' + CAM_STORE_VERSION,
+  tune: 'camTune:' + CAM_STORE_VERSION,
+  birds: 'birdsEyeAlt:' + CAM_STORE_VERSION,
+  specH: 'specH:' + CAM_STORE_VERSION,
+  specD: 'specD:' + CAM_STORE_VERSION,
+};
+function _loadJSONStorage(key, fallback) {
   try {
-    const saved = JSON.parse(localStorage.getItem('camOffs') || 'null');
-    if (Array.isArray(saved) && saved.length === SPEC.camera.modes.length) return saved;
-  } catch (_) {}
+    const saved = JSON.parse(localStorage.getItem(key) || 'null');
+    return saved || fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+const camOffs = (() => {
+  const saved = _loadJSONStorage(CAM_KEYS.offs, null);
+  if (Array.isArray(saved) && saved.length === SPEC.camera.modes.length) {
+    return saved.map((a, i) => Array.isArray(a) ? a.slice(0, 3) : CAM_OFF_DEFAULTS[i].slice());
+  }
   return CAM_OFF_DEFAULTS.map(a => a.slice());
 })();
-let birdsEyeAlt = parseFloat(localStorage.getItem('birdsEyeAlt')) || 110;
+const camTune = (() => {
+  const saved = _loadJSONStorage(CAM_KEYS.tune, null);
+  const source = (Array.isArray(saved) && saved.length === SPEC.camera.modes.length) ? saved : CAM_TUNE_DEFAULTS;
+  return source.map((t, i) => Object.assign({}, CAM_TUNE_DEFAULTS[i], t || {}));
+})();
+let birdsEyeAlt = parseFloat(localStorage.getItem(CAM_KEYS.birds));
+if (!Number.isFinite(birdsEyeAlt)) birdsEyeAlt = SPEC.camera.modes[4].altitude || 98;
 const specCam = {
-  height: parseFloat(localStorage.getItem('specH')) || 34,
-  dist:   parseFloat(localStorage.getItem('specD')) || 84,
+  height: parseFloat(localStorage.getItem(CAM_KEYS.specH)) || 50,
+  dist:   parseFloat(localStorage.getItem(CAM_KEYS.specD)) || 84,
 };
+function _activeCamTune(m = camMode) {
+  return camTune[m] || CAM_TUNE_DEFAULTS[m] || CAM_TUNE_DEFAULTS[0];
+}
+function _applyCameraFovForMode(m = camMode) {
+  if (gamePaused) return;
+  const target = _clampN(_activeCamTune(m).fov || SPEC.camera.fov, 35, 95);
+  if (Math.abs(camera.fov - target) > 0.01) {
+    camera.fov = target;
+    camera.updateProjectionMatrix();
+  }
+}
 
 const drawerEl  = document.getElementById('settings-drawer');
 const gearEl    = document.getElementById('settings-gear');
@@ -4363,13 +5016,27 @@ const setCamMode = document.getElementById('set-cam-mode');
 function loadCamRow() {
   const m = +setCamMode.value;
   const off = camOffs[m] || [0, 0, 0];
+  const tune = _activeCamTune(m);
   document.getElementById('set-cam-x').value = off[0]; document.getElementById('set-cam-x-v').textContent = off[0];
   document.getElementById('set-cam-y').value = off[1]; document.getElementById('set-cam-y-v').textContent = off[1];
   document.getElementById('set-cam-z').value = off[2]; document.getElementById('set-cam-z-v').textContent = off[2];
+  document.getElementById('set-cam-dist').value = tune.distance; document.getElementById('set-cam-dist-v').textContent = tune.distance;
+  document.getElementById('set-cam-lift').value = tune.lift; document.getElementById('set-cam-lift-v').textContent = tune.lift;
+  document.getElementById('set-cam-look').value = tune.lookY; document.getElementById('set-cam-look-v').textContent = tune.lookY;
+  document.getElementById('set-cam-fov').value = tune.fov; document.getElementById('set-cam-fov-v').textContent = tune.fov;
+  document.getElementById('set-cam-soft').value = tune.soft; document.getElementById('set-cam-soft-v').textContent = tune.soft;
+}
+function setCameraMode(m) {
+  camMode = ((m % SPEC.camera.modes.length) + SPEC.camera.modes.length) % SPEC.camera.modes.length;
+  if (setCamMode) {
+    setCamMode.value = String(camMode);
+    loadCamRow();
+  }
+  _applyCameraFovForMode(camMode);
 }
 setCamMode.value = '0';
 loadCamRow();
-setCamMode.addEventListener('change', loadCamRow);
+setCamMode.addEventListener('change', () => setCameraMode(+setCamMode.value));
 ['x','y','z'].forEach((axis, i) => {
   const el  = document.getElementById('set-cam-' + axis);
   const lbl = document.getElementById('set-cam-' + axis + '-v');
@@ -4378,11 +5045,29 @@ setCamMode.addEventListener('change', loadCamRow);
     camOffs[m][i] = parseFloat(el.value);
     lbl.textContent = el.value;
     localStorage.setItem('camOffs', JSON.stringify(camOffs));
+    localStorage.setItem(CAM_KEYS.offs, JSON.stringify(camOffs));
   });
 });
-bindRange('set-be',     'set-be-v',     birdsEyeAlt,    v => { birdsEyeAlt = v; }, 'birdsEyeAlt');
-bindRange('set-spec-h', 'set-spec-h-v', specCam.height, v => { specCam.height = v; }, 'specH');
-bindRange('set-spec-d', 'set-spec-d-v', specCam.dist,   v => { specCam.dist = v; },   'specD');
+[
+  ['dist', 'distance'],
+  ['lift', 'lift'],
+  ['look', 'lookY'],
+  ['fov',  'fov'],
+  ['soft', 'soft'],
+].forEach(([idKey, prop]) => {
+  const el = document.getElementById('set-cam-' + idKey);
+  const lbl = document.getElementById('set-cam-' + idKey + '-v');
+  el.addEventListener('input', () => {
+    const m = +setCamMode.value;
+    camTune[m][prop] = parseFloat(el.value);
+    lbl.textContent = el.value;
+    localStorage.setItem(CAM_KEYS.tune, JSON.stringify(camTune));
+    if (prop === 'fov') _applyCameraFovForMode(m);
+  });
+});
+bindRange('set-be',     'set-be-v',     birdsEyeAlt,    v => { birdsEyeAlt = v; }, CAM_KEYS.birds);
+bindRange('set-spec-h', 'set-spec-h-v', specCam.height, v => { specCam.height = v; }, CAM_KEYS.specH);
+bindRange('set-spec-d', 'set-spec-d-v', specCam.dist,   v => { specCam.dist = v; },   CAM_KEYS.specD);
 
 // Lighting
 const ambLight = scene.children.find(o => o.isAmbientLight);
@@ -4454,10 +5139,46 @@ bindRange('set-tr', 'set-tr-v', trackRepeatInit, v => { trackTex.repeat.set(v, v
 scene.fog.density = parseFloat(localStorage.getItem('fogD')) || 0;
 bindRange('set-fog', 'set-fog-v', scene.fog.density, v => { scene.fog.density = v; }, 'fogD');
 
+// Audio Pitch — semitones (0 = no change, ±12 = ±1 octave)
+function _pitchLabel(st) {
+  const oct = st / 12;
+  const octStr = oct === 0 ? 'orig' : (oct > 0 ? `+${oct.toFixed(2)}oct` : `${oct.toFixed(2)}oct`);
+  return `${st > 0 ? '+' : ''}${st}st (${octStr})`;
+}
+{
+  const initEngPitch = parseFloat(localStorage.getItem('engPitch')) || 0;
+  Synth.setEngPitch(initEngPitch);
+  const el = document.getElementById('set-eng-pitch');
+  const vEl = document.getElementById('set-eng-pitch-v');
+  el.value = initEngPitch;
+  vEl.textContent = _pitchLabel(initEngPitch);
+  el.addEventListener('input', () => {
+    const v = parseFloat(el.value);
+    Synth.setEngPitch(v);
+    vEl.textContent = _pitchLabel(v);
+    localStorage.setItem('engPitch', v);
+  });
+}
+{
+  const initFirePitch = parseFloat(localStorage.getItem('firePitch')) || 0;
+  Synth.setFirePitch(initFirePitch);
+  const el = document.getElementById('set-fire-pitch');
+  const vEl = document.getElementById('set-fire-pitch-v');
+  el.value = initFirePitch;
+  vEl.textContent = _pitchLabel(initFirePitch);
+  el.addEventListener('input', () => {
+    const v = parseFloat(el.value);
+    Synth.setFirePitch(v);
+    vEl.textContent = _pitchLabel(v);
+    localStorage.setItem('firePitch', v);
+  });
+}
+
 // Reset everything
 document.getElementById('set-reset').addEventListener('click', () => {
   ['camOffs','birdsEyeAlt','specH','specD','sunI','ambI','sunX','sunY','sunZ',
-   'cloudN','cloudH','cloudSP','cloudSZ','trackR','fogD'].forEach(k => localStorage.removeItem(k));
+   CAM_KEYS.offs, CAM_KEYS.tune, CAM_KEYS.birds, CAM_KEYS.specH, CAM_KEYS.specD,
+   'cloudN','cloudH','cloudSP','cloudSZ','trackR','fogD','engPitch','firePitch'].forEach(k => localStorage.removeItem(k));
   location.reload();
 });
 
@@ -4481,7 +5202,7 @@ function pollGamepad() {
   G.shoot  = !!gp.buttons[5]?.pressed;
   G.jump   = !!gp.buttons[2]?.pressed;
   const cam = !!gp.buttons[3]?.pressed;
-  if (cam && !G.prevCam) camMode = (camMode + 1) % SPEC.camera.modes.length;
+  if (cam && !G.prevCam) setCameraMode((camMode + 1) % SPEC.camera.modes.length);
   G.prevCam = cam;
   const reset = !!gp.buttons[9]?.pressed;
   if (reset && !G.prevReset) resetPlayer();
@@ -4500,10 +5221,16 @@ const gameOrbit = {
   yaw: 0, pitch: 0,
   yawAtStart: 0, pitchAtStart: 0,
   startX: 0, startY: 0,
+  zoom: 1, zoomAtStart: 1,
+  pinching: false, pinchStartDist: 0,
   // Smooth blend back to mode camera when released.
   blendOut: 0,   // 1.0 immediately after release, decays to 0
 };
 const _GAME_ORBIT_DECAY = 0.92;
+function _clampZoom(z) { return Math.max(0.45, Math.min(2.4, z)); }
+function _touchDist(t0, t1) {
+  return Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
+}
 
 canvasEl.addEventListener('mousedown', e => {
   // Constructor open → orbit applies directly to the camera around the
@@ -4532,26 +5259,47 @@ window.addEventListener('mouseup', () => {
 // Touch — single finger orbit on game canvas
 canvasEl.addEventListener('touchstart', e => {
   if (camMode === 6 && !gamePaused) return;
+  if (gamePaused && e.touches.length === 2) {
+    gameOrbit.pinching = true;
+    gameOrbit.active = false;
+    gameOrbit.pinchStartDist = _touchDist(e.touches[0], e.touches[1]);
+    gameOrbit.zoomAtStart = gameOrbit.zoom;
+    e.preventDefault();
+    return;
+  }
   if (e.touches.length !== 1) return;
   gameOrbit.active = true;
   gameOrbit.startX = e.touches[0].clientX;
   gameOrbit.startY = e.touches[0].clientY;
   gameOrbit.yawAtStart = gameOrbit.yaw;
   gameOrbit.pitchAtStart = gameOrbit.pitch;
-}, { passive: true });
+}, { passive: false });
 canvasEl.addEventListener('touchmove', e => {
+  if (gamePaused && gameOrbit.pinching && e.touches.length === 2) {
+    const d = Math.max(20, _touchDist(e.touches[0], e.touches[1]));
+    gameOrbit.zoom = _clampZoom(gameOrbit.zoomAtStart * (gameOrbit.pinchStartDist / d));
+    e.preventDefault();
+    return;
+  }
   if (!gameOrbit.active || e.touches.length !== 1) return;
   const dx = e.touches[0].clientX - gameOrbit.startX;
   const dy = e.touches[0].clientY - gameOrbit.startY;
   gameOrbit.yaw   = gameOrbit.yawAtStart   + dx * 0.008;
   gameOrbit.pitch = Math.max(-1.0, Math.min(1.0, gameOrbit.pitchAtStart - dy * 0.005));
-}, { passive: true });
+  if (gamePaused) e.preventDefault();
+}, { passive: false });
 canvasEl.addEventListener('touchend', () => {
+  gameOrbit.pinching = false;
   if (gameOrbit.active) {
     gameOrbit.active = false;
     gameOrbit.blendOut = 1.0;
   }
 });
+canvasEl.addEventListener('wheel', e => {
+  if (!gamePaused) return;
+  gameOrbit.zoom = _clampZoom(gameOrbit.zoom * Math.exp(e.deltaY * 0.0012));
+  e.preventDefault();
+}, { passive: false });
 
 // ── STUCK HINT ────────────────────────────────────────────────────────────
 const respawnHintEl = document.getElementById('respawn-hint');
@@ -4581,6 +5329,37 @@ const MAX_FORCE = SPEC.physics.max_force;
 const MAX_STEER = SPEC.physics.max_steer;
 let prevTime = performance.now();
 let nextShotTime = 0;
+let lastRendererCleanup = performance.now();
+function _visualWheelLift(p, info) {
+  return Math.max(0, visualWheelRadius(p) - ((info && info.radius) || SPEC.physics.wheel_base_radius));
+}
+function carRenderBox(car) {
+  const box = new THREE.Box3().makeEmpty();
+  const tmp = new THREE.Box3();
+  if (car.group) {
+    car.group.updateMatrixWorld(true);
+    tmp.setFromObject(car.group);
+    if (!tmp.isEmpty()) box.union(tmp);
+  }
+  if (car.wheels) {
+    for (const w of car.wheels) {
+      w.updateMatrixWorld(true);
+      tmp.setFromObject(w);
+      if (!tmp.isEmpty()) box.union(tmp);
+    }
+  }
+  return box;
+}
+function _cameraSizeScale(p) {
+  const wR = visualWheelRadius(p);
+  const len = Math.max(p.bodyLength || 3.7, (p.wheelbase || 2.84) + wR * 2.25);
+  const wid = Math.max(p.bodyWidth || 1.8, (p.trackWidth || 1.84) + (p.wheelWidth || 0.32) + 0.18);
+  const cabH = p.convertible ? 0.32 : (p.cabinHeight || 0.56);
+  const top = (p.bodyLift || -0.4) + (p.bodyHeight || 0.55) + cabH;
+  const h = Math.max(wR * 2, top + wR * 0.25);
+  const scale = Math.max(len / 4.7, wid / 2.15, h / 1.55);
+  return _clampN(scale, 0.92, 1.32);
+}
 
 updateCardBottom();
 fitCardToViewport();
@@ -4588,6 +5367,7 @@ fitCardToViewport();
 function loop() {
   requestAnimationFrame(loop);
   const now = performance.now();
+  pollRendererToStage(now);
   const dt = Math.min((now - prevTime) / 1000, 0.05);
   prevTime = now;
 
@@ -4609,6 +5389,12 @@ function loop() {
     try {
       const cp = player.chassis.position;
       const cq = player.chassis.quaternion;
+      const hillH = hillHeightAt(cp.x, cp.z);
+      const lift = Math.max(0, (hillH + 0.7) - cp.y);
+      const visualR = visualWheelRadius(player.design);
+      player.group.position.copy(cp);
+      player.group.position.y += lift;
+      player.group.quaternion.copy(cq);
       const wis = player.vehicle && player.vehicle.wheelInfos;
       if (wis && player.wheels) {
         for (let i = 0; i < Math.min(wis.length, player.wheels.length); i++) {
@@ -4618,7 +5404,13 @@ function loop() {
           const worldPos = new CANNON.Vec3();
           cq.vmult(localPos, worldPos);
           const wg = player.wheels[i];
-          wg.position.set(cp.x + worldPos.x, cp.y + worldPos.y, cp.z + worldPos.z);
+          const wx = cp.x + worldPos.x;
+          const wz = cp.z + worldPos.z;
+          const wy = Math.max(
+            cp.y + lift + worldPos.y + _visualWheelLift(player.design, wis[i]),
+            hillHeightAt(wx, wz) + visualR + 0.01
+          );
+          wg.position.set(wx, wy, wz);
           wg.quaternion.copy(cq);
         }
       }
@@ -4628,35 +5420,64 @@ function loop() {
     // horizontal (FOV * aspect) extents of the canvas, with 10% padding
     // on every side. So whether the canvas is wide or narrow, the car
     // never clips and never gets tiny.
-    const cp = player.chassis.position;
     player.group.updateMatrixWorld(true);
-    const _box = new THREE.Box3().setFromObject(player.group);
+    const _box = carRenderBox(player);
     let sx_ = 4.5, sy_ = 1.6, sz_ = 1.9;
+    let ctr_ = new THREE.Vector3().copy(player.chassis.position);
     if (!_box.isEmpty()) {
       const sz = _box.getSize(new THREE.Vector3());
       sx_ = sz.x; sy_ = sz.y; sz_ = sz.z;
+      ctr_ = _box.getCenter(new THREE.Vector3());
     }
-    // The car can spin via orbit: worst-case horizontal screen extent
-    // is the full diagonal of (X, Z) in the ground plane.
-    const halfH = Math.sqrt(sx_ * sx_ + sz_ * sz_) * 0.5;
-    const halfV = sy_ * 0.5;
+    const cyA = Math.cos(gameOrbit.pitch), syA = Math.sin(gameOrbit.pitch);
+    const cxA = Math.cos(gameOrbit.yaw),   sxA = Math.sin(gameOrbit.yaw);
+    const viewDir = new THREE.Vector3(cyA * cxA, syA, cyA * sxA).normalize();
+    const fwd = viewDir.clone().multiplyScalar(-1);
+    let right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), fwd);
+    if (right.lengthSq() < 0.0001) right.set(1, 0, 0);
+    right.normalize();
+    const upAx = new THREE.Vector3().crossVectors(fwd, right).normalize();
+    let halfH = Math.sqrt(sx_ * sx_ + sz_ * sz_) * 0.5;
+    let halfV = sy_ * 0.5;
+    if (!_box.isEmpty()) {
+      halfH = 0; halfV = 0;
+      const corners = [
+        new THREE.Vector3(_box.min.x, _box.min.y, _box.min.z),
+        new THREE.Vector3(_box.min.x, _box.min.y, _box.max.z),
+        new THREE.Vector3(_box.min.x, _box.max.y, _box.min.z),
+        new THREE.Vector3(_box.min.x, _box.max.y, _box.max.z),
+        new THREE.Vector3(_box.max.x, _box.min.y, _box.min.z),
+        new THREE.Vector3(_box.max.x, _box.min.y, _box.max.z),
+        new THREE.Vector3(_box.max.x, _box.max.y, _box.min.z),
+        new THREE.Vector3(_box.max.x, _box.max.y, _box.max.z),
+      ];
+      for (const c of corners) {
+        const v = c.sub(ctr_);
+        halfH = Math.max(halfH, Math.abs(v.dot(right)));
+        halfV = Math.max(halfV, Math.abs(v.dot(upAx)));
+      }
+    }
     const fovV = camera.fov * Math.PI / 180;
     const aspect = camera.aspect || 1;
     const tanV = Math.tan(fovV / 2);
     const tanH = aspect * tanV;
-    const fillFraction = 0.80;          // 10% pad on each side
+    const fillFraction = 0.72;          // constructor: large, but still fully fit
     const distV = halfV / (fillFraction * tanV);
     const distH = halfH / (fillFraction * tanH);
-    const dist  = Math.max(distV, distH);
-    const cyA = Math.cos(gameOrbit.pitch), syA = Math.sin(gameOrbit.pitch);
-    const cxA = Math.cos(gameOrbit.yaw),   sxA = Math.sin(gameOrbit.yaw);
-    const targetY = cp.y + sy_ * 0.10;  // small lift so the car body sits visually centred
+    const dist  = Math.max(distV, distH) * gameOrbit.zoom;
+    // Aim a little below bbox center: car sits slightly higher, leaving more
+    // free asphalt below than above while staying horizontally centered.
+    const targetY = ctr_.y - sy_ * 0.08;
     camera.up.set(0, 1, 0);
     camera.position.set(
-      cp.x + dist * cyA * cxA,
+      ctr_.x + dist * cyA * cxA,
       targetY + dist * syA,
-      cp.z + dist * cyA * sxA);
-    camera.lookAt(cp.x, targetY, cp.z);
+      ctr_.z + dist * cyA * sxA);
+    camera.lookAt(ctr_.x, targetY, ctr_.z);
+    if (now - lastRendererCleanup > 45000) {
+      renderer.renderLists.dispose();
+      lastRendererCleanup = now;
+    }
     renderer.render(scene, camera);
     return;
   }
@@ -4801,6 +5622,10 @@ function loop() {
   if ((playerWrapDX !== 0 || playerWrapDZ !== 0) && camMode < 4) {
     camPos.x += playerWrapDX;
     camPos.z += playerWrapDZ;
+    if (camAnchorReady) {
+      camAnchor.x += playerWrapDX;
+      camAnchor.z += playerWrapDZ;
+    }
   }
   tickFlashes(now);
 
@@ -4852,14 +5677,14 @@ function loop() {
     car.group.position.copy(cp);
     car.group.position.y += lift;
     car.group.quaternion.copy(car.chassis.quaternion);
-    car.vehicle.wheelInfos.forEach((info, i) => {
-      car.vehicle.updateWheelTransform(i);
-      car.wheels[i].position.copy(info.worldTransform.position);
-      car.wheels[i].position.y += lift;
-      car.wheels[i].quaternion.copy(info.worldTransform.quaternion);
-    });
-    if (car.badge) {
-      car.badge.sprite.position.set(cp.x, cp.y + 2.6 + lift, cp.z);
+	    car.vehicle.wheelInfos.forEach((info, i) => {
+	      car.vehicle.updateWheelTransform(i);
+	      car.wheels[i].position.copy(info.worldTransform.position);
+	      car.wheels[i].position.y += lift + _visualWheelLift(car.design, info);
+	      car.wheels[i].quaternion.copy(info.worldTransform.quaternion);
+	    });
+    if (car.badge && car.badge.mesh) {
+      // Badge is now on the car body, no need to reposition it
     }
   }
 
@@ -4904,6 +5729,31 @@ function loop() {
   const cq = player.chassis.quaternion;
   const cHillH = hillHeightAt(cp.x, cp.z);
   const cpY = Math.max(cp.y, cHillH + 0.7);
+  const speedXZ = Math.hypot(player.chassis.velocity.x, player.chassis.velocity.z);
+  const activeTune = _activeCamTune(camMode);
+  const camSoft = _clampN(activeTune.soft || 1, 0.5, 2.0);
+  const anchorRate = (5.2 + Math.min(speedXZ, 36) * 0.08) / camSoft;
+  const anchorK = 1 - Math.exp(-dt * anchorRate);
+  const anchorYK = 1 - Math.exp(-dt * (3.0 / camSoft));
+  if (!camAnchorReady) {
+    camAnchor.set(cp.x, cpY, cp.z);
+    camAnchorReady = true;
+  } else {
+    camAnchor.x += (cp.x - camAnchor.x) * anchorK;
+    camAnchor.y += (cpY - camAnchor.y) * anchorYK;
+    camAnchor.z += (cp.z - camAnchor.z) * anchorK;
+    // Soft rubber band: smooth out physics jitter, but cap the lag so the
+    // car never runs away from its frame at speed.
+    const dxA = cp.x - camAnchor.x;
+    const dzA = cp.z - camAnchor.z;
+    const lag = Math.hypot(dxA, dzA);
+    const maxLag = (0.75 + Math.min(speedXZ, 40) * 0.035) * camSoft;
+    if (lag > maxLag) {
+      const s = maxLag / lag;
+      camAnchor.x = cp.x - dxA * s;
+      camAnchor.z = cp.z - dzA * s;
+    }
+  }
 
   // CARD-AS-FRAME camera height-aware lift:
   // Tall cars (vans, jeeps, big SUVs) push the camera UP so the body
@@ -4911,6 +5761,7 @@ function loop() {
   const p = player.design;
   const carTotalH = (p.bodyLift + p.bodyHeight + (p.convertible ? 0.32 : p.cabinHeight)) || 1.0;
   const heightLift = Math.max(0, (carTotalH - 1.0)) * SPEC.camera.height_aware_lift_factor;
+  _applyCameraFovForMode(camMode);
 
   scene.background = (camMode === 4) ? FLAT_BG : SKY_BG;
 
@@ -4926,23 +5777,35 @@ function loop() {
     const fwdL = new CANNON.Vec3(1, 0, 0);
     const fwdW = new CANNON.Vec3();
     cq.vmult(fwdL, fwdW);
-    camPos.lerp(new THREE.Vector3(cp.x, cpY + birdsEyeAlt, cp.z), SPEC.camera.modes[4].lerp);
-    camLook.lerp(new THREE.Vector3(cp.x, cpY, cp.z), 0.20);
+    const birdAlt = birdsEyeAlt * _clampN(activeTune.distance || 1, 0.55, 1.8) + (activeTune.lift || 0);
+    const birdK = 1 - Math.exp(-dt * (4.2 / camSoft));
+    camPos.lerp(new THREE.Vector3(camAnchor.x, camAnchor.y + birdAlt, camAnchor.z), birdK);
+    camLook.lerp(new THREE.Vector3(camAnchor.x, camAnchor.y + (activeTune.lookY || 0), camAnchor.z), 0.12);
     camera.position.copy(camPos);
     const upX = fwdW.x, upZ = fwdW.z;
     const len = Math.hypot(upX, upZ) || 1;
     camera.up.set(upX / len, 0, upZ / len);
     camera.lookAt(camLook);
-  } else {
-    camera.up.set(0, 1, 0);
-    const mode = SPEC.camera.modes[camMode];
-    const off  = camOffs[camMode] || mode.offset || [0, 0, 0];
-    const localOff = new CANNON.Vec3(off[0], off[1] + (mode.height_aware ? heightLift : 0), off[2]);
-    const worldOff = new CANNON.Vec3();
-    cq.vmult(localOff, worldOff);
-    if (camYSmooth === null) camYSmooth = cpY;
-    camYSmooth += (cpY - camYSmooth) * SPEC.camera.y_smooth;
-    const lerpK = mode.lerp;
+	  } else {
+	    camera.up.set(0, 1, 0);
+	    const mode = SPEC.camera.modes[camMode];
+	    const off  = camOffs[camMode] || mode.offset || [0, 0, 0];
+	    const sizeScale = _cameraSizeScale(p);
+	    const distScale = _clampN(activeTune.distance || 1, 0.55, 1.8);
+	    const liftExtra = activeTune.lift || 0;
+	    const lookExtra = activeTune.lookY || 0;
+	    const offY = off[1] + (mode.height_aware ? heightLift : 0);
+	    const localOff = new CANNON.Vec3(
+	      off[0] * sizeScale * distScale,
+	      offY * Math.min(1.14, sizeScale) + liftExtra,
+	      off[2] * sizeScale * distScale
+	    );
+	    const worldOff = new CANNON.Vec3();
+	    cq.vmult(localOff, worldOff);
+	    if (camYSmooth === null) camYSmooth = camAnchor.y;
+	    camYSmooth += (camAnchor.y - camYSmooth) * (1 - Math.exp(-dt * (3.8 / camSoft)));
+	    const followRate = (_clampN((mode.lerp || 0.35) * 17, 4.5, 9.5) + Math.min(speedXZ, 32) * 0.06) / camSoft;
+	    const lerpK = 1 - Math.exp(-dt * followRate);
 
     // ── User orbit drag — overrides auto-follow while active, blends out ──
     // When dragging, the camera circles around the player at the same
@@ -4950,33 +5813,40 @@ function loop() {
     // gameOrbit.blendOut decays exponentially toward 0 so the mode camera
     // smoothly resumes control.
     let targetX, targetY, targetZ;
-    const baseRadius = Math.hypot(off[0], off[2]) || Math.abs(off[0]) || 5;
-    const baseHeight = camYSmooth + (off[1] + (mode.height_aware ? heightLift : 0));
+	    const baseRadius = (Math.hypot(off[0], off[2]) || Math.abs(off[0]) || 5) * sizeScale * distScale;
+	    const baseHeight = camYSmooth + offY * Math.min(1.14, sizeScale) + liftExtra;
     if (gameOrbit.active || gameOrbit.blendOut > 0.01) {
       // Build the orbit-camera target position in world space.
-      const orbitX = cp.x + baseRadius * Math.cos(gameOrbit.pitch) * Math.cos(gameOrbit.yaw - Math.PI);
-      const orbitZ = cp.z + baseRadius * Math.cos(gameOrbit.pitch) * Math.sin(gameOrbit.yaw - Math.PI);
-      const orbitY = camYSmooth + Math.abs(off[1]) + baseRadius * Math.sin(gameOrbit.pitch);
+      const orbitX = camAnchor.x + baseRadius * Math.cos(gameOrbit.pitch) * Math.cos(gameOrbit.yaw - Math.PI);
+      const orbitZ = camAnchor.z + baseRadius * Math.cos(gameOrbit.pitch) * Math.sin(gameOrbit.yaw - Math.PI);
+      const orbitY = camYSmooth + Math.abs(off[1]) + liftExtra + baseRadius * Math.sin(gameOrbit.pitch);
       // Mix orbit (weight w) with mode follow (1-w).
       const w = gameOrbit.active ? 1.0 : gameOrbit.blendOut;
-      targetX = (cp.x + worldOff.x) * (1 - w) + orbitX * w;
+      targetX = (camAnchor.x + worldOff.x) * (1 - w) + orbitX * w;
       targetY = baseHeight * (1 - w) + orbitY * w;
-      targetZ = (cp.z + worldOff.z) * (1 - w) + orbitZ * w;
+      targetZ = (camAnchor.z + worldOff.z) * (1 - w) + orbitZ * w;
       if (!gameOrbit.active) gameOrbit.blendOut *= _GAME_ORBIT_DECAY;
     } else {
-      targetX = cp.x + worldOff.x;
+      targetX = camAnchor.x + worldOff.x;
       targetY = baseHeight;
-      targetZ = cp.z + worldOff.z;
+      targetZ = camAnchor.z + worldOff.z;
       // Slowly decay yaw/pitch back to 0 when not in use.
       gameOrbit.yaw   *= 0.97;
       gameOrbit.pitch *= 0.97;
     }
     camPos.lerp(new THREE.Vector3(targetX, targetY, targetZ), lerpK);
-    camLook.set(cp.x, camYSmooth + 0.7 + heightLift * 0.5, cp.z);
+    // Never let the camera clip below terrain surface
+    const camFloor = hillHeightAt(camPos.x, camPos.z) + 0.5;
+    if (camPos.y < camFloor) camPos.y = camFloor;
+    camLook.set(camAnchor.x, camYSmooth + 0.7 + heightLift * 0.5 + lookExtra, camAnchor.z);
     camera.position.copy(camPos);
     camera.lookAt(camLook);
   }
 
+  if (now - lastRendererCleanup > 45000) {
+    renderer.renderLists.dispose();
+    lastRendererCleanup = now;
+  }
   renderer.render(scene, camera);
 
   // ── ISO PREVIEW — frozen 3/4 hero shot, top-right of stage ──────────────
@@ -4987,13 +5857,12 @@ function loop() {
     const r = slot && slot.getBoundingClientRect();
     const stageR = stageEl.getBoundingClientRect();
     if (r && r.width > 4 && r.height > 4) {
-      const dpr = renderer.getPixelRatio();
-      const cssW = slot.clientWidth, cssH = slot.clientHeight;
-      const w = Math.floor(cssW * dpr);
-      const h = Math.floor(cssH * dpr);
-      // x/y in WebGL framebuffer space — origin at bottom-left.
-      const x = Math.floor((r.left - stageR.left) * dpr);
-      const y = Math.floor((stageR.height - (r.top - stageR.top + cssH)) * dpr);
+      const w = Math.max(1, Math.floor(r.width));
+      const h = Math.max(1, Math.floor(r.height));
+      // Three.js accepts viewport/scissor in CSS pixels; it applies DPR
+      // internally. y is still bottom-origin, but not framebuffer-scaled.
+      const x = Math.floor(r.left - stageR.left);
+      const y = Math.floor(stageR.height - (r.top - stageR.top + r.height));
 
       previewGroup.updateMatrixWorld(true);
       const _box = new THREE.Box3().setFromObject(previewGroup);
@@ -5029,19 +5898,18 @@ function loop() {
         isoCam.top   =  halfH; isoCam.bottom = -halfH;
         isoCam.updateProjectionMatrix();
         const savedBg = scene.background;
-        scene.background = null;
-        renderer.autoClear = false;
-        renderer.setScissorTest(true);
-        renderer.setViewport(x, y, w, h);
-        renderer.setScissor(x, y, w, h);
-        renderer.clearDepth();
-        renderer.render(scene, isoCam);
-        renderer.setScissorTest(false);
-        renderer.autoClear = true;
-        const W = renderer.domElement.width;
-        const H = renderer.domElement.height;
-        renderer.setViewport(0, 0, W, H);
-        scene.background = savedBg;
+        try {
+          scene.background = null;
+          renderer.autoClear = false;
+          renderer.setScissorTest(true);
+          renderer.setViewport(x, y, w, h);
+          renderer.setScissor(x, y, w, h);
+          renderer.clearDepth();
+          renderer.render(scene, isoCam);
+        } finally {
+          scene.background = savedBg;
+          resetMainViewport();
+        }
       }
     }
   }
