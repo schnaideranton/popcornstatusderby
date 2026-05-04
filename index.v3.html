@@ -4199,9 +4199,45 @@ function redrawSide() {
 	    { key: 'fr-top',   x: frRect.wcx, wy: frRect.yTop,                  color: EDITOR_COLORS.fenderRear, dir: 'up' },
 	    { key: 'fr-bot',   x: frRect.wcx, wy: frRect.yBot,                  color: EDITOR_COLORS.fenderRear, dir: 'down' },
 	  );
-  for (const h of handles) {
-    drawEditorHandle(g, SX(h.x), -h.wy, h.color, h.key, h.dir);
+  // ── Handle repulsion: push overlapping handles apart so each is individually
+  // clickable. Directional handles slide only along their natural edge axis
+  // ('up'/'down' → horizontal shift only; 'left'/'right' → vertical only;
+  //  'diamond' → free 2D). Eight passes settle all realistic overlaps.
+  const MIN_PUSH = HANDLE_R * 3.6;   // minimum centre-to-centre clearance
+  const hDisp = handles.map(h => ({
+    key: h.key, color: h.color, dir: h.dir,
+    sx: SX(h.x), sy: -h.wy,
+  }));
+  for (let pass = 0; pass < 8; pass++) {
+    for (let i = 0; i < hDisp.length; i++) {
+      for (let j = i + 1; j < hDisp.length; j++) {
+        const a = hDisp[i], b = hDisp[j];
+        const dx = b.sx - a.sx, dy = b.sy - a.sy;
+        const d = Math.sqrt(dx * dx + dy * dy) || 0.001;
+        if (d >= MIN_PUSH) continue;
+        const push = (MIN_PUSH - d) * 0.5 + 0.001;
+        const nx = dx / d, ny = dy / d;
+        const _applyPush = (h, sx, sy) => {
+          if (h.dir === 'up' || h.dir === 'down') {
+            // top/bottom edge handles: slide horizontally along the edge
+            const ax = Math.abs(nx) < 0.02 ? MIN_PUSH * 0.4 : nx * push;
+            h.sx += sx * ax;
+          } else if (h.dir === 'left' || h.dir === 'right') {
+            // front/rear edge handles: slide vertically along the edge
+            const ay = Math.abs(ny) < 0.02 ? MIN_PUSH * 0.4 : ny * push;
+            h.sy += sy * ay;
+          } else {
+            // diamond handles: free 2D movement
+            h.sx += sx * nx * push;
+            h.sy += sy * ny * push;
+          }
+        };
+        _applyPush(a, -1, -1);
+        _applyPush(b, +1, +1);
+      }
+    }
   }
+  for (const h of hDisp) drawEditorHandle(g, h.sx, h.sy, h.color, h.key, h.dir);
 }
 
 // ── Front / Rear SVG projections — track width, fender outer edge, cabin
