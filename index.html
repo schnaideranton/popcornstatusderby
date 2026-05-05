@@ -52,11 +52,29 @@
   body.portrait .tc-btn-q,
   body.portrait .tc-btn-e,
   body.portrait .tc-btn-s { height: 100%; }
-  /* Emoji buttons in touch top row */
+  /* Emoji icon buttons in top row — no box, just a big glyph with hover glow */
   .tc-btn-cam,.tc-btn-c,.tc-btn-mute,.tc-btn-reset,
   .tc-btn-auto,.tc-btn-music,.tc-btn-info,.tc-btn-cg {
-    font-size: 18px; letter-spacing: 0; padding: 0;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    border-radius: 8px;
+    font-size: clamp(22px, 6vw, 36px);
+    letter-spacing: 0; padding: 2px;
+    transition: background 0.12s;
   }
+  .tc-btn-cam:active,.tc-btn-c:active,.tc-btn-mute:active,.tc-btn-reset:active,
+  .tc-btn-auto:active,.tc-btn-music:active,.tc-btn-info:active,.tc-btn-cg:active,
+  .tc-btn-cam.pressed,.tc-btn-c.pressed,.tc-btn-mute.pressed,.tc-btn-reset.pressed,
+  .tc-btn-auto.pressed,.tc-btn-music.pressed,.tc-btn-info.pressed,.tc-btn-cg.pressed {
+    background: rgba(255,255,255,0.18) !important;
+  }
+  .tc-btn-cam:hover,.tc-btn-c:hover,.tc-btn-mute:hover,.tc-btn-reset:hover,
+  .tc-btn-auto:hover,.tc-btn-music:hover,.tc-btn-info:hover,.tc-btn-cg:hover {
+    background: rgba(255,255,255,0.12) !important;
+  }
+  .tc-btn-auto.active,.tc-btn-cg.active { background: rgba(255,180,80,0.25) !important; }
 
   /* ── CARD = root container, the game lives INSIDE it ──────────────────── */
   /* Landscape: card fills viewport. Portrait: card stays on top, taller than
@@ -80,19 +98,33 @@
     box-shadow: none;
     margin: 0;
   }
-  /* Mobile portrait: razor-thin frame, top edge goes all the way to screen top */
+  /* Mobile portrait: thin frame — 8px sides + top */
   body.portrait.touch #card {
-    padding: 0 4px 0 4px !important;
-    --frame-thin: 4px;
+    padding: 8px 8px 0 8px !important;
+    --frame-thin: 8px;
   }
-  /* Portrait mobile bottom info strip: tighter gaps, bigger text scale */
+  /* Portrait mobile bottom info strip: tighter gaps, no text wrap */
   body.portrait.touch #card-bottom {
-    --col-gap: 6px;
-    --bottom-pad-x: 6px;
-    --bottom-pad-y: 6px;
-    --bottom-pad-floor: 8px;
-    --pair-gap: 4px;
+    --col-gap: 5px;
+    --bottom-pad-x: 5px;
+    --bottom-pad-y: 5px;
+    --bottom-pad-floor: 7px;
+    --pair-gap: 3px;
     --row-gap: 2px;
+    overflow: hidden;
+  }
+  /* Prevent text wrap in bottom strip so the grid never breaks */
+  body.portrait.touch .cb-name,
+  body.portrait.touch .cb-sub,
+  body.portrait.touch .cb-row,
+  body.portrait.touch .cb-l,
+  body.portrait.touch .cb-v,
+  body.portrait.touch .cb-logo-name,
+  body.portrait.touch .cb-logo-speed,
+  body.portrait.touch .cb-logo-num {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   /* Settings gear and card tuner hidden by default; shown in lab mode (L key) */
   #settings-gear, #card-tuner-btn { display: none !important; }
@@ -228,38 +260,46 @@
   /* REGEN only on touch devices; on portrait hide ALL stage-buttons (touch area covers them) */
   body:not(.touch) #btn-regen { display: none; }
   body.portrait.touch #stage-buttons { display: none; }
-  /* Info panel — full-stage overlay, responsive text */
+  /* Info panel — floating block on the left, not full-screen */
   #info-panel {
-    position: absolute; inset: 0; z-index: 20;
-    background: rgba(0,0,0,0.92); backdrop-filter: blur(10px);
-    display: none; padding: clamp(14px,3vw,28px) clamp(10px,3vw,24px);
+    position: absolute;
+    top: 8px; left: 8px;
+    width: min(340px, calc(100% - 16px));
+    max-height: calc(100% - 16px);
+    border-radius: 10px;
+    z-index: 20;
+    background: rgba(10,10,15,0.95); backdrop-filter: blur(12px);
+    display: none; padding: 14px 14px 14px 14px;
     overflow-y: auto; pointer-events: auto;
     font-family: 'Courier New', monospace;
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
   }
   #info-panel.open { display: block; }
   #info-panel h3 {
-    color: #fff; font-size: clamp(11px,2.5vw,15px); letter-spacing: 3px; margin: 0 0 10px;
+    color: #fff; font-size: clamp(13px,3vw,16px); letter-spacing: 3px; margin: 0 0 10px;
+    padding-right: 28px; /* room for close ✕ */
   }
   #info-panel h4 {
-    color: #ffbf30; font-size: clamp(9px,2vw,12px); letter-spacing: 2px;
+    color: #ffbf30; font-size: clamp(11px,2.5vw,13px); letter-spacing: 2px;
     margin: 12px 0 5px; border-bottom: 1px solid rgba(255,191,48,.3); padding-bottom: 3px;
   }
-  #info-panel p { color: #bbb; font-size: clamp(9px,2vw,12px); line-height: 1.55; margin: 0 0 8px; }
+  #info-panel p { color: #bbb; font-size: clamp(11px,2.5vw,14px); line-height: 1.55; margin: 0 0 8px; }
   #info-panel table {
     border-collapse: collapse; width: 100%; table-layout: fixed;
   }
   #info-panel td {
-    color: #aaa; font-size: clamp(9px,2vw,12px); padding: 2px 6px 2px 0; vertical-align: top;
+    color: #aaa; font-size: clamp(11px,2.5vw,14px); padding: 3px 6px 3px 0; vertical-align: top;
     word-break: break-word;
   }
-  #info-panel td:first-child { color: #fff; font-weight: bold; width: 26%; }
+  #info-panel td:first-child { color: #fff; font-weight: bold; width: 28%; }
   #info-panel ul { margin: 0; padding-left: 12px; }
-  #info-panel li { color: #aaa; font-size: clamp(9px,2vw,12px); line-height: 1.75; }
+  #info-panel li { color: #aaa; font-size: clamp(11px,2.5vw,14px); line-height: 1.8; }
   #info-close {
-    position: absolute; top: 8px; right: 10px;
+    position: absolute; top: 10px; right: 10px;
     background: none; border: 1px solid rgba(255,255,255,0.3);
-    color: #fff; font-size: 13px; cursor: pointer; width: 26px; height: 26px;
-    border-radius: 4px; line-height: 24px; text-align: center;
+    color: #fff; font-size: 13px; cursor: pointer; width: 24px; height: 24px;
+    border-radius: 4px; line-height: 22px; text-align: center;
   }
   #info-close:hover { background: rgba(255,255,255,0.15); }
   /* Cargeneddon trigger — bare 50x50 PNG (half of original 100), no button
