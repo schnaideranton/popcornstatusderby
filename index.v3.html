@@ -44,10 +44,19 @@
   body.portrait .tc-btn-cam,
   body.portrait .tc-btn-mute,
   body.portrait .tc-btn-reset,
-  body.portrait .tc-btn-c { height: 100%; }
+  body.portrait .tc-btn-c,
+  body.portrait .tc-btn-cg,
+  body.portrait .tc-btn-auto,
+  body.portrait .tc-btn-music,
+  body.portrait .tc-btn-info { height: 100%; }
   body.portrait .tc-btn-q,
   body.portrait .tc-btn-e,
   body.portrait .tc-btn-s { height: 100%; }
+  /* Emoji buttons in touch top row */
+  .tc-btn-cam,.tc-btn-c,.tc-btn-mute,.tc-btn-reset,
+  .tc-btn-auto,.tc-btn-music,.tc-btn-info,.tc-btn-cg {
+    font-size: 18px; letter-spacing: 0; padding: 0;
+  }
 
   /* ── CARD = root container, the game lives INSIDE it ──────────────────── */
   /* Landscape: card fills viewport. Portrait: card stays on top, taller than
@@ -71,6 +80,23 @@
     box-shadow: none;
     margin: 0;
   }
+  /* Mobile portrait: razor-thin frame, top edge goes all the way to screen top */
+  body.portrait.touch #card {
+    padding: 0 4px 0 4px !important;
+    --frame-thin: 4px;
+  }
+  /* Portrait mobile bottom info strip: tighter gaps, bigger text scale */
+  body.portrait.touch #card-bottom {
+    --col-gap: 6px;
+    --bottom-pad-x: 6px;
+    --bottom-pad-y: 6px;
+    --bottom-pad-floor: 8px;
+    --pair-gap: 4px;
+    --row-gap: 2px;
+  }
+  /* Settings gear and card tuner hidden by default; shown in lab mode (L key) */
+  #settings-gear, #card-tuner-btn { display: none !important; }
+  body.lab-mode #settings-gear, body.lab-mode #card-tuner-btn { display: block !important; }
 
   /* Stage = where the canvas + 3D scene lives. */
   #card-stage {
@@ -181,43 +207,56 @@
   /* ── In-game overlay buttons (top-left of stage) ─────────────────────── */
   #stage-buttons {
     position: absolute; top: 8px; left: 8px; right: 8px;
-    display: flex; gap: 6px; z-index: 5;
+    display: flex; gap: 5px; z-index: 5;
     align-items: center; flex-wrap: wrap;
   }
   .stage-btn {
     background: rgba(0,0,0,0.45);
     color: #fff;
     border: 1px solid rgba(255,255,255,0.30);
-    padding: 5px 10px;
-    border-radius: 4px;
-    font-family: 'Courier New', monospace;
-    font-size: 10px;
-    letter-spacing: 1.5px;
-    cursor: pointer;
-    user-select: none;
+    width: 32px; height: 32px;
+    border-radius: 6px;
+    font-size: 16px; line-height: 1;
+    padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; user-select: none;
     backdrop-filter: blur(4px);
+    flex: 0 0 auto;
   }
   .stage-btn:hover { background: rgba(0,0,0,0.7); border-color: #fff; }
   .stage-btn.active { background: rgba(255,180,80,0.4); border-color: rgba(255,200,100,0.9); }
-  /* REGEN only on touch devices */
+  /* REGEN only on touch devices; on portrait hide ALL stage-buttons (touch area covers them) */
   body:not(.touch) #btn-regen { display: none; }
-  /* Info panel */
+  body.portrait.touch #stage-buttons { display: none; }
+  /* Info panel — full-stage overlay, responsive text */
   #info-panel {
     position: absolute; inset: 0; z-index: 20;
-    background: rgba(0,0,0,0.88); backdrop-filter: blur(10px);
-    display: none; padding: 28px 24px 24px; overflow-y: auto; pointer-events: auto;
+    background: rgba(0,0,0,0.92); backdrop-filter: blur(10px);
+    display: none; padding: clamp(14px,3vw,28px) clamp(10px,3vw,24px);
+    overflow-y: auto; pointer-events: auto;
+    font-family: 'Courier New', monospace;
   }
   #info-panel.open { display: block; }
-  #info-panel h3 { color: #fff; font-family: 'Courier New', monospace; font-size: 13px; letter-spacing: 3px; margin: 0 0 10px; }
-  #info-panel h4 { color: #ffbf30; font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; margin: 14px 0 6px; border-bottom: 1px solid rgba(255,191,48,.3); padding-bottom: 4px; }
-  #info-panel p  { color: #bbb; font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.6; margin: 0 0 8px; }
-  #info-panel table { border-collapse: collapse; width: 100%; }
-  #info-panel td { color: #aaa; font-family: 'Courier New', monospace; font-size: 10px; padding: 3px 8px 3px 0; vertical-align: top; }
-  #info-panel td:first-child { color: #fff; font-weight: bold; min-width: 80px; }
-  #info-panel ul { margin: 0; padding-left: 14px; }
-  #info-panel li { color: #aaa; font-family: 'Courier New', monospace; font-size: 10px; line-height: 1.8; }
+  #info-panel h3 {
+    color: #fff; font-size: clamp(11px,2.5vw,15px); letter-spacing: 3px; margin: 0 0 10px;
+  }
+  #info-panel h4 {
+    color: #ffbf30; font-size: clamp(9px,2vw,12px); letter-spacing: 2px;
+    margin: 12px 0 5px; border-bottom: 1px solid rgba(255,191,48,.3); padding-bottom: 3px;
+  }
+  #info-panel p { color: #bbb; font-size: clamp(9px,2vw,12px); line-height: 1.55; margin: 0 0 8px; }
+  #info-panel table {
+    border-collapse: collapse; width: 100%; table-layout: fixed;
+  }
+  #info-panel td {
+    color: #aaa; font-size: clamp(9px,2vw,12px); padding: 2px 6px 2px 0; vertical-align: top;
+    word-break: break-word;
+  }
+  #info-panel td:first-child { color: #fff; font-weight: bold; width: 26%; }
+  #info-panel ul { margin: 0; padding-left: 12px; }
+  #info-panel li { color: #aaa; font-size: clamp(9px,2vw,12px); line-height: 1.75; }
   #info-close {
-    position: absolute; top: 10px; right: 12px;
+    position: absolute; top: 8px; right: 10px;
     background: none; border: 1px solid rgba(255,255,255,0.3);
     color: #fff; font-size: 13px; cursor: pointer; width: 26px; height: 26px;
     border-radius: 4px; line-height: 24px; text-align: center;
@@ -857,13 +896,13 @@
   <div id="card-stage">
     <canvas id="game-canvas"></canvas>
     <div id="stage-buttons">
-      <button class="stage-btn" id="btn-constructor">🔧 CONSTRUCTOR</button>
-      <button class="stage-btn" id="btn-camera">📷 CAM</button>
-      <button class="stage-btn" id="btn-regen">⟲ REGEN</button>
-      <button class="stage-btn" id="btn-mute">🔊</button>
-      <button class="stage-btn" id="btn-music" title="Switch soundtrack">POPCORN</button>
-      <button class="stage-btn" id="btn-autoplay" title="AutoPlay — AI drives your car">🤖 AUTO</button>
-      <button class="stage-btn" id="btn-info" title="Controls &amp; game info">ℹ INFO</button>
+      <button class="stage-btn" id="btn-constructor" title="Constructor">🔧</button>
+      <button class="stage-btn" id="btn-camera" title="Camera">📷</button>
+      <button class="stage-btn" id="btn-regen" title="Regen car">⟲</button>
+      <button class="stage-btn" id="btn-mute" title="Mute">🔊</button>
+      <button class="stage-btn" id="btn-music" title="Switch melody">🎵1</button>
+      <button class="stage-btn" id="btn-autoplay" title="AutoPlay">🤖</button>
+      <button class="stage-btn" id="btn-info" title="Info &amp; controls">ℹ</button>
       <!-- Cargeneddon trigger — bare PNG, no button styling. Click = toggle CG on/off.
            Lives at the same row as the buttons; HUD (timer/score) sits to its right. -->
       <img id="cg-trigger" src="cargeneddon-logo.png?v=2" alt="Cargeneddon" title="Cargeneddon — ram peds &amp; shoot cars for points" />
@@ -1062,11 +1101,16 @@
 <!-- Touch controls (visible in portrait — under the card) -->
 <div id="touch-controls">
   <div class="tc-rows">
+    <!-- Emoji icon row: replaces stage-buttons overlay on mobile portrait -->
     <div class="tc-top-row">
-      <button class="tc-btn tc-btn-cam"   data-code="KeyV" data-tap>CAM</button>
-      <button class="tc-btn tc-btn-c"     data-code="KeyC" data-tap>CONSTR</button>
-      <button class="tc-btn tc-btn-mute"  data-code="KeyM" data-tap>MUTE</button>
-      <button class="tc-btn tc-btn-reset" data-code="KeyR" data-tap>RESET</button>
+      <button class="tc-btn tc-btn-cam"   data-code="KeyV" data-tap title="Camera">📷</button>
+      <button class="tc-btn tc-btn-c"     data-code="KeyC" data-tap title="Constructor">🔧</button>
+      <button class="tc-btn tc-btn-mute"  data-code="KeyM" data-tap title="Mute">🔊</button>
+      <button class="tc-btn tc-btn-reset" data-code="KeyR" data-tap title="Regen">⟲</button>
+      <button class="tc-btn tc-btn-auto"  id="tc-btn-auto"  title="AutoPlay">🤖</button>
+      <button class="tc-btn tc-btn-music" id="tc-btn-music" title="Melody">🎵1</button>
+      <button class="tc-btn tc-btn-info"  id="tc-btn-info"  title="Info">ℹ</button>
+      <button class="tc-btn tc-btn-cg"    id="tc-btn-cg"    title="Cargeneddon">🎮</button>
     </div>
     <div class="tc-action-row">
       <button class="tc-btn tc-btn-e" data-code="KeyE">↺ FLIP</button>
@@ -1256,9 +1300,9 @@ function fitCardToViewport() {
 
   // ── Responsive scale — type + paddings shrink proportionally when the
   // card narrows OR when something else (constructor side panel) eats
-  // horizontal space. Now uses ACTUAL rendered card width (in constructor
-  // mode the card is narrower than the viewport).
-  const baselineCardW = 1200;
+  // horizontal space. Portrait mobile uses a smaller baseline so the bottom
+  // info strip stays legible on a narrow screen (390/600 ≈ 0.65 vs 390/1200 ≈ 0.33).
+  const baselineCardW = (portrait && IS_TOUCH) ? 620 : 1200;
   const scale = Math.max(0.25, Math.min(2.5, cardW / baselineCardW));
   cardEl.style.setProperty('--card-scale', scale.toFixed(3));
 
@@ -3159,7 +3203,7 @@ const Synth = (() => {
       MEL  = _musicMode === 0 ? MEL_POPCORN  : MEL_DISCONNECT;
       BASS = _musicMode === 0 ? BASS_POPCORN : BASS_DISCONNECT;
       melIdx = 0; bassIdx = 0;
-      return _musicMode === 0 ? 'POPCORN' : 'DISCONNECT';
+      return _musicMode === 0 ? '🎵1' : '🎵2';
     },
     getMusicMode: () => _musicMode,
     shoot() {
@@ -3899,10 +3943,13 @@ document.getElementById('btn-autoplay').addEventListener('click', () => {
     });
   }
 });
-document.getElementById('btn-music').addEventListener('click', () => {
+function _toggleMusicAll() {
   const label = Synth.toggleMusic();
   document.getElementById('btn-music').textContent = label;
-});
+  const tc = document.getElementById('tc-btn-music');
+  if (tc) tc.textContent = label;
+}
+document.getElementById('btn-music').addEventListener('click', _toggleMusicAll);
 // Mode label button — clicking toggles between Free Ride and Cargeneddon.
 // btn-mode removed — cg-trigger is the only toggle now
 // Standalone Cargeneddon icon — bare PNG in the top-left row. Click = enter
@@ -3910,21 +3957,43 @@ document.getElementById('btn-music').addEventListener('click', () => {
 const _cgTrigger = document.getElementById('cg-trigger');
 if (_cgTrigger) _cgTrigger.addEventListener('click', () => { if (CG.active) cgExit(); else cgEnter(); });
 // Info panel toggle
+// Info panel — shared open logic for both desktop btn-info and mobile tc-btn-info
+function _openInfo() {
+  const panel = document.getElementById('info-panel');
+  if (panel) panel.classList.toggle('open');
+}
 (function() {
-  const btnInfo  = document.getElementById('btn-info');
   const panel    = document.getElementById('info-panel');
   const closeBtn = document.getElementById('info-close');
-  if (!btnInfo || !panel) return;
-  btnInfo.addEventListener('click', () => panel.classList.toggle('open'));
-  closeBtn.addEventListener('click', () => panel.classList.remove('open'));
-  // Close on Escape
-  window.addEventListener('keydown', e => { if (e.key === 'Escape') panel.classList.remove('open'); });
+  document.getElementById('btn-info')?.addEventListener('click', _openInfo);
+  document.getElementById('tc-btn-info')?.addEventListener('click', _openInfo);
+  closeBtn?.addEventListener('click', () => panel?.classList.remove('open'));
+  window.addEventListener('keydown', e => { if (e.key === 'Escape') panel?.classList.remove('open'); });
 })();
+// Touch controls — AutoPlay, Music, CG
+(function() {
+  document.getElementById('tc-btn-auto')?.addEventListener('click', () => {
+    document.getElementById('btn-autoplay')?.click();
+    const isOn = document.getElementById('btn-autoplay')?.classList.contains('active');
+    document.getElementById('tc-btn-auto')?.classList.toggle('active', isOn);
+  });
+  document.getElementById('tc-btn-music')?.addEventListener('click', _toggleMusicAll);
+  document.getElementById('tc-btn-cg')?.addEventListener('click', () => { if (CG.active) cgExit(); else cgEnter(); });
+})();
+// L key = toggle Lab mode (reveals settings gear + card tuner)
+window.addEventListener('keydown', e => {
+  if (e.key === 'l' || e.key === 'L') {
+    document.body.classList.toggle('lab-mode');
+  }
+});
 document.getElementById('cg-restart').addEventListener('click', () => { cgExit(); cgEnter(); });
 document.getElementById('cg-back').addEventListener('click', cgExit);
 function toggleMute() {
   Synth.setMute(!Synth.isMuted());
-  document.getElementById('btn-mute').textContent = Synth.isMuted() ? '🔇' : '🔊';
+  const ico = Synth.isMuted() ? '🔇' : '🔊';
+  document.getElementById('btn-mute').textContent = ico;
+  const tcMute = document.querySelector('.tc-btn-mute');
+  if (tcMute) tcMute.textContent = ico;
 }
 
 // ── PLAYER RESPAWN ────────────────────────────────────────────────────────
