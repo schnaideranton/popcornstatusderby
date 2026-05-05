@@ -5644,11 +5644,12 @@ function loop() {
   let eng = 0, steer = 0;
   const touchAssist = document.body.classList.contains('touch');
   let brakeSkid = false;
+  let brakeHeld = false;
   if (!autoPlay) {
     const touchActive = touchAssist && (touchSteer !== null || K['KeyQ']);
     const wantGas = K['ArrowUp'] || K['KeyW'] || G.gas || touchActive;
     if (wantGas) eng = MAX_FORCE;
-    const brakeHeld = K['ArrowDown'] || K['KeyS'] || G.brake;
+    brakeHeld = K['ArrowDown'] || K['KeyS'] || G.brake;
     if (brakeHeld) {
       const vel = player.chassis.velocity;
       const fwdL = new CANNON.Vec3(1, 0, 0);
