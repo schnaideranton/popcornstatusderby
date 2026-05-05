@@ -2080,29 +2080,16 @@ function rebuildCarVisual(car, targetScene) {
 
   const mirrors = normalizeSideMirrors(p);
   if (mirrors.enabled) {
+    // No stalk — abstract mirror glass floating at door-top height.
     const mirrorMat = new THREE.MeshLambertMaterial({ color: cabinPaint(p) });
-    const stalkMat = new THREE.MeshLambertMaterial({ color: darkenHex(cabinPaint(p), 0.65) });
     const mL = mirrors.length || 0.12;
     const mH = mirrors.height || 0.15;
     const mD = mirrors.depth || 0.24;
     const stalk = mirrors.stalk || 0.09;
     const mY = bodyTopY + (mirrors.y || 0.09);
     const mirrorGeom = makeRoundedBoxGeom(mL, mH, mD, mirrors.round || 0.02);
-    // Stalk is thick and 60% embedded — clearly enters the body mass, not floating
-    const stalkGeom = new THREE.BoxGeometry(
-      Math.max(0.08, mL * 0.82),   // wide arm — visible along car length
-      Math.max(0.08, mH * 0.68),   // tall arm — visible in height
-      stalk
-    );
     for (const side of [-1, 1]) {
-      // 60% of stalk length goes INTO the body wall — arm clearly bolted in
-      const embed = 0.60;
-      const stalkCtrZ = side * (p.bodyWidth / 2 + stalk * (0.5 - embed));
-      const mirrorZ   = side * (p.bodyWidth / 2 + stalk * (1 - embed) + mD / 2);
-      const stem = new THREE.Mesh(stalkGeom, stalkMat);
-      stem.position.set(mirrors.x, mY, stalkCtrZ);  // centered on mirror Y
-      stem.castShadow = true;
-      g.add(stem);
+      const mirrorZ = side * (p.bodyWidth / 2 + stalk + mD / 2);
       const mirror = new THREE.Mesh(mirrorGeom, mirrorMat);
       mirror.position.set(mirrors.x, mY, mirrorZ);
       mirror.castShadow = true;
@@ -4117,7 +4104,7 @@ function updateConstructorCamera() {
 // view (windshield to the left, rear to the right). Y axis is inverted
 // (SVG y = -world y) so positive y is up.
 const SX = (x) => -x;
-const HANDLE_R = 0.18;       // visual size; hit circle centered on triangle, 3.5× bigger
+const HANDLE_R = 0.11;       // visual circle radius; hit zone 3× bigger for easy grab
 const HANDLE_STROKE = 0.02;
 const EDITOR_COLORS = {
   ground: '#6c7480',
@@ -4138,22 +4125,16 @@ function svgEl(parent, tag, attrs) {
 }
 function drawEditorHandle(parent, x, y, color, key, dir) {
   const r = HANDLE_R;
-  let pts;
-  if (dir === 'up')    pts = `${x},${y-r} ${x-r},${y+r} ${x+r},${y+r}`;
-  else if (dir === 'down')  pts = `${x},${y+r} ${x-r},${y-r} ${x+r},${y-r}`;
-  else if (dir === 'left')  pts = `${x-r},${y} ${x+r},${y-r} ${x+r},${y+r}`;
-  else if (dir === 'right') pts = `${x+r},${y} ${x-r},${y-r} ${x-r},${y+r}`;
-  else pts = `${x},${y-r} ${x+r},${y} ${x},${y+r} ${x-r},${y}`;
-  // Visual polygon — pointer-events:all so clicking the triangle itself registers
-  const poly = svgEl(parent, 'polygon', {
-    points: pts, fill: color, stroke: '#050505', 'stroke-width': HANDLE_STROKE,
+  // Visual circle — simple dot, no directional arrows that overlap/confuse
+  const vis = svgEl(parent, 'circle', {
+    cx: x, cy: y, r,
+    fill: color, stroke: '#050505', 'stroke-width': HANDLE_STROKE,
     style: 'cursor:grab; pointer-events:all',
   });
-  poly.dataset.key = key;
-  // Hit zone centered on the visual triangle — no outward offset that can clip
-  // SVG bounds. Large radius (3.5×) makes every handle easy to grab.
+  vis.dataset.key = key;
+  // Large invisible hit zone so any nearby click registers
   const hit = svgEl(parent, 'circle', {
-    cx: x, cy: y, r: r * 3.5, fill: 'transparent',
+    cx: x, cy: y, r: r * 3.0, fill: 'transparent',
     style: 'cursor:grab; pointer-events:all',
   });
   hit.dataset.key = key;
@@ -5998,23 +5979,32 @@ function loop() {
     camera.position.copy(camPos);
     camera.lookAt(new THREE.Vector3(0, 0, 0));
   } else if (camMode === 1 && SPEC.camera.modes[1].interior) {
-    // Interior cockpit — yaw-only, ignores physics pitch/roll so view stays stable.
+    // Interior cockpit — yaw-only (strips physics tilt so horizon stays level).
+    // Position snaps directly to car — no lerp lag so the car back never pokes in.
     const fwdL = new CANNON.Vec3(1, 0, 0), fwdW = new CANNON.Vec3();
     cq.vmult(fwdL, fwdW);
-    // Project forward to horizontal plane (strip physics tilt)
     const fwdFlatLen = Math.hypot(fwdW.x, fwdW.z) || 0.001;
     const fwdFX = fwdW.x / fwdFlatLen, fwdFZ = fwdW.z / fwdFlatLen;
     const intTune = _activeCamTune(1);
-    const eyeH   = (intTune.lift || 0) + 0.77 + (p.bodyLift || 0) + (p.bodyHeight || 0.5) + (p.cabinHeight || 0.5) * 0.60;
-    const eyeFwd = (p.bodyLength || 3.5) * 0.18;
+    // Eye sits at cabin roof + small headroom; height tracks cabin height exactly.
+    const cabinTop = (p.bodyLift || 0) + (p.bodyHeight || 0.5) + (p.cabinHeight || 0.5);
+    const eyeH     = cabinTop + 0.14 + (intTune.lift || 0);
+    const eyeFwd   = (p.bodyLength || 3.5) * 0.10;  // just inside the windshield
     const eyeX = cp.x + fwdFX * eyeFwd;
     const eyeY = cp.y + eyeH;
     const eyeZ = cp.z + fwdFZ * eyeFwd;
-    const lerpRate = 1 - Math.exp(-dt * (18 / _clampN(intTune.soft || 1, 0.5, 2.0)));
-    camPos.lerp(new THREE.Vector3(eyeX, eyeY, eyeZ), lerpRate);
-    const lookX = eyeX + fwdFX * 40, lookY = eyeY + (intTune.lookY || -0.15), lookZ = eyeZ + fwdFZ * 40;
-    camLook.lerp(new THREE.Vector3(lookX, lookY, lookZ), lerpRate);
-    camera.position.copy(camPos);
+    // Snap — no lerp so there is zero lag between car and camera
+    camera.position.set(eyeX, eyeY, eyeZ);
+    camPos.copy(camera.position);
+    // Look target pitched down to show hood top + horizon simultaneously.
+    // pitchDrop = fraction of (eye-to-hood-top) gap, so taller/shorter cars
+    // always frame both the hood edge and the sky in the same way.
+    const hoodTopY  = cp.y + (p.bodyLift || 0) + (p.bodyHeight || 0.5);
+    const pitchDrop = (eyeY - hoodTopY) * 0.60 + (intTune.lookY || 0);
+    const lookX = eyeX + fwdFX * 50;
+    const lookY = eyeY - pitchDrop;
+    const lookZ = eyeZ + fwdFZ * 50;
+    camLook.set(lookX, lookY, lookZ);
     camera.up.set(0, 1, 0);
     camera.lookAt(camLook);
 	  } else {
