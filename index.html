@@ -199,11 +199,30 @@
   }
   .stage-btn:hover { background: rgba(0,0,0,0.7); border-color: #fff; }
   .stage-btn.active { background: rgba(255,180,80,0.4); border-color: rgba(255,200,100,0.9); }
-  #btn-mode.cg-on {
-    background: rgba(180,30,60,0.65);
-    border-color: rgba(255,120,140,0.85);
-    color: #ffe6ec;
+  /* REGEN only on touch devices */
+  body:not(.touch) #btn-regen { display: none; }
+  /* Info panel */
+  #info-panel {
+    position: absolute; inset: 0; z-index: 20;
+    background: rgba(0,0,0,0.88); backdrop-filter: blur(10px);
+    display: none; padding: 28px 24px 24px; overflow-y: auto; pointer-events: auto;
   }
+  #info-panel.open { display: block; }
+  #info-panel h3 { color: #fff; font-family: 'Courier New', monospace; font-size: 13px; letter-spacing: 3px; margin: 0 0 10px; }
+  #info-panel h4 { color: #ffbf30; font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; margin: 14px 0 6px; border-bottom: 1px solid rgba(255,191,48,.3); padding-bottom: 4px; }
+  #info-panel p  { color: #bbb; font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.6; margin: 0 0 8px; }
+  #info-panel table { border-collapse: collapse; width: 100%; }
+  #info-panel td { color: #aaa; font-family: 'Courier New', monospace; font-size: 10px; padding: 3px 8px 3px 0; vertical-align: top; }
+  #info-panel td:first-child { color: #fff; font-weight: bold; min-width: 80px; }
+  #info-panel ul { margin: 0; padding-left: 14px; }
+  #info-panel li { color: #aaa; font-family: 'Courier New', monospace; font-size: 10px; line-height: 1.8; }
+  #info-close {
+    position: absolute; top: 10px; right: 12px;
+    background: none; border: 1px solid rgba(255,255,255,0.3);
+    color: #fff; font-size: 13px; cursor: pointer; width: 26px; height: 26px;
+    border-radius: 4px; line-height: 24px; text-align: center;
+  }
+  #info-close:hover { background: rgba(255,255,255,0.15); }
   /* Cargeneddon trigger — bare 50x50 PNG (half of original 100), no button
      styling, just a pointer-cursor icon at the same level as stage buttons. */
   #cg-trigger {
@@ -844,10 +863,8 @@
       <button class="stage-btn" id="btn-mute">🔊</button>
       <button class="stage-btn" id="btn-music" title="Switch soundtrack">POPCORN</button>
       <button class="stage-btn" id="btn-autoplay" title="AutoPlay — AI drives your car">🤖 AUTO</button>
-      <button class="stage-btn" id="btn-mode" title="Toggle Cargeneddon / Free Ride">
-        <span id="btn-mode-label">FREE RIDE</span>
-      </button>
-      <!-- Cargeneddon trigger — bare PNG, no button styling. Click = enter CG.
+      <button class="stage-btn" id="btn-info" title="Controls &amp; game info">ℹ INFO</button>
+      <!-- Cargeneddon trigger — bare PNG, no button styling. Click = toggle CG on/off.
            Lives at the same row as the buttons; HUD (timer/score) sits to its right. -->
       <img id="cg-trigger" src="cargeneddon-logo.png?v=2" alt="Cargeneddon" title="Cargeneddon — ram peds &amp; shoot cars for points" />
       <!-- Cargeneddon HUD (timer / kills / score) — inline, right after the icon -->
@@ -926,6 +943,37 @@
     <!-- Iso preview — frozen 3/4 hero shot of player car (top-right) -->
     <div id="iso-preview-slot"></div>
 
+    <!-- Info panel — keyboard controls & game description -->
+    <div id="info-panel">
+      <button id="info-close">✕</button>
+      <h3>POPCORN STATUS DERBY</h3>
+      <p>Drive, crash, shoot, climb. Ram opponents to steal their levels. Shoot headlight projectiles that play the Popcorn melody. The higher your status, the better car you unlock on regen.</p>
+      <h4>DRIVE</h4>
+      <table>
+        <tr><td>↑ / W</td><td>Accelerate</td></tr>
+        <tr><td>↓ / S</td><td>Brake / Reverse</td></tr>
+        <tr><td>← → / A D</td><td>Steer</td></tr>
+        <tr><td>Space</td><td>Handbrake drift</td></tr>
+      </table>
+      <h4>COMBAT</h4>
+      <table>
+        <tr><td>Q / E</td><td>Shoot — each shot plays a Popcorn note</td></tr>
+        <tr><td>Ram</td><td>T-bone an opponent to wreck them</td></tr>
+      </table>
+      <h4>CAMERA &amp; UI</h4>
+      <table>
+        <tr><td>V</td><td>Cycle camera modes (chase / interior / side / top / spectator)</td></tr>
+        <tr><td>R</td><td>Regen car (−5 levels, new random design)</td></tr>
+        <tr><td>M</td><td>Mute / unmute all audio</td></tr>
+        <tr><td>P</td><td>Switch music track</td></tr>
+        <tr><td>🔧 CONSTRUCTOR</td><td>Redesign your car live with drag handles</td></tr>
+        <tr><td>🤖 AUTO</td><td>AI takes the wheel, camera switches cinematically</td></tr>
+      </table>
+      <h4>MODES</h4>
+      <table>
+        <tr><td>☠ Cargeneddon</td><td>60s — ram 16 pedestrians, shoot rival cars for bonus time. Click the red logo to start / stop.</td></tr>
+      </table>
+    </div>
     <!-- Cargeneddon GAME OVER modal -->
     <div id="cg-gameover">
       <div class="cg-go-card">
@@ -3369,9 +3417,6 @@ function cgEnter() {
   CG.timeBonus = 0; CG.score = 0; CG.pedsKilled = 0;
   cgSpawnAll();
   document.getElementById('cg-hud').classList.add('on');
-  const btn = document.getElementById('btn-mode');
-  document.getElementById('btn-mode-label').textContent = 'CARGENEDDON';
-  btn.classList.add('cg-on');
   document.body.classList.add('cg-on');
   // Show rules toast for 3.5s — Anton couldn't tell what scored points.
   const rules = document.getElementById('cg-rules');
@@ -3386,9 +3431,6 @@ function cgExit() {
   cgDespawnAll();
   document.getElementById('cg-hud').classList.remove('on');
   document.getElementById('cg-gameover').classList.remove('open');
-  const btn = document.getElementById('btn-mode');
-  document.getElementById('btn-mode-label').textContent = 'FREE RIDE';
-  btn.classList.remove('cg-on');
   document.body.classList.remove('cg-on');
   const rules = document.getElementById('cg-rules');
   if (rules) rules.classList.remove('on');
@@ -3591,8 +3633,14 @@ function updateProjectiles(dt) {
     } else {
       pj.body.velocity.y = 0;
       pj.mesh.position.copy(pj.body.position);
+      // In bird's-eye (5) and spectator (6) modes, scale up bullets 4× so
+      // they're visible from the altitude. Back to normal in all other modes.
+      const bigCam = camMode === 5 || camMode === 6;
+      pj.mesh.scale.setScalar(bigCam ? 4.0 : 1.0);
     }
   }
+  // Keep projectile material bright-white in overhead/spectator modes for visibility
+  projMatLight.color.setHex((camMode === 5 || camMode === 6) ? 0xffffff : 0xffffcc);
 }
 
 // ── AI tick (chase/reverse/flank/jturn) ──────────────────────────────────
@@ -3856,11 +3904,22 @@ document.getElementById('btn-music').addEventListener('click', () => {
   document.getElementById('btn-music').textContent = label;
 });
 // Mode label button — clicking toggles between Free Ride and Cargeneddon.
-document.getElementById('btn-mode').addEventListener('click', () => { if (CG.active) cgExit(); else cgEnter(); });
+// btn-mode removed — cg-trigger is the only toggle now
 // Standalone Cargeneddon icon — bare PNG in the top-left row. Click = enter
 // CG (no-op if already active so the user can click it as a label).
 const _cgTrigger = document.getElementById('cg-trigger');
-if (_cgTrigger) _cgTrigger.addEventListener('click', () => { if (!CG.active) cgEnter(); });
+if (_cgTrigger) _cgTrigger.addEventListener('click', () => { if (CG.active) cgExit(); else cgEnter(); });
+// Info panel toggle
+(function() {
+  const btnInfo  = document.getElementById('btn-info');
+  const panel    = document.getElementById('info-panel');
+  const closeBtn = document.getElementById('info-close');
+  if (!btnInfo || !panel) return;
+  btnInfo.addEventListener('click', () => panel.classList.toggle('open'));
+  closeBtn.addEventListener('click', () => panel.classList.remove('open'));
+  // Close on Escape
+  window.addEventListener('keydown', e => { if (e.key === 'Escape') panel.classList.remove('open'); });
+})();
 document.getElementById('cg-restart').addEventListener('click', () => { cgExit(); cgEnter(); });
 document.getElementById('cg-back').addEventListener('click', cgExit);
 function toggleMute() {
@@ -4104,8 +4163,9 @@ function updateConstructorCamera() {
 // view (windshield to the left, rear to the right). Y axis is inverted
 // (SVG y = -world y) so positive y is up.
 const SX = (x) => -x;
-const HANDLE_R = 0.11;       // visual circle radius; hit zone 3× bigger for easy grab
+const HANDLE_R      = 0.10;   // dot radius
 const HANDLE_STROKE = 0.02;
+const LEVER_LEN     = 0.30;   // distance from anchor to handle dot (SVG units)
 const EDITOR_COLORS = {
   ground: '#6c7480',
   body: '#ffffff',
@@ -4123,21 +4183,57 @@ function svgEl(parent, tag, attrs) {
   parent.appendChild(el);
   return el;
 }
+// Lever handle: anchor at (x,y) on shape, dot pushed out by LEVER_LEN in dir,
+// thin line connecting them. Hover brightens the dot for clear affordance.
+// dir SVG map: 'up'=−Y, 'down'=+Y, 'left'=−X (car front), 'right'=+X (car rear), 'diamond'=up
 function drawEditorHandle(parent, x, y, color, key, dir) {
   const r = HANDLE_R;
-  // Visual circle — simple dot, no directional arrows that overlap/confuse
+  // SVG direction unit vectors
+  const ddx = { left: -1, right: 1, up: 0, down: 0, diamond: 0 }[dir] ?? 0;
+  const ddy = { left: 0, right: 0, up: -1, down: 1, diamond: -1 }[dir] ?? -1;
+  // Handle dot position
+  const hx = x + ddx * LEVER_LEN;
+  const hy = y + ddy * LEVER_LEN;
+  // Lever line (non-interactive)
+  svgEl(parent, 'line', {
+    x1: x, y1: y, x2: hx, y2: hy,
+    stroke: color, 'stroke-width': 0.013, 'stroke-opacity': 0.55,
+    style: 'pointer-events:none',
+  });
+  // Anchor dot (small, non-interactive marker on shape)
+  svgEl(parent, 'circle', {
+    cx: x, cy: y, r: r * 0.40,
+    fill: color, 'fill-opacity': 0.5,
+    style: 'pointer-events:none',
+  });
+  // Visual handle dot
   const vis = svgEl(parent, 'circle', {
-    cx: x, cy: y, r,
+    cx: hx, cy: hy, r,
     fill: color, stroke: '#050505', 'stroke-width': HANDLE_STROKE,
     style: 'cursor:grab; pointer-events:all',
   });
   vis.dataset.key = key;
-  // Large invisible hit zone so any nearby click registers
+  // Hover: grow + brighten
+  vis.addEventListener('mouseenter', () => {
+    vis.setAttribute('r', r * 1.6);
+    vis.setAttribute('fill', '#ffffff');
+    vis.setAttribute('stroke', color);
+    vis.setAttribute('stroke-width', HANDLE_STROKE * 2);
+  });
+  vis.addEventListener('mouseleave', () => {
+    vis.setAttribute('r', r);
+    vis.setAttribute('fill', color);
+    vis.setAttribute('stroke', '#050505');
+    vis.setAttribute('stroke-width', HANDLE_STROKE);
+  });
+  // Large invisible hit zone around the dot
   const hit = svgEl(parent, 'circle', {
-    cx: x, cy: y, r: r * 3.0, fill: 'transparent',
+    cx: hx, cy: hy, r: r * 3.2, fill: 'transparent',
     style: 'cursor:grab; pointer-events:all',
   });
   hit.dataset.key = key;
+  hit.addEventListener('mouseenter', () => vis.dispatchEvent(new MouseEvent('mouseenter')));
+  hit.addEventListener('mouseleave', () => vis.dispatchEvent(new MouseEvent('mouseleave')));
 }
 function _hexStr(n) { return '#' + ('000000' + (n|0).toString(16)).slice(-6); }
 function _darken(hex, f) {
@@ -4245,8 +4341,8 @@ function redrawSide() {
 	    { key: 'cabin-slope-front', x: cTopFront,        wy: cy1,                       color: EDITOR_COLORS.cabin, dir: 'left' },
 	    { key: 'cabin-slope-rear',  x: cTopRear,         wy: cy1,                       color: EDITOR_COLORS.cabin, dir: 'right' },
 	    { key: 'cabin-offset',      x: p.cabinOffset,    wy: cy0,                       color: EDITOR_COLORS.cabin, dir: 'down' },
-	    { key: 'wheel-front',       x: wbHalf,           wy: -(wcy + wR + 0.10),        color: EDITOR_COLORS.wheel, dir: 'down' },
-	    { key: 'wheel-rear',        x: -wbHalf,          wy: -(wcy + wR + 0.10),        color: EDITOR_COLORS.wheel, dir: 'down' },
+	    { key: 'wheel-front',       x: wbHalf,           wy: -(wcy + wR + 0.10),        color: EDITOR_COLORS.wheel, dir: 'up' },
+	    { key: 'wheel-rear',        x: -wbHalf,          wy: -(wcy + wR + 0.10),        color: EDITOR_COLORS.wheel, dir: 'up' },
 	    { key: 'headlight-y',       x: p.bodyLength/2 + 0.20, wy: hlWY,                 color: EDITOR_COLORS.headlight, dir: 'diamond' },
 	    { key: 'taillight-y',       x: -p.bodyLength/2 - 0.20, wy: tlWY,                color: EDITOR_COLORS.taillight, dir: 'diamond' },
 	    { key: 'turnsignal-pos',    x: tsWX,             wy: tsWY,                      color: EDITOR_COLORS.signal, dir: 'diamond' },
@@ -5979,31 +6075,45 @@ function loop() {
     camera.position.copy(camPos);
     camera.lookAt(new THREE.Vector3(0, 0, 0));
   } else if (camMode === 1 && SPEC.camera.modes[1].interior) {
-    // Interior cockpit — yaw-only (strips physics tilt so horizon stays level).
-    // Position snaps directly to car — no lerp lag so the car back never pokes in.
+    // Above-roof driver cam — floats just above the actual cabin roof,
+    // shows both the hood front edge (bottom frame) and the horizon (upper frame).
+    // Yaw-only forward direction keeps horizon stable even on slopes.
     const fwdL = new CANNON.Vec3(1, 0, 0), fwdW = new CANNON.Vec3();
     cq.vmult(fwdL, fwdW);
     const fwdFlatLen = Math.hypot(fwdW.x, fwdW.z) || 0.001;
     const fwdFX = fwdW.x / fwdFlatLen, fwdFZ = fwdW.z / fwdFlatLen;
     const intTune = _activeCamTune(1);
-    // Eye sits at cabin roof + small headroom; height tracks cabin height exactly.
-    const cabinTop = (p.bodyLift || 0) + (p.bodyHeight || 0.5) + (p.cabinHeight || 0.5);
-    const eyeH     = cabinTop + 0.14 + (intTune.lift || 0);
-    const eyeFwd   = (p.bodyLength || 3.5) * 0.10;  // just inside the windshield
-    const eyeX = cp.x + fwdFX * eyeFwd;
-    const eyeY = cp.y + eyeH;
-    const eyeZ = cp.z + fwdFZ * eyeFwd;
-    // Snap — no lerp so there is zero lag between car and camera
+
+    // Use chassis quaternion to find world-space roof offset so the camera
+    // stays above the physical roof even when the car is pitched on a hill.
+    const bodyTopL = (p.bodyLift || 0) + (p.bodyHeight || 0.5);  // local height of body top
+    const cabinH   = p.convertible ? 0.32 : (p.cabinHeight || 0.5);
+    // Convertibles get extra headroom so the low open top can't block the view
+    const headroom = p.convertible ? 0.70 : 0.35;
+    const minAbove = 0.55;   // never less than this above body top (prevents clipping)
+    const eyeLocalH = bodyTopL + Math.max(minAbove, cabinH + headroom);
+    // Rotate local [0, eyeLocalH, 0] through chassis quaternion → world offset
+    const localEyeOff = new CANNON.Vec3(0, eyeLocalH, 0);
+    const worldEyeOff = new CANNON.Vec3();
+    cq.vmult(localEyeOff, worldEyeOff);
+
+    // Eye sits above cabin center, pushed a little forward in flat direction
+    const eyeFwdDist = (p.bodyLength || 3.5) * 0.08;
+    const eyeX = cp.x + worldEyeOff.x + fwdFX * eyeFwdDist;
+    const eyeY = cp.y + worldEyeOff.y + (intTune.lift || 0);
+    const eyeZ = cp.z + worldEyeOff.z + fwdFZ * eyeFwdDist;
+
+    // SNAP — zero lag (no lerp so the car back never pokes into frame)
     camera.position.set(eyeX, eyeY, eyeZ);
     camPos.copy(camera.position);
-    // Look target pitched down to show hood top + horizon simultaneously.
-    // pitchDrop = fraction of (eye-to-hood-top) gap, so taller/shorter cars
-    // always frame both the hood edge and the sky in the same way.
-    const hoodTopY  = cp.y + (p.bodyLift || 0) + (p.bodyHeight || 0.5);
-    const pitchDrop = (eyeY - hoodTopY) * 0.60 + (intTune.lookY || 0);
-    const lookX = eyeX + fwdFX * 50;
-    const lookY = eyeY - pitchDrop;
-    const lookZ = eyeZ + fwdFZ * 50;
+
+    // Look target: forward past the hood at body-top height.
+    // This gives just enough downward pitch to show hood front + horizon together.
+    const bodyTopWorldY = cp.y + bodyTopL;
+    const lookFwdDist   = (p.bodyLength || 3.5) * 0.5 + 14;
+    const lookX = cp.x + fwdFX * lookFwdDist;
+    const lookY = bodyTopWorldY - 0.10 + (intTune.lookY || 0);
+    const lookZ = cp.z + fwdFZ * lookFwdDist;
     camLook.set(lookX, lookY, lookZ);
     camera.up.set(0, 1, 0);
     camera.lookAt(camLook);
