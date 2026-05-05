@@ -2249,15 +2249,20 @@ function rebuildCarVisual(car, targetScene) {
     g.add(ant);
   }
   if (acc.roofbox) {
-    const rbL = p.cabinLength * (p.roofboxLength || 0.85);
-    const rbW = p.cabinWidth  * (p.roofboxWidth  || 0.78);
     const rbH = p.roofboxHeight || 0.20;
-    const rb = new THREE.Mesh(
-      makeRoundedBoxGeom(rbL, rbH, rbW, p.roofboxRound || 0.05),
-      new THREE.MeshLambertMaterial({ color: 0x556677 })
-    );
-    rb.position.set(p.cabinOffset, roofY + rbH / 2, 0);
-    g.add(rb);
+    // Roofbox is conceptually always present but only rendered when tall
+    // enough to be visible above the roof. Values < 0.05 represent the
+    // "hidden inside cabin" state — no geometry needed.
+    if (rbH >= 0.05) {
+      const rbL = p.cabinLength * (p.roofboxLength || 0.85);
+      const rbW = p.cabinWidth  * (p.roofboxWidth  || 0.78);
+      const rb = new THREE.Mesh(
+        makeRoundedBoxGeom(rbL, rbH, rbW, p.roofboxRound || 0.05),
+        new THREE.MeshLambertMaterial({ color: 0x556677 })
+      );
+      rb.position.set(p.cabinOffset, roofY + rbH / 2, 0);
+      g.add(rb);
+    }
   }
 
   // Fenders
@@ -4131,8 +4136,15 @@ function drawEditorHandle(parent, x, y, color, key, dir) {
     style: 'cursor:grab',
   });
   p.dataset.key = key;
+  // Hit zone is offset OUTWARD in the handle's natural direction so it
+  // protrudes outside the car body. This guarantees all hit zones are
+  // physically separated — wheel grabs extend below the tyres, roof
+  // grabs extend above the cabin, front/rear grabs extend past the nose/tail.
+  const OFF = r * 3.8;
+  const hx = dir === 'left' ? x - OFF : dir === 'right' ? x + OFF : x;
+  const hy = dir === 'up'   ? y - OFF : dir === 'down'  ? y + OFF : y;
   const hit = svgEl(parent, 'circle', {
-    cx: x, cy: y, r: r * 4.0, fill: 'transparent',
+    cx: hx, cy: hy, r: r * 2.8, fill: 'transparent',
     style: 'cursor:grab;pointer-events:all',
   });
   hit.dataset.key = key;
@@ -4216,20 +4228,19 @@ function redrawSide() {
 	  const tsWY = bcy + (p.turnSignal ? p.turnSignal.y : 0);
 	  const tsWX = p.turnSignal ? p.turnSignal.x : 0;
 	  const mir = normalizeSideMirrors(p);
-	  if (mir.enabled) {
-	    svgEl(g, 'rect', {
-	      x: SX(mir.x + mir.length / 2),
-	      y: -(cy0 + mir.y + mir.height / 2),
-	      width: mir.length,
-	      height: mir.height,
-	      fill: 'none',
-	      stroke: EDITOR_COLORS.cabin,
-	      'stroke-opacity': 0.92,
-	      'stroke-width': 0.018,
-	      rx: mir.round,
-	      ry: mir.round,
-	    });
-	  }
+  // Mirrors are always present — draw outline unconditionally.
+  svgEl(g, 'rect', {
+    x: SX(mir.x + mir.length / 2),
+    y: -(cy0 + mir.y + mir.height / 2),
+    width: mir.length,
+    height: mir.height,
+    fill: 'none',
+    stroke: EDITOR_COLORS.cabin,
+    'stroke-opacity': 0.92,
+    'stroke-width': 0.018,
+    rx: mir.round,
+    ry: mir.round,
+  });
 	  const handles = [
     // Body top/bottom handles offset to the RIGHT, cabin handles to the
     // LEFT, so they don't sit on top of each other when cabin is centred
@@ -4244,15 +4255,16 @@ function redrawSide() {
 	    { key: 'cabin-slope-front', x: cTopFront,        wy: cy1,                       color: EDITOR_COLORS.cabin, dir: 'left' },
 	    { key: 'cabin-slope-rear',  x: cTopRear,         wy: cy1,                       color: EDITOR_COLORS.cabin, dir: 'right' },
 	    { key: 'cabin-offset',      x: p.cabinOffset,    wy: cy0,                       color: EDITOR_COLORS.cabin, dir: 'down' },
-	    { key: 'wheel-front',       x: wbHalf,           wy: -1.10,                     color: EDITOR_COLORS.wheel, dir: 'down' },
-	    { key: 'wheel-rear',        x: -wbHalf,          wy: -1.10,                     color: EDITOR_COLORS.wheel, dir: 'down' },
+	    { key: 'wheel-front',       x: wbHalf,           wy: -(wcy + wR + 0.10),        color: EDITOR_COLORS.wheel, dir: 'down' },
+	    { key: 'wheel-rear',        x: -wbHalf,          wy: -(wcy + wR + 0.10),        color: EDITOR_COLORS.wheel, dir: 'down' },
 	    { key: 'headlight-y',       x: p.bodyLength/2 + 0.20, wy: hlWY,                 color: EDITOR_COLORS.headlight, dir: 'diamond' },
 	    { key: 'taillight-y',       x: -p.bodyLength/2 - 0.20, wy: tlWY,                color: EDITOR_COLORS.taillight, dir: 'diamond' },
 	    { key: 'turnsignal-pos',    x: tsWX,             wy: tsWY,                      color: EDITOR_COLORS.signal, dir: 'diamond' },
 	  ];
-	  if (mir.enabled) handles.push(
-	    { key: 'mirror-pos', x: mir.x, wy: cy0 + mir.y, color: EDITOR_COLORS.cabin, dir: 'diamond' },
-	  );
+  // Mirror is always present — always add its handle.
+  handles.push(
+    { key: 'mirror-pos', x: mir.x, wy: cy0 + mir.y, color: EDITOR_COLORS.cabin, dir: 'diamond' },
+  );
 	  if (ffRect) handles.push(
 	    { key: 'ff-front', x: ffRect.xR, wy: (ffRect.yTop + ffRect.yBot)/2, color: EDITOR_COLORS.fenderFront, dir: 'left' },
 	    { key: 'ff-rear',  x: ffRect.xL, wy: (ffRect.yTop + ffRect.yBot)/2, color: EDITOR_COLORS.fenderFront, dir: 'right' },
@@ -4265,51 +4277,10 @@ function redrawSide() {
 	    { key: 'fr-top',   x: frRect.wcx, wy: frRect.yTop,                  color: EDITOR_COLORS.fenderRear, dir: 'up' },
 	    { key: 'fr-bot',   x: frRect.wcx, wy: frRect.yBot,                  color: EDITOR_COLORS.fenderRear, dir: 'down' },
 	  );
-  // ── Handle repulsion: push overlapping handles apart so each is individually
-  // clickable. Directional handles slide only along their natural edge axis
-  // ('up'/'down' → horizontal shift only; 'left'/'right' → vertical only;
-  //  'diamond' → free 2D). Eight passes settle all realistic overlaps.
-  const MIN_PUSH = HANDLE_R * 7.0;   // minimum centre-to-centre clearance
-  const hDisp = handles.map(h => ({
-    key: h.key, color: h.color, dir: h.dir,
-    sx: SX(h.x), sy: -h.wy,
-  }));
-  for (let pass = 0; pass < 20; pass++) {
-    for (let i = 0; i < hDisp.length; i++) {
-      for (let j = i + 1; j < hDisp.length; j++) {
-        const a = hDisp[i], b = hDisp[j];
-        const dx = b.sx - a.sx, dy = b.sy - a.sy;
-        const d = Math.sqrt(dx * dx + dy * dy) || 0.001;
-        if (d >= MIN_PUSH) continue;
-        const push = (MIN_PUSH - d) * 0.5 + 0.001;
-        const nx = dx / d, ny = dy / d;
-        const _applyPush = (h, sx, sy) => {
-          if (h.dir === 'up' || h.dir === 'down') {
-            // top/bottom edge handles: slide horizontally along the edge
-            const ax = Math.abs(nx) < 0.02 ? MIN_PUSH * 0.4 : nx * push;
-            h.sx += sx * ax;
-          } else if (h.dir === 'left' || h.dir === 'right') {
-            // front/rear edge handles: slide vertically along the edge
-            const ay = Math.abs(ny) < 0.02 ? MIN_PUSH * 0.4 : ny * push;
-            h.sy += sy * ay;
-          } else {
-            // diamond handles: free 2D movement
-            h.sx += sx * nx * push;
-            h.sy += sy * ny * push;
-          }
-        };
-        _applyPush(a, -1, -1);
-        _applyPush(b, +1, +1);
-      }
-    }
-  }
-  // Pin wheel handles below the ground line (SVG y > 0.82) so fender handles
-  // above them can never push them up through the car body.
-  for (const h of hDisp) {
-    if (h.key === 'wheel-front' || h.key === 'wheel-rear')
-      h.sy = Math.max(h.sy, 0.88);
-  }
-  for (const h of hDisp) drawEditorHandle(g, h.sx, h.sy, h.color, h.key, h.dir);
+  // Draw every handle at its logical SVG position. Hit zones are offset
+  // outward in the handle's direction (see drawEditorHandle), so they
+  // protrude outside the car body and never overlap each other.
+  for (const h of handles) drawEditorHandle(g, SX(h.x), -h.wy, h.color, h.key, h.dir);
 }
 
 // ── Front / Rear SVG projections — track width, fender outer edge, cabin
@@ -4343,9 +4314,10 @@ function _drawAxleView(group, isFront) {
 	      stroke: EDITOR_COLORS.cabin, 'stroke-opacity': 0.96, 'stroke-width': 0.02,
 	    });
 	  }
-	  const mirrorSpec = normalizeSideMirrors(p);
-	  if (mirrorSpec.enabled) {
-	    const mY = cy0 + mirrorSpec.y;
+  // Mirrors are always present — draw unconditionally.
+  const mirrorSpec = normalizeSideMirrors(p);
+  {
+    const mY = cy0 + mirrorSpec.y;
 	    const mW = mirrorSpec.depth || 0.24;
 	    const mH = mirrorSpec.height || 0.15;
 	    const stalk = mirrorSpec.stalk || 0.09;
@@ -4672,7 +4644,6 @@ const PANEL_SPEC = [
   ['cabinSink',       'Sink',       'range', -0.50, 0.30, 0.01],
   ['convertible',     'Cabriolet',  'toggle'],
   ['§', 'Mirrors'],
-  ['sideMirrors.enabled', 'Enabled', 'toggle'],
   ['sideMirrors.x',      'Rail X',  'range', -3.0, 3.0, 0.01],
   ['sideMirrors.y',      'Height',  'range', -0.10, 0.35, 0.01],
   ['sideMirrors.length', 'Length',  'range', 0.04, 0.30, 0.005],
@@ -4737,7 +4708,7 @@ const PANEL_SPEC = [
   ['scoopZ',               'Scoop Z',   'range', -0.5, 0.5,  0.01],
   ['roofboxLength',        'Roofbox L', 'range', 0.40, 1.30, 0.01],
   ['roofboxWidth',         'Roofbox W', 'range', 0.40, 1.30, 0.01],
-  ['roofboxHeight',        'Roofbox H', 'range', 0.10, 0.40, 0.01],
+  ['roofboxHeight',        'Roofbox H', 'range', 0,    0.50, 0.01],
   ['roofboxRound',         'Roofbox R', 'range', 0,    0.20, 0.005],
 ];
 function getDesignField(d, path) {
