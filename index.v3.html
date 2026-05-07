@@ -31,50 +31,137 @@
     overflow: hidden;
     height: 100vh; min-height: 0;
   }
+  /* ── Mobile portrait control pad (matches Figma 65:2) ─────────────────
+     Layout = 5 rows that proportionally fill ALL space below the card.
+     A single CSS variable --tc-scale (set by JS from clientWidth/390) makes
+     fonts, gaps, paddings and button radii scale uniformly so the pad
+     looks identical on a tiny iPhone SE and on an iPhone Pro Max. */
   body.portrait #touch-controls {
     flex: 1 1 0; min-height: 0;
-    display: flex; flex-direction: column; justify-content: stretch;
+    display: flex; flex-direction: column;
+    padding: calc(8px * var(--tc-scale, 1));
+    gap: 0;
   }
   body.portrait #touch-controls .tc-rows {
-    flex: 1; display: flex; flex-direction: column; gap: 6px;
+    flex: 1; display: flex; flex-direction: column;
+    gap: calc(6px * var(--tc-scale, 1));
   }
-  body.portrait .tc-top-row    { flex: 0.7 1 0; min-height: 32px; }
-  body.portrait .tc-action-row { flex: 1.3 1 0; min-height: 56px; }
-  body.portrait .tc-steer-pad  { flex: 2.0 1 0; height: auto; min-height: 80px; }
-  body.portrait .tc-btn-cam,
-  body.portrait .tc-btn-mute,
-  body.portrait .tc-btn-reset,
-  body.portrait .tc-btn-c,
-  body.portrait .tc-btn-cg,
-  body.portrait .tc-btn-auto,
-  body.portrait .tc-btn-music,
-  body.portrait .tc-btn-info { height: 100%; }
-  body.portrait .tc-btn-q,
-  body.portrait .tc-btn-e,
-  body.portrait .tc-btn-s { height: 100%; }
-  /* Emoji icon buttons in top row — no box, just a big glyph with hover glow */
-  .tc-btn-cam,.tc-btn-c,.tc-btn-mute,.tc-btn-reset,
-  .tc-btn-auto,.tc-btn-music,.tc-btn-info,.tc-btn-cg {
+  body.portrait .tc-row {
+    display: flex; gap: calc(6px * var(--tc-scale, 1));
+    align-items: stretch;
+    min-height: 0;
+  }
+  body.portrait .tc-row-1 { flex: 1 1 0; }
+  body.portrait .tc-row-2 { flex: 1 1 0; }
+  body.portrait .tc-row-3 { flex: 1 1 0; }
+  body.portrait .tc-row-4 { flex: 1 1 0; }
+  body.portrait .tc-row-5 { flex: 1 1 0; }
+  /* Row 1 widths from Figma 65:2 (390px-wide frame):
+       filler 114, W 121, J 56, F 57   → 30%/32%/15%/15% of the inner row */
+  body.portrait .tc-row-1 .tc-btn-filler { flex: 1.14 1 0; }
+  body.portrait .tc-row-1 .tc-btn-w      { flex: 1.21 1 0; }
+  body.portrait .tc-row-1 .tc-btn-j      { flex: 0.56 1 0; }
+  body.portrait .tc-row-1 .tc-btn-f      { flex: 0.57 1 0; }
+  /* Row 2: analog pad takes the whole row */
+  body.portrait .tc-row-2 .tc-steer-analog { flex: 1 1 0; }
+  /* Row 3: drift bar 243w + S 101w → 70%/30% */
+  body.portrait .tc-row-3 .tc-btn-drift { flex: 2.43 1 0; }
+  body.portrait .tc-row-3 .tc-btn-s     { flex: 1.01 1 0; }
+  /* Row 4: 4 cells each ~70w except filler 94w */
+  body.portrait .tc-row-4 .tc-btn-r,
+  body.portrait .tc-row-4 .tc-btn-cam,
+  body.portrait .tc-row-4 .tc-btn-c { flex: 0.70 1 0; }
+  body.portrait .tc-row-4 .tc-btn-filler { flex: 0.94 1 0; }
+  /* Row 5: 5 equal-ish cells (each 70w) */
+  body.portrait .tc-row-5 .tc-btn { flex: 1 1 0; }
+  /* Filler = invisible spacer, no background */
+  .tc-btn-filler {
     background: transparent !important;
     border: none !important;
-    box-shadow: none !important;
-    backdrop-filter: none !important;
-    border-radius: 8px;
-    font-size: clamp(22px, 6vw, 36px);
-    letter-spacing: 0; padding: 2px;
-    transition: background 0.12s;
+    pointer-events: none;
   }
-  .tc-btn-cam:active,.tc-btn-c:active,.tc-btn-mute:active,.tc-btn-reset:active,
-  .tc-btn-auto:active,.tc-btn-music:active,.tc-btn-info:active,.tc-btn-cg:active,
-  .tc-btn-cam.pressed,.tc-btn-c.pressed,.tc-btn-mute.pressed,.tc-btn-reset.pressed,
-  .tc-btn-auto.pressed,.tc-btn-music.pressed,.tc-btn-info.pressed,.tc-btn-cg.pressed {
-    background: rgba(255,255,255,0.18) !important;
+  /* Default button = light tan box like Figma "Mobile Button" 119:56 */
+  body.portrait .tc-btn {
+    background: #d6d4c8;
+    border: none;
+    color: #111;
+    font-family: 'Arial Narrow', 'Helvetica Neue Condensed', 'Roboto Condensed', Impact, sans-serif;
+    font-weight: 900;
+    font-size: clamp(14px, calc(28px * var(--tc-scale, 1)), 32px);
+    letter-spacing: 0;
+    border-radius: calc(10px * var(--tc-scale, 1));
+    padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    gap: calc(4px * var(--tc-scale, 1));
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+    transition: background 0.10s, transform 0.10s;
+    backdrop-filter: none;
+    overflow: hidden;
   }
-  .tc-btn-cam:hover,.tc-btn-c:hover,.tc-btn-mute:hover,.tc-btn-reset:hover,
-  .tc-btn-auto:hover,.tc-btn-music:hover,.tc-btn-info:hover,.tc-btn-cg:hover {
-    background: rgba(255,255,255,0.12) !important;
+  body.portrait .tc-btn .tc-lbl    { font-weight: 900; }
+  body.portrait .tc-btn .tc-arrow  { font-weight: 600; opacity: 0.92; }
+  /* Press / active feedback = lighter background per Anton's spec */
+  body.portrait .tc-btn:active,
+  body.portrait .tc-btn.pressed {
+    background: #f0eee0;
+    transform: scale(0.98);
   }
-  .tc-btn-auto.active,.tc-btn-cg.active { background: rgba(255,180,80,0.25) !important; }
+  body.portrait .tc-btn-auto.active { background: #ffe0a0 !important; }
+  body.portrait .tc-btn-cg.active   { filter: drop-shadow(0 0 8px rgba(220,40,50,0.55)); }
+  /* Drift bar = same tone but slightly darker so it reads as the secondary surface */
+  body.portrait .tc-btn-drift {
+    background: #d6d4c8;
+    cursor: pointer;
+    letter-spacing: calc(2px * var(--tc-scale, 1));
+  }
+  body.portrait .tc-btn-drift.pressed { background: #f0eee0; }
+  /* Cargeneddon button — image inside, sized like an emoji */
+  body.portrait .tc-btn-cg img {
+    width: 72%; height: 72%;
+    object-fit: contain;
+  }
+  /* Row 5 emoji cells use light blue accent like Figma left icon */
+  body.portrait .tc-btn-info {
+    background: #adcef0;
+  }
+  body.portrait .tc-btn-info.pressed { background: #cfe2f5; }
+  /* Analog steering pad — single touch surface that LOOKS like A/D split */
+  body.portrait .tc-steer-analog {
+    position: relative;
+    background: #d6d4c8;
+    border-radius: calc(10px * var(--tc-scale, 1));
+    overflow: hidden;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+    display: flex;
+    cursor: pointer;
+  }
+  body.portrait .tc-steer-half {
+    flex: 1; min-width: 0;
+    display: flex; align-items: center; justify-content: center;
+    gap: calc(4px * var(--tc-scale, 1));
+    color: #111;
+    font-family: 'Arial Narrow', 'Helvetica Neue Condensed', 'Roboto Condensed', Impact, sans-serif;
+    font-weight: 900;
+    font-size: clamp(14px, calc(28px * var(--tc-scale, 1)), 32px);
+    pointer-events: none;
+    transition: background 0.08s;
+  }
+  body.portrait .tc-steer-half .tc-arrow { font-weight: 600; }
+  /* Visible split: thin vertical line down the middle */
+  body.portrait .tc-steer-l {
+    border-right: 1px solid rgba(0,0,0,0.08);
+  }
+  /* Pressed indicator — overlays a subtle gradient highlighting the side
+     where the finger is. The JS toggles .lit-l / .lit-r / .lit-c. */
+  body.portrait .tc-steer-analog.lit-l .tc-steer-l { background: #f0eee0; }
+  body.portrait .tc-steer-analog.lit-r .tc-steer-r { background: #f0eee0; }
+  body.portrait .tc-steer-analog.lit-c .tc-steer-l,
+  body.portrait .tc-steer-analog.lit-c .tc-steer-r { background: #e8e6d8; }
+  /* Hide stage-buttons overlay on portrait (they live in row 5 of touch-controls) */
 
   /* ── CARD = root container, the game lives INSIDE it ──────────────────── */
   /* Landscape: card fills viewport. Portrait: card stays on top, taller than
@@ -98,11 +185,17 @@
     box-shadow: none;
     margin: 0;
   }
-  /* Mobile portrait: thin frame — 8px sides + top */
+  /* Mobile portrait: thin top + sides, wider bottom — same proportions as
+     desktop so the bottom info strip has room for its texture / typography
+     instead of being squashed flush against the card edge. */
   body.portrait.touch #card {
-    padding: 8px 8px 0 8px !important;
-    --frame-thin: 8px;
+    padding: 6px 6px 14px 6px !important;
+    --frame-thin: 6px;
+    --frame-thick: 14px;
   }
+  /* Hide the desktop top-icon row on mobile portrait — Anton: the same
+     icons live in tc-row-5 of the touch keyboard below the card. */
+  body.portrait.touch #stage-buttons { display: none !important; }
   /* Portrait mobile bottom info strip: tighter gaps, no text wrap */
   body.portrait.touch #card-bottom {
     --col-gap: 5px;
@@ -236,27 +329,34 @@
     margin-top: 2px;
   }
 
-  /* ── In-game overlay buttons (top-left of stage) ─────────────────────── */
+  /* ── In-game overlay icons (top-left of stage) — Figma: naked emoji glyphs,
+        2× smaller than before, 2× tighter spacing. ─────────────────────── */
   #stage-buttons {
     position: absolute; top: 8px; left: 8px; right: 8px;
-    display: flex; gap: 5px; z-index: 5;
+    display: flex;
+    gap: calc(14px * var(--card-scale, 1));
+    z-index: 5;
     align-items: center; flex-wrap: wrap;
   }
   .stage-btn {
-    background: rgba(0,0,0,0.45);
+    background: transparent;
     color: #fff;
-    border: 1px solid rgba(255,255,255,0.30);
-    width: 32px; height: 32px;
-    border-radius: 6px;
-    font-size: 16px; line-height: 1;
+    border: none;
+    width: calc(16px * var(--card-scale, 1));
+    height: calc(16px * var(--card-scale, 1));
+    border-radius: 4px;
+    font-size: calc(14px * var(--card-scale, 1));
+    line-height: 1;
     padding: 0;
     display: flex; align-items: center; justify-content: center;
     cursor: pointer; user-select: none;
-    backdrop-filter: blur(4px);
     flex: 0 0 auto;
+    transition: filter 0.12s, transform 0.12s, background 0.12s;
   }
-  .stage-btn:hover { background: rgba(0,0,0,0.7); border-color: #fff; }
-  .stage-btn.active { background: rgba(255,180,80,0.4); border-color: rgba(255,200,100,0.9); }
+  .stage-btn:hover  { background: rgba(255,255,255,0.08); transform: translateY(-1px); }
+  .stage-btn:active,
+  .stage-btn.pressed { background: rgba(255,255,255,0.18); }
+  .stage-btn.active  { filter: drop-shadow(0 0 6px rgba(255,200,100,0.85)); }
   /* REGEN only on touch devices; on portrait hide ALL stage-buttons (touch area covers them) */
   body:not(.touch) #btn-regen { display: none; }
   body.portrait.touch #stage-buttons { display: none; }
@@ -295,6 +395,16 @@
   #info-panel td:first-child { color: #fff; font-weight: bold; width: 28%; }
   #info-panel ul { margin: 0; padding-left: 12px; }
   #info-panel li { color: #aaa; font-size: clamp(11px,2.5vw,14px); line-height: 1.8; }
+  #info-keyboard {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin-top: 14px;
+    opacity: 0.92;
+    border-radius: 4px;
+    /* Keyboard image is on a light background — soften it on the dark panel */
+    filter: brightness(0.92) contrast(1.05);
+  }
   #info-close {
     position: absolute; top: 10px; right: 10px;
     background: none; border: 1px solid rgba(255,255,255,0.3);
@@ -302,18 +412,21 @@
     border-radius: 4px; line-height: 22px; text-align: center;
   }
   #info-close:hover { background: rgba(255,255,255,0.15); }
-  /* Cargeneddon trigger — bare 50x50 PNG (half of original 100), no button
-     styling, just a pointer-cursor icon at the same level as stage buttons. */
+  /* Cargeneddon trigger — red logo PNG sized like the other top-row emoji
+     glyphs. No background/border, just a pointer-cursor icon. */
   #cg-trigger {
-    width: 50px; height: 50px;
+    width: calc(17px * var(--card-scale, 1));
+    height: calc(17px * var(--card-scale, 1));
     object-fit: contain;
     cursor: pointer;
     user-select: none;
     display: block;
     flex: 0 0 auto;
-    margin-left: 4px;
+    margin-left: 0;
+    transition: filter 0.12s, transform 0.12s;
   }
-  body.portrait #cg-trigger { width: 24px; height: 24px; margin-left: 0; }
+  #cg-trigger:hover { transform: translateY(-1px); filter: drop-shadow(0 0 6px rgba(220,40,50,0.55)); }
+  body.portrait #cg-trigger { width: 14px; height: 14px; }
   body.portrait #cg-hud { font-size: 11px; gap: 8px; padding: 0 4px; }
 
   /* ── Settings drawer (gear button at bottom-left of stage) ────────────── */
@@ -395,11 +508,16 @@
     z-index: 5;
   }
   body.portrait #iso-preview-slot { width: 100px; height: 80px; top: 4px; right: 4px; }
-  /* Bird's-eye (mode 5) + spectator (mode 6): larger preview at bottom-right */
+  /* Iso-preview is visible in EVERY camera mode (so the player always sees
+     the live design of their car). Default position: top-right corner.
+     In Bird-View / Spectator (.cam-top) it slides down to the bottom-right
+     above the Popcorn block — see below. */
   #card-stage.cam-top #iso-preview-slot {
     top: auto !important; left: auto !important; transform: none !important;
-    bottom: 10px; right: 10px;
-    width: 19% !important; aspect-ratio: 4/3;
+    bottom: 10px;
+    right: calc(var(--bottom-pad-x, 18px) * var(--card-scale, 1));
+    width: calc(var(--logo-name-size, 24px) * var(--card-scale, 1) * 4);
+    aspect-ratio: 4/3;
   }
 
   /* ── Cargeneddon HUD — inline next to the trigger icon ────────────────── */
@@ -561,13 +679,17 @@
   #constr-actions button.danger { background: rgba(220,80,80,0.18); border-color: rgba(220,80,80,0.55); color: #fcc; padding: 6px 8px; }
   body.portrait #constr-actions button { font-size: 9px; padding: 5px 8px; }
 
-  /* Side / Front / Rear SVG editors stacked horizontally at the bottom of
-     the constructor stage. Big handles — easy to grab. */
-  /* SVG drag editors — front / side / rear stacked vertically inside the
-     side panel. Always visible (mobile + desktop). */
+  /* SVG drag editors. Per Figma 62:90 — front + rear sit side-by-side at
+     the top of the side panel; side view sits below them, full width.
+     This frees vertical real estate above the sliders. */
   #svg-editors {
-    display: flex; flex-direction: column; gap: 6px;
-    padding: 10px 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "front rear"
+      "side  side";
+    gap: 8px;
+    padding: 12px 12px 14px 12px;
     border-bottom: 1px solid rgba(255,255,255,0.10);
   }
   #svg-editors svg {
@@ -577,8 +699,9 @@
     width: 100%;
     display: block;
   }
-  #front-svg, #rear-svg { aspect-ratio: 4.8 / 3.2; }
-  #side-svg             { aspect-ratio: 8.4 / 3.2; }
+  #front-svg { grid-area: front; aspect-ratio: 4.8 / 3.2; }
+  #rear-svg  { grid-area: rear;  aspect-ratio: 4.8 / 3.2; }
+  #side-svg  { grid-area: side;  aspect-ratio: 8.4 / 3.2; }
   /* Sliders panel — main scroll content of the side. */
   #constructor-panel {
     padding: 10px 12px;
@@ -671,134 +794,59 @@
   .ct-row select { background: #2a2d34; color: #fff; border: 1px solid rgba(255,255,255,0.20); font-family: inherit; font-size: 9px; padding: 1px 3px; border-radius: 3px; }
   .ct-row .ct-v { text-align: right; opacity: 0.7; font-size: 9px; }
 
-  /* ── Touch controls. Portrait: below the card. Touch landscape: fixed
-        overlay, so controls never shrink the game/card into a strip. ──── */
+  /* ── Touch controls. Portrait: below the card (rules above). Touch
+        landscape: fixed overlay so it never shrinks the card into a strip. */
   #touch-controls {
     display: none;
     flex: 0 0 auto;
-    margin-top: 4px;
+    margin-top: 0;
     width: 100vw;
-    padding: 6px 8px 18px 8px;
+    padding: 0;
     box-sizing: border-box;
     background: #1a1a1a;
   }
   body.portrait #touch-controls { display: flex; }
   body.touch #touch-controls { display: flex; }
+  /* On touch landscape we just inherit the same row layout but compressed
+     into a fixed footer overlay so the player sees the game above. */
   body.touch:not(.portrait) #touch-controls {
     position: fixed;
     left: 0; right: 0; bottom: 0;
     z-index: 40;
-    margin-top: 0;
-    height: clamp(84px, 24vh, 118px);
+    height: clamp(140px, 28vh, 180px);
     padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
-    background: linear-gradient(to top, rgba(18,18,18,0.86), rgba(18,18,18,0.24));
+    background: linear-gradient(to top, rgba(18,18,18,0.92), rgba(18,18,18,0.40));
     pointer-events: none;
   }
-  body.touch:not(.portrait) #touch-controls .tc-rows {
-    width: 100%;
-    height: 100%;
-    display: grid;
-    grid-template-columns: minmax(88px, 0.8fr) minmax(120px, 1.1fr) minmax(220px, 2.0fr);
-    gap: 8px;
-    pointer-events: auto;
-  }
-  body.touch:not(.portrait) .tc-top-row,
-  body.touch:not(.portrait) .tc-action-row {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 0;
-  }
-  body.touch:not(.portrait) .tc-btn-cam,
-  body.touch:not(.portrait) .tc-btn-mute,
-  body.touch:not(.portrait) .tc-btn-reset,
-  body.touch:not(.portrait) .tc-btn-c,
-  body.touch:not(.portrait) .tc-btn-q,
-  body.touch:not(.portrait) .tc-btn-e,
-  body.touch:not(.portrait) .tc-btn-s {
-    flex: 1 1 0;
-    height: auto;
-    min-height: 0;
-    font-size: 9px;
-    letter-spacing: 1px;
-    border-radius: 6px;
-  }
-  body.touch:not(.portrait) .tc-steer-pad {
-    height: auto;
-    min-height: 0;
-    align-self: stretch;
-  }
-  body.touch:not(.portrait) .tc-drift-zone { height: 28px; }
-  body.touch:not(.portrait) .tc-steer-knob {
-    width: 46px;
-    height: 30px;
-    bottom: 6px;
-  }
-  .tc-rows { display: flex; flex-direction: column; gap: 6px; }
-  .tc-top-row {
-    display: flex; justify-content: space-between; align-items: center; gap: 6px;
-  }
-  .tc-action-row {
-    display: flex; justify-content: space-around; align-items: center; gap: 6px;
-    padding: 0 4px;
-  }
+  body.touch:not(.portrait) #touch-controls .tc-rows { pointer-events: auto; }
+  /* Common .tc-btn defaults — get overridden by .portrait variants above */
   .tc-btn {
     background: rgba(255,255,255,0.10);
     border: 1.5px solid rgba(255,255,255,0.40);
     color: #fff;
-    font-family: 'Courier New', monospace;
+    font-family: 'Arial Narrow', 'Helvetica Neue Condensed', Impact, sans-serif;
     font-weight: 900;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
     touch-action: none;
     display: flex; align-items: center; justify-content: center;
+    gap: 4px;
     border-radius: 8px;
     backdrop-filter: blur(4px);
+    overflow: hidden;
   }
-  .tc-btn.pressed {
-    background: rgba(255,180,80,0.30);
-    border-color: rgba(255,200,100,0.85);
-  }
-  .tc-btn-cam, .tc-btn-mute, .tc-btn-reset, .tc-btn-c {
-    flex: 1; height: 32px; font-size: 10px; letter-spacing: 1.5px;
-  }
-  .tc-btn-q, .tc-btn-e, .tc-btn-s {
-    flex: 1; height: 56px; font-size: 12px; letter-spacing: 1.5px;
-  }
-  .tc-steer-pad {
-    position: relative; width: 100%; height: 90px;
+  .tc-btn.pressed { background: rgba(255,180,80,0.30); border-color: rgba(255,200,100,0.85); }
+  /* Steer analog default colors (before .portrait override kicks in) */
+  .tc-steer-analog {
+    position: relative;
     background: rgba(255,255,255,0.04);
     border: 1.5px solid rgba(255,255,255,0.30);
     border-radius: 12px;
     user-select: none; touch-action: none;
+    display: flex;
   }
-  .tc-drift-zone {
-    position: absolute; top: 0; left: 0; right: 0; height: 35px;
-    border-bottom: 1px dashed rgba(255,180,80,0.40);
-    color: rgba(255,200,100,0.55);
-    font-size: 9px; letter-spacing: 3px; font-weight: 900;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .tc-drift-zone.pressed {
-    background: rgba(255,180,80,0.18);
-    color: rgba(255,220,150,0.95);
-  }
-  .tc-steer-knob {
-    position: absolute; bottom: 8px; left: 50%;
-    transform: translateX(-50%);
-    width: 50px; height: 36px;
-    border-radius: 6px;
-    background: rgba(255,255,255,0.20);
-    border: 1.5px solid rgba(255,255,255,0.55);
-    color: #fff;
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'Courier New', monospace; font-size: 16px; font-weight: 900;
-    pointer-events: none;
-  }
-  .tc-steer-knob.pressed {
-    background: rgba(255,255,255,0.32);
-    border-color: #fff;
-  }
+  .tc-steer-half { flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; pointer-events: none; }
+  .tc-steer-l { border-right: 1px solid rgba(255,255,255,0.10); }
 </style>
 </head>
 <body>
@@ -936,13 +984,14 @@
   <div id="card-stage">
     <canvas id="game-canvas"></canvas>
     <div id="stage-buttons">
-      <button class="stage-btn" id="btn-constructor" title="Constructor">🔧</button>
-      <button class="stage-btn" id="btn-camera" title="Camera">📷</button>
-      <button class="stage-btn" id="btn-regen" title="Regen car">⟲</button>
-      <button class="stage-btn" id="btn-mute" title="Mute">🔊</button>
-      <button class="stage-btn" id="btn-music" title="Switch melody">🎵1</button>
-      <button class="stage-btn" id="btn-autoplay" title="AutoPlay">🤖</button>
-      <button class="stage-btn" id="btn-info" title="Info &amp; controls">ℹ</button>
+      <button class="stage-btn" id="btn-info" title="Info &amp; controls">ℹ️</button>
+      <button class="stage-btn" id="btn-constructor" title="Lab — redesign your car">🛠️</button>
+      <button class="stage-btn" id="btn-mute" title="Mute / unmute">🔊</button>
+      <button class="stage-btn" id="btn-music" title="Switch melody">🎵</button>
+      <button class="stage-btn" id="btn-autoplay" title="Auto pilot">🤖</button>
+      <!-- camera (V) and regen (R) keep their hidden buttons for keyboard handlers -->
+      <button class="stage-btn" id="btn-camera" title="Camera" style="display:none">📷</button>
+      <button class="stage-btn" id="btn-regen" title="Regen car" style="display:none">⟲</button>
       <!-- Cargeneddon trigger — bare PNG, no button styling. Click = toggle CG on/off.
            Lives at the same row as the buttons; HUD (timer/score) sits to its right. -->
       <img id="cg-trigger" src="cargeneddon-logo.png?v=2" alt="Cargeneddon" title="Cargeneddon — ram peds &amp; shoot cars for points" />
@@ -1022,11 +1071,11 @@
     <!-- Iso preview — frozen 3/4 hero shot of player car (top-right) -->
     <div id="iso-preview-slot"></div>
 
-    <!-- Info panel — keyboard controls & game description -->
+    <!-- Info panel — game description + keyboard controls (matches Figma) -->
     <div id="info-panel">
       <button id="info-close">✕</button>
       <h3>POPCORN STATUS DERBY</h3>
-      <p>Drive, crash, shoot, climb. Ram opponents to steal their levels. Shoot headlight projectiles that play the Popcorn melody. The higher your status, the better car you unlock on regen.</p>
+      <p>Drive, shoot. Ram opponents to steal their levels. Shoot headlight projectiles that play the Popcorn melody. The higher your status, the better car you unlock on regen.</p>
       <h4>DRIVE</h4>
       <table>
         <tr><td>↑ / W</td><td>Accelerate</td></tr>
@@ -1036,22 +1085,22 @@
       </table>
       <h4>COMBAT</h4>
       <table>
-        <tr><td>Q / E</td><td>Shoot — each shot plays a Popcorn note</td></tr>
-        <tr><td>Ram</td><td>T-bone an opponent to wreck them</td></tr>
+        <tr><td>Q</td><td>Shoot — each shot plays a Popcorn note</td></tr>
+        <tr><td>E</td><td>Impossible police turn</td></tr>
       </table>
       <h4>CAMERA &amp; UI</h4>
       <table>
-        <tr><td>V</td><td>Cycle camera modes (chase / interior / side / top / spectator)</td></tr>
-        <tr><td>R</td><td>Regen car (−5 levels, new random design)</td></tr>
+        <tr><td>V</td><td>Camera modes (chase / interior / side / top / spectator)</td></tr>
+        <tr><td>R</td><td>Respawn car (−5 lvl, new random design)</td></tr>
         <tr><td>M</td><td>Mute / unmute all audio</td></tr>
-        <tr><td>P</td><td>Switch music track</td></tr>
-        <tr><td>🔧 CONSTRUCTOR</td><td>Redesign your car live with drag handles</td></tr>
+        <tr><td>C</td><td>Redesign your car live with drag handles</td></tr>
         <tr><td>🤖 AUTO</td><td>AI takes the wheel, camera switches cinematically</td></tr>
       </table>
       <h4>MODES</h4>
       <table>
-        <tr><td>☠ Cargeneddon</td><td>60s — ram 16 pedestrians, shoot rival cars for bonus time. Click the red logo to start / stop.</td></tr>
+        <tr><td>Cargeneddon</td><td>60sec. — ram 16 pedestrians, shoot rival cars. Click the red logo to start / stop.</td></tr>
       </table>
+      <img id="info-keyboard" src="keyboard-layout.png" alt="Keyboard layout — highlighted keys are bound to game actions">
     </div>
     <!-- Cargeneddon GAME OVER modal -->
     <div id="cg-gameover">
@@ -1078,19 +1127,19 @@
       <div class="cb-sub" id="cb-sub">STANDARD · L1</div>
     </div>
     <div class="cb-stats">
-      <div class="cb-row r-len"><span class="cb-l">Length</span><span class="cb-v" id="cb-len">·</span></div>
-      <div class="cb-row r-wid"><span class="cb-l">Width</span><span class="cb-v" id="cb-wid">·</span></div>
-      <div class="cb-row r-hgt"><span class="cb-l">Height</span><span class="cb-v" id="cb-hgt">·</span></div>
+      <div class="cb-row r-len"><span class="cb-l">Length:</span><span class="cb-v" id="cb-len">·</span></div>
+      <div class="cb-row r-wid"><span class="cb-l">Width:</span><span class="cb-v" id="cb-wid">·</span></div>
+      <div class="cb-row r-hgt"><span class="cb-l">Height:</span><span class="cb-v" id="cb-hgt">·</span></div>
     </div>
     <div class="cb-stats">
-      <div class="cb-row r-wbs"><span class="cb-l">Wbase</span><span class="cb-v" id="cb-wbs">·</span></div>
-      <div class="cb-row r-trk"><span class="cb-l">Track</span><span class="cb-v" id="cb-trk">·</span></div>
-      <div class="cb-row r-whd"><span class="cb-l">Wheel</span><span class="cb-v" id="cb-whd">·</span></div>
+      <div class="cb-row r-wbs"><span class="cb-l">Wbase:</span><span class="cb-v" id="cb-wbs">·</span></div>
+      <div class="cb-row r-trk"><span class="cb-l">Track:</span><span class="cb-v" id="cb-trk">·</span></div>
+      <div class="cb-row r-whd"><span class="cb-l">Wheel:</span><span class="cb-v" id="cb-whd">·</span></div>
     </div>
     <div class="cb-stats">
-      <div class="cb-row r-hdl"><span class="cb-l">Hlight</span><span class="cb-v" id="cb-hdl">·</span></div>
-      <div class="cb-row r-tll"><span class="cb-l">Tail</span><span class="cb-v" id="cb-tll">·</span></div>
-      <div class="cb-row r-fnd"><span class="cb-l">Fender</span><span class="cb-v" id="cb-fnd">·</span></div>
+      <div class="cb-row r-hdl"><span class="cb-l">Hlight:</span><span class="cb-v" id="cb-hdl">·</span></div>
+      <div class="cb-row r-tll"><span class="cb-l">Tail:</span><span class="cb-v" id="cb-tll">·</span></div>
+      <div class="cb-row r-fnd"><span class="cb-l">Fender:</span><span class="cb-v" id="cb-fnd">·</span></div>
     </div>
     <div class="cb-logo">
       <img class="cb-logo-img" id="cb-logo-img" src="popcornstatusderby-logo.png" alt="POPCORN STATUS DERBY">
@@ -1138,28 +1187,49 @@
   <div id="constructor-panel"></div>
 </div>
 
-<!-- Touch controls (visible in portrait — under the card) -->
+<!-- Touch controls (visible in portrait — under the card)
+     Layout matches Figma "Mobile — Portrait" / 65:2:
+       Row 1: [filler] · W↑ (forward) · J (j-turn) · F (forward+fire)
+       Row 2: A← + D→  one analog gradient pad (steer + auto-forward + drift slide-in)
+       Row 3: ДРИФТ (long, Space) · S↓ (reverse)
+       Row 4: R (respawn) · 👀 (camera) · 🛠️ (lab) · [filler]
+       Row 5: ℹ️ · 🔊 · 🎵 · 🤖 · [cargeneddon-logo]
+-->
 <div id="touch-controls">
   <div class="tc-rows">
-    <!-- Emoji icon row: replaces stage-buttons overlay on mobile portrait -->
-    <div class="tc-top-row">
-      <button class="tc-btn tc-btn-cam"   data-code="KeyV" data-tap title="Camera">📷</button>
-      <button class="tc-btn tc-btn-c"     data-code="KeyC" data-tap title="Constructor">🔧</button>
-      <button class="tc-btn tc-btn-mute"  data-code="KeyM" data-tap title="Mute">🔊</button>
-      <button class="tc-btn tc-btn-reset" data-code="KeyR" data-tap title="Regen">⟲</button>
-      <button class="tc-btn tc-btn-auto"  id="tc-btn-auto"  title="AutoPlay">🤖</button>
-      <button class="tc-btn tc-btn-music" id="tc-btn-music" title="Melody">🎵1</button>
-      <button class="tc-btn tc-btn-info"  id="tc-btn-info"  title="Info">ℹ</button>
-      <button class="tc-btn tc-btn-cg"    id="tc-btn-cg"    title="Cargeneddon">🎮</button>
+    <!-- Row 1 -->
+    <div class="tc-row tc-row-1">
+      <div class="tc-btn tc-btn-filler"></div>
+      <button class="tc-btn tc-btn-w" data-codes="KeyW" title="Forward"><span class="tc-lbl">W</span><span class="tc-arrow">↑</span></button>
+      <button class="tc-btn tc-btn-j" data-codes="KeyE" title="Police j-turn">J</button>
+      <button class="tc-btn tc-btn-f" data-codes="KeyW,KeyQ" title="Forward + Fire">F</button>
     </div>
-    <div class="tc-action-row">
-      <button class="tc-btn tc-btn-e" data-code="KeyE">↺ FLIP</button>
-      <button class="tc-btn tc-btn-s" data-code="KeyS">BRAKE</button>
-      <button class="tc-btn tc-btn-q" data-code="KeyQ">SHOOT</button>
+    <!-- Row 2: analog steering pad (visually A/D split, behaviorally one slider) -->
+    <div class="tc-row tc-row-2">
+      <div class="tc-steer-analog" id="tc-steer-analog">
+        <div class="tc-steer-half tc-steer-l"><span class="tc-lbl">A</span><span class="tc-arrow">←</span></div>
+        <div class="tc-steer-half tc-steer-r"><span class="tc-lbl">D</span><span class="tc-arrow">→</span></div>
+      </div>
     </div>
-    <div class="tc-steer-pad" id="tc-steer-pad">
-      <div class="tc-drift-zone" id="tc-drift-zone">DRIFT</div>
-      <div class="tc-steer-knob" id="tc-steer-knob">⇆</div>
+    <!-- Row 3 -->
+    <div class="tc-row tc-row-3">
+      <div class="tc-btn tc-btn-drift" id="tc-drift-bar" data-codes="Space" title="Handbrake drift">ДРИФТ</div>
+      <button class="tc-btn tc-btn-s" data-codes="KeyS" title="Reverse"><span class="tc-lbl">S</span><span class="tc-arrow">↓</span></button>
+    </div>
+    <!-- Row 4 -->
+    <div class="tc-row tc-row-4">
+      <button class="tc-btn tc-btn-r" data-codes="KeyR" data-tap title="Respawn">R</button>
+      <button class="tc-btn tc-btn-cam" data-codes="KeyV" data-tap title="Camera">👀</button>
+      <button class="tc-btn tc-btn-c" data-codes="KeyC" data-tap title="Lab">🛠️</button>
+      <div class="tc-btn tc-btn-filler"></div>
+    </div>
+    <!-- Row 5: top icons (mirror of desktop top-bar) -->
+    <div class="tc-row tc-row-5">
+      <button class="tc-btn tc-btn-info" id="tc-btn-info" title="Info">ℹ️</button>
+      <button class="tc-btn tc-btn-mute" data-codes="KeyM" data-tap title="Mute">🔊</button>
+      <button class="tc-btn tc-btn-music" id="tc-btn-music" title="Melody">🎵</button>
+      <button class="tc-btn tc-btn-auto" id="tc-btn-auto" title="Auto pilot">🤖</button>
+      <button class="tc-btn tc-btn-cg" id="tc-btn-cg" title="Cargeneddon"><img src="cargeneddon-logo.png?v=2" alt="Cargeneddon"></button>
     </div>
   </div>
 </div>
@@ -1345,6 +1415,12 @@ function fitCardToViewport() {
   const baselineCardW = (portrait && IS_TOUCH) ? 620 : 1200;
   const scale = Math.max(0.25, Math.min(2.5, cardW / baselineCardW));
   cardEl.style.setProperty('--card-scale', scale.toFixed(3));
+
+  // Mobile control pad scale — Figma reference width = 390px (iPhone 12/13/14
+  // Pro). On a tiny iPhone SE (320px) buttons shrink ~18%; on a Pro Max (430)
+  // they grow ~10%. Clamped to keep tap-targets accessible.
+  const tcScale = Math.max(0.55, Math.min(1.6, vw / 390));
+  document.documentElement.style.setProperty('--tc-scale', tcScale.toFixed(3));
 
   // Frame thickness is owned by the card tuner. Older builds recalculated it
   // from viewport width here, which made Anton's tuned bottom-card layout drift.
@@ -3613,7 +3689,8 @@ function shoot(car) {
   const fwdLocal = new CANNON.Vec3(1, 0, 0);
   const fwd = new CANNON.Vec3();
   car.chassis.quaternion.vmult(fwdLocal, fwd);
-  const baseSpeed = 55;
+  // Anton 2026-05-07: bullets 3× faster + 2× longer life → 2× distance.
+  const baseSpeed = 55 * 3;
   for (const spawn of headlightSpawns(car)) {
     const localOff = new CANNON.Vec3(spawn.pos[0], spawn.pos[1], spawn.pos[2]);
     const worldOff = new CANNON.Vec3();
@@ -3635,7 +3712,8 @@ function shoot(car) {
     mesh.quaternion.copy(car.chassis.quaternion);
     scene.add(mesh);
     const cgMode = CG.active;
-    const projLife = cgMode ? 30 : 3;
+    // 2× life → bullet travels 2× distance (life is in seconds).
+    const projLife = cgMode ? 60 : 6;
     const proj = { body, mesh, life: projLife, dead: false, owner: car, cgMode };
     body.addEventListener('collide', (e) => {
       if (proj.dead) return;
@@ -3909,53 +3987,81 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => { K[e.code] = false; });
 
-// Touch steering pad
-let touchSteer = null, touchDrifting = false;
-const padEl   = document.getElementById('tc-steer-pad');
-const knobEl  = document.getElementById('tc-steer-knob');
-const driftEl = document.getElementById('tc-drift-zone');
+// ── Mobile touch controls (Figma-Mobile-Portrait layout) ─────────────────
+// One analog A/D pad: X = steer, pressed = auto-forward, slide-down to the
+// drift bar = drift + steer compound. F button = forward + fire compound.
+let touchSteer = null, touchDrifting = false, touchSteerActive = false;
+const steerEl  = document.getElementById('tc-steer-analog');
+const driftEl  = document.getElementById('tc-drift-bar');
+
+function setSteerLitClass() {
+  if (!steerEl) return;
+  steerEl.classList.remove('lit-l', 'lit-r', 'lit-c');
+  if (!touchSteerActive) return;
+  if (touchSteer === null || touchSteer === 0) steerEl.classList.add('lit-c');
+  else if (touchSteer < 0) steerEl.classList.add('lit-l');
+  else                     steerEl.classList.add('lit-r');
+}
+
+function pointInRect(x, y, r) {
+  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+}
+
 function readSteerTouch(clientX, clientY) {
-  const r = padEl.getBoundingClientRect();
+  const r = steerEl.getBoundingClientRect();
   const halfW = r.width / 2;
   let raw = (clientX - r.left - halfW) / halfW;
   let s = Math.max(-1, Math.min(1, raw / 0.70));
-  if (Math.abs(s) < 0.05) s = 0;
+  if (Math.abs(s) < 0.10) s = 0;
   touchSteer = s;
-  knobEl.style.left = ((s * 0.5 + 0.5) * 100) + '%';
-  const localY = clientY - r.top;
-  touchDrifting = localY < r.height * 0.40;
-  driftEl.classList.toggle('pressed', touchDrifting);
-  knobEl.classList.add('pressed');
+  touchSteerActive = true;
+  // Slide-in drift: finger has moved below the steer pad and hovers the drift bar
+  if (driftEl) {
+    const dr = driftEl.getBoundingClientRect();
+    touchDrifting = pointInRect(clientX, clientY, dr);
+    driftEl.classList.toggle('pressed', touchDrifting);
+  }
+  setSteerLitClass();
 }
 function clearSteerTouch() {
-  touchSteer = null; touchDrifting = false;
-  knobEl.style.left = '50%';
-  knobEl.classList.remove('pressed');
-  driftEl.classList.remove('pressed');
+  touchSteer = null; touchDrifting = false; touchSteerActive = false;
+  if (driftEl) driftEl.classList.remove('pressed');
+  setSteerLitClass();
 }
-padEl.addEventListener('touchstart', e => { e.preventDefault(); const t = e.touches[0]; readSteerTouch(t.clientX, t.clientY); }, { passive: false });
-padEl.addEventListener('touchmove',  e => { e.preventDefault(); const t = e.touches[0]; readSteerTouch(t.clientX, t.clientY); }, { passive: false });
-padEl.addEventListener('touchend',   e => { e.preventDefault(); if (e.touches.length === 0) clearSteerTouch(); }, { passive: false });
-padEl.addEventListener('touchcancel', clearSteerTouch);
+if (steerEl) {
+  steerEl.addEventListener('touchstart', e => { e.preventDefault(); const t = e.touches[0]; readSteerTouch(t.clientX, t.clientY); }, { passive: false });
+  steerEl.addEventListener('touchmove',  e => { e.preventDefault(); const t = e.touches[0]; readSteerTouch(t.clientX, t.clientY); }, { passive: false });
+  steerEl.addEventListener('touchend',   e => { e.preventDefault(); if (e.touches.length === 0) clearSteerTouch(); }, { passive: false });
+  steerEl.addEventListener('touchcancel', clearSteerTouch);
+  // Mouse fallback for desktop/laptop touch testing
+  let _mDown = false;
+  steerEl.addEventListener('mousedown', e => { _mDown = true; e.preventDefault(); readSteerTouch(e.clientX, e.clientY); });
+  window.addEventListener('mousemove', e => { if (_mDown) readSteerTouch(e.clientX, e.clientY); });
+  window.addEventListener('mouseup', () => { if (_mDown) { _mDown = false; clearSteerTouch(); } });
+}
 
-document.querySelectorAll('.tc-btn').forEach(btn => {
-  const code = btn.dataset.code;
+// Generic .tc-btn handler. Supports:
+//   data-codes="KeyW,KeyQ"  → multi-key compound (e.g. F = forward+fire)
+//   data-tap                → tap action (no key-state, fire once)
+function _bindTcBtn(btn) {
+  const codes = (btn.dataset.codes || btn.dataset.code || '').split(',').map(s => s.trim()).filter(Boolean);
   const isTap = btn.hasAttribute('data-tap');
   const press = (e) => {
-    e.preventDefault(); btn.classList.add('pressed');
+    if (e) e.preventDefault(); btn.classList.add('pressed');
     if (isTap) {
-      if (code === 'KeyR') resetPlayer();
-      else if (code === 'KeyV') setCameraMode((camMode + 1) % SPEC.camera.modes.length);
-      else if (code === 'KeyM') toggleMute();
-      else if (code === 'KeyC') openConstructor();
+      const c = codes[0];
+      if (c === 'KeyR') resetPlayer();
+      else if (c === 'KeyV') setCameraMode((camMode + 1) % SPEC.camera.modes.length);
+      else if (c === 'KeyM') toggleMute();
+      else if (c === 'KeyC') openConstructor();
     } else {
-      K[code] = true;
+      codes.forEach(c => { K[c] = true; });
     }
   };
   const release = (e) => {
     if (e) e.preventDefault();
     btn.classList.remove('pressed');
-    if (!isTap) K[code] = false;
+    if (!isTap) codes.forEach(c => { K[c] = false; });
   };
   btn.addEventListener('touchstart', press, { passive: false });
   btn.addEventListener('touchend', release, { passive: false });
@@ -3964,6 +4070,14 @@ document.querySelectorAll('.tc-btn').forEach(btn => {
   btn.addEventListener('mouseup', release);
   btn.addEventListener('mouseleave', release);
   btn.addEventListener('contextmenu', e => e.preventDefault());
+}
+document.querySelectorAll('.tc-btn').forEach(btn => {
+  // Skip pure visual fillers (no data, no id-based action)
+  if (btn.classList.contains('tc-btn-filler')) return;
+  // Skip the buttons whose actions are wired separately (info / music / auto / cg)
+  if (btn.id === 'tc-btn-info' || btn.id === 'tc-btn-music' ||
+      btn.id === 'tc-btn-auto' || btn.id === 'tc-btn-cg') return;
+  _bindTcBtn(btn);
 });
 
 // Stage HUD buttons
@@ -4272,9 +4386,13 @@ function updateConstructorCamera() {
 // view (windshield to the left, rear to the right). Y axis is inverted
 // (SVG y = -world y) so positive y is up.
 const SX = (x) => -x;
-const HANDLE_R      = 0.10;   // dot radius
-const HANDLE_STROKE = 0.02;
-const LEVER_LEN     = 0.30;   // distance from anchor to handle dot (SVG units)
+// Per Figma 2026-05-07 (revised): SMALL dots, LARGE invisible hover-target.
+// On hover the visible dot grows ~2.5× so the user gets a clear "I'm aimed
+// at this" signal. Stems are short so the silhouette stays readable.
+const HANDLE_R      = 0.06;   // visible dot radius (small)
+const HANDLE_HIT_R  = 0.22;   // invisible hit-target radius (big, easy to grab)
+const HANDLE_STROKE = 0.018;
+const LEVER_LEN     = 0.20;   // distance from anchor to handle dot
 const EDITOR_COLORS = {
   ground: '#6c7480',
   body: '#ffffff',
@@ -4322,27 +4440,33 @@ function drawEditorHandle(parent, x, y, color, key, dir) {
     style: 'cursor:grab; pointer-events:all',
   });
   vis.dataset.key = key;
-  // Hover: grow + brighten
-  vis.addEventListener('mouseenter', () => {
-    vis.setAttribute('r', r * 1.6);
+  // Hover: grow ~2.5× and brighten so the user sees it before grabbing.
+  const _grow = () => {
+    vis.setAttribute('r', r * 2.5);
     vis.setAttribute('fill', '#ffffff');
     vis.setAttribute('stroke', color);
     vis.setAttribute('stroke-width', HANDLE_STROKE * 2);
-  });
-  vis.addEventListener('mouseleave', () => {
+  };
+  const _shrink = () => {
     vis.setAttribute('r', r);
     vis.setAttribute('fill', color);
     vis.setAttribute('stroke', '#050505');
     vis.setAttribute('stroke-width', HANDLE_STROKE);
-  });
-  // Large invisible hit zone around the dot
+  };
+  vis.addEventListener('mouseenter', _grow);
+  vis.addEventListener('mouseleave', _shrink);
+  // BIG invisible hit-target — this is what the user actually grabs. The
+  // visible dot stays small so the silhouette is clean (per Anton Figma).
   const hit = svgEl(parent, 'circle', {
-    cx: hx, cy: hy, r: r * 3.2, fill: 'transparent',
+    cx: hx, cy: hy, r: HANDLE_HIT_R, fill: 'transparent',
     style: 'cursor:grab; pointer-events:all',
   });
   hit.dataset.key = key;
-  hit.addEventListener('mouseenter', () => vis.dispatchEvent(new MouseEvent('mouseenter')));
-  hit.addEventListener('mouseleave', () => vis.dispatchEvent(new MouseEvent('mouseleave')));
+  hit.addEventListener('mouseenter', _grow);
+  hit.addEventListener('mouseleave', _shrink);
+  hit.addEventListener('touchstart', _grow, { passive: true });
+  hit.addEventListener('touchend',   _shrink);
+  hit.addEventListener('touchcancel', _shrink);
 }
 function _hexStr(n) { return '#' + ('000000' + (n|0).toString(16)).slice(-6); }
 function _darken(hex, f) {
@@ -4359,10 +4483,9 @@ function redrawSide() {
   if (!constructorCar.design) return;
   g.innerHTML = '';
   const p = constructorCar.design;
+  // Per Figma 2026-05-07: ground LINE removed (just don't draw it). The
+  // groundY constant is still needed for wheel-center y-math below.
   const groundY = -0.77;
-  // Ground line
-  svgEl(g, 'line', { x1: -3.6, y1: -groundY, x2: 3.6, y2: -groundY,
-	                     stroke: EDITOR_COLORS.ground, 'stroke-width': 0.02 });
   // Body rect (lift = bottom; with X mirrored, x = -bodyLength/2)
   svgEl(g, 'rect', { x: SX(p.bodyLength/2), y: -(p.bodyLift + p.bodyHeight),
 	                     width: p.bodyLength, height: p.bodyHeight,
@@ -4487,10 +4610,9 @@ function _drawAxleView(group, isFront) {
   if (!constructorCar.design) return;
   group.innerHTML = '';
   const p = constructorCar.design;
+  // Per Figma 2026-05-07: ground LINE not drawn. groundY constant still
+  // needed below for wheel-center y-math.
   const groundY = -0.77;
-  // Ground line
-  svgEl(group, 'line', { x1: -2.2, y1: -groundY, x2: 2.2, y2: -groundY,
-	                         stroke: EDITOR_COLORS.ground, 'stroke-width': 0.02 });
   // Body rect — width = bodyWidth, height = bodyHeight, lift = body bottom
   svgEl(group, 'rect', {
     x: -p.bodyWidth/2, y: -(p.bodyLift + p.bodyHeight),
@@ -5082,6 +5204,12 @@ function _gtcSub(p) {
   return 'STANDARD';
 }
 function fmt(v) { return (+v).toFixed(2) + ' м'; }
+// Capitalize first letter — labels in the card-bottom strip are Title Case
+// per Anton's Figma (Round, On, Square, etc.). Returns '—' unchanged.
+function _cap(s) {
+  if (!s || s === '—') return s || '—';
+  return String(s).charAt(0).toUpperCase() + String(s).slice(1).toLowerCase();
+}
 function updateCardBottom() {
   const p = player.design;
   if (!p) return;
@@ -5098,9 +5226,9 @@ function updateCardBottom() {
   cbWbs.textContent = fmt(p.wheelbase);
   cbTrk.textContent = fmt(p.trackWidth);
   cbWhd.textContent = fmt(wD);
-  cbHdl.textContent = p.headlightStyle || '—';
-  cbTll.textContent = p.taillightStyle || '—';
-  cbFnd.textContent = (p.fenders && p.fenders.front && p.fenders.front.height > 0.05) ? 'on' : '—';
+  cbHdl.textContent = _cap(p.headlightStyle);
+  cbTll.textContent = _cap(p.taillightStyle);
+  cbFnd.textContent = (p.fenders && p.fenders.front && p.fenders.front.height > 0.05) ? 'On' : '—';
 }
 
 // ── CARD TUNER PANEL — full set (Frame / Typography / Visibility) ────────
