@@ -6377,12 +6377,7 @@ function updateBadges() {
   // _constrHidden hide-everything-else flow, and we don't want to override
   // it. Also skip if a car is currently shattered — its group is hidden
   // wholesale, so badge visibility doesn't matter for it.
-  // Anton 2026-05-26: detect constructor via DOM class (set by openConstr).
-  // Can't reference `gamePaused` here — it's a `let` declared later in
-  // the file, and the boot-time first call to updateBadges hits the TDZ
-  // → ReferenceError → black screen. The body class is rock-solid.
-  const constrOpen = (typeof document !== 'undefined')
-    && document.body && document.body.classList.contains('constr-open');
+  const constrOpen = (typeof gamePaused !== 'undefined') && gamePaused;
   for (const c of allCars) {
     paintBadge(c.badge, c.level, c.level === maxLevel, c.design.bodyColor);
     updateBadgePosition(c);
