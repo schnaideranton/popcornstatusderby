@@ -511,6 +511,89 @@
     z-index: 5;
   }
   body.portrait #iso-preview-slot { width: 100px; height: 80px; top: 4px; right: 4px; }
+
+  /* ── TWINS overlay — A/B taste training ──────────────────────────── */
+  #twins-overlay {
+    position: absolute; inset: 0;
+    background: rgba(8,10,14,0.96); color: #ddd;
+    display: flex; flex-direction: column;
+    z-index: 50; font-family: 'Courier New', monospace;
+  }
+  #twins-overlay .tw-head {
+    display: flex; align-items: center; gap: 16px;
+    padding: 10px 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+    color: #ffd060; font-weight: bold; letter-spacing: 2px; font-size: 14px;
+  }
+  #twins-overlay .tw-counter { margin-left: auto; font-size: 11px; color: #aaa; font-weight: normal; letter-spacing: 1px; }
+  #twins-overlay .tw-close {
+    background: rgba(220,80,80,0.18); color: #fcc;
+    border: 1px solid rgba(220,80,80,0.55); border-radius: 4px;
+    padding: 4px 10px; font-size: 14px; cursor: pointer;
+  }
+  #twins-overlay .tw-body {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 24px; padding: 24px;
+  }
+  #twins-overlay .tw-card {
+    flex: 1; max-width: 45%; max-height: 100%;
+    background: #1c2026; border: 2px solid transparent; border-radius: 8px;
+    padding: 12px; cursor: pointer; transition: border-color 0.12s, transform 0.08s;
+    display: flex; flex-direction: column; gap: 8px;
+    user-select: none;
+  }
+  #twins-overlay .tw-card:hover { border-color: #ffd060; transform: scale(1.01); }
+  #twins-overlay .tw-card:active { transform: scale(0.985); }
+  #twins-overlay .tw-img {
+    width: 100%; aspect-ratio: 4 / 3;
+    background: #eee; border-radius: 4px; object-fit: contain;
+  }
+  #twins-overlay .tw-meta { font-size: 10px; color: #aaa; line-height: 1.4; }
+  #twins-overlay .tw-vs {
+    color: #ffd060; font-weight: bold; font-size: 20px; letter-spacing: 3px;
+  }
+  #twins-overlay .tw-foot {
+    display: flex; align-items: center; gap: 16px; padding: 10px 18px;
+    border-top: 1px solid rgba(255,255,255,0.12); font-size: 11px;
+  }
+  #twins-overlay .tw-skip {
+    background: rgba(255,208,96,0.10); color: #ffd060;
+    border: 1px solid rgba(255,208,96,0.40); border-radius: 4px;
+    padding: 5px 12px; font-family: inherit; font-size: 10px; letter-spacing: 1px; cursor: pointer;
+  }
+  #twins-overlay .tw-skip:hover { background: rgba(255,208,96,0.20); }
+  #twins-overlay .tw-hint { color: #777; margin-left: auto; font-size: 10px; }
+
+  /* ── Shatter Tune panel — live sliders, toggle with T ─────────────── */
+  #shatter-tune {
+    position: absolute; bottom: 8px; right: 8px;
+    width: 260px; padding: 9px 12px;
+    background: rgba(8,10,14,0.92); color: #ddd;
+    border: 1px solid rgba(255,208,96,0.45); border-radius: 6px;
+    font-family: 'Courier New', monospace; font-size: 10px;
+    z-index: 7; pointer-events: auto; user-select: none;
+  }
+  body.stt-hidden #shatter-tune { display: none; }
+  #shatter-tune .stt-head {
+    display: flex; justify-content: space-between; align-items: center;
+    color: #ffd060; font-weight: bold; letter-spacing: 1.5px;
+    margin-bottom: 6px; padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.10);
+  }
+  #shatter-tune .stt-hint { font-size: 9px; opacity: 0.6; font-weight: normal; letter-spacing: 0.5px; }
+  #shatter-tune .stt-row {
+    display: grid; grid-template-columns: 88px 1fr 44px;
+    gap: 6px; align-items: center; margin: 2px 0;
+  }
+  #shatter-tune .stt-row label { font-size: 9px; opacity: 0.85; }
+  #shatter-tune .stt-row input[type=range] { width: 100%; height: 14px; }
+  #shatter-tune .stt-row .stt-v { text-align: right; opacity: 0.85; font-size: 9px; }
+  #shatter-tune #stt-reset {
+    width: 100%; margin-top: 8px; padding: 5px;
+    background: rgba(220,80,80,0.18); color: #fcc;
+    border: 1px solid rgba(220,80,80,0.55); border-radius: 3px;
+    font-family: inherit; font-size: 9px; letter-spacing: 1.5px; cursor: pointer;
+  }
+  #shatter-tune #stt-reset:hover { background: rgba(220,80,80,0.32); }
   /* Iso-preview is visible in EVERY camera mode (so the player always sees
      the live design of their car). Default position: top-right corner.
      In Bird-View / Spectator (.cam-top) it slides down to the bottom-right
@@ -1090,6 +1173,7 @@
       <button class="stage-btn" id="btn-autoplay" title="Auto pilot">🤖</button>
       <button class="stage-btn" id="btn-city" title="City mode — infinite procedural town">🏙</button>
       <button class="stage-btn" id="btn-traffic" title="Traffic — fixed-camera contemplative jam">🚦</button>
+      <button class="stage-btn" id="btn-twins" title="Twins — A/B taste training. Pick the better car.">👯</button>
       <!-- camera (V) and regen (R) keep their hidden buttons for keyboard handlers -->
       <button class="stage-btn" id="btn-camera" title="Camera" style="display:none">📷</button>
       <button class="stage-btn" id="btn-regen" title="Regen car" style="display:none">⟲</button>
@@ -1172,6 +1256,48 @@
 
     <!-- Iso preview — frozen 3/4 hero shot of player car (top-right) -->
     <div id="iso-preview-slot"></div>
+
+    <!-- TWINS — A/B taste training overlay. Click a car = it's the better one. -->
+    <div id="twins-overlay" style="display:none">
+      <div class="tw-head">
+        <span>TWINS — pick the one you like more</span>
+        <span class="tw-counter" id="tw-counter">0 / saved</span>
+        <button class="tw-close" id="tw-close">✕</button>
+      </div>
+      <div class="tw-body">
+        <div class="tw-card" id="tw-card-a">
+          <img class="tw-img" id="tw-img-a" alt="">
+          <div class="tw-meta" id="tw-meta-a">—</div>
+        </div>
+        <div class="tw-vs">VS</div>
+        <div class="tw-card" id="tw-card-b">
+          <img class="tw-img" id="tw-img-b" alt="">
+          <div class="tw-meta" id="tw-meta-b">—</div>
+        </div>
+      </div>
+      <div class="tw-foot">
+        <button class="tw-skip" id="tw-skip">SKIP (no preference)</button>
+        <button class="tw-skip" id="tw-view">VIEW LOG</button>
+        <button class="tw-skip" id="tw-export">EXPORT JSON</button>
+        <button class="tw-skip" id="tw-clear" style="background:rgba(220,80,80,0.18); color:#fcc; border-color:rgba(220,80,80,0.55)">CLEAR LOG</button>
+        <span class="tw-hint">Pairs vary in similarity: identical → very different</span>
+      </div>
+      <div id="tw-log-view" style="display:none; padding:10px 18px; max-height:40vh; overflow:auto; background:#0a0a0a; border-top:1px solid rgba(255,255,255,0.10); font-size:10px; color:#aaa; white-space:pre-wrap"></div>
+    </div>
+
+    <!-- Shatter Tune — live sliders for crash physics. Toggle with T key. -->
+    <div id="shatter-tune">
+      <div class="stt-head"><span>SHATTER TUNE</span><span class="stt-hint">[T] hide</span></div>
+      <div class="stt-row" data-key="velInherit"><label>vel inherit</label><input type="range" min="0" max="1" step="0.01"><span class="stt-v"></span></div>
+      <div class="stt-row" data-key="upBoost"><label>up boost</label><input type="range" min="0" max="15" step="0.1"><span class="stt-v"></span></div>
+      <div class="stt-row" data-key="radialKick"><label>radial kick</label><input type="range" min="0" max="8" step="0.1"><span class="stt-v"></span></div>
+      <div class="stt-row" data-key="linearDamp"><label>linear damp</label><input type="range" min="0" max="0.9" step="0.01"><span class="stt-v"></span></div>
+      <div class="stt-row" data-key="angularDamp"><label>angular damp</label><input type="range" min="0" max="0.9" step="0.01"><span class="stt-v"></span></div>
+      <div class="stt-row" data-key="angChaos"><label>tumble (rad/s)</label><input type="range" min="0" max="12" step="0.1"><span class="stt-v"></span></div>
+      <div class="stt-row" data-key="rhythmScale"><label>rhythm speed</label><input type="range" min="0.2" max="3" step="0.05"><span class="stt-v"></span></div>
+      <div class="stt-row" data-key="cooldownMs"><label>cooldown (ms)</label><input type="range" min="0" max="5000" step="100"><span class="stt-v"></span></div>
+      <button id="stt-reset">RESET DEFAULTS</button>
+    </div>
 
     <!-- Info panel — game description + keyboard controls (matches Figma) -->
     <div id="info-panel">
@@ -2222,7 +2348,9 @@ const _CITY_TARGET = 155;           // road blocks + distant background skyline
 const _CITY_LANE_W = 3.5;           // width of one driving lane
 const _CITY_ROAD_HALF = _CITY_LANE_W * 3;   // 3 lanes per side → road half ≈ 10.5 m
 const _CITY_ROAD_AHEAD = 540;       // spawn deep in fog before it is visible
-const _CITY_ROAD_BEHIND = 120;
+const _CITY_ROAD_BEHIND = 420;      // Anton 2026-05-26: 120→420 so the
+                                    // road never appears to "vanish behind"
+                                    // when player swings camera backward.
 const _CITY_ROAD_STEP = 6;
 const _CITY_LANE_OFFSETS = [-8.75, -5.25, -1.75, 1.75, 5.25, 8.75];
 const _CITY_ONCOMING_LANES = [0, 1, 2];
@@ -3131,6 +3259,10 @@ function _cityDrivePlayer(dt, now) {
   _cityNudgeLane(_cityRail, _cityRail.targetLaneIdx, dt, 22, 6.2);
 
   // Soft collision: if a car is directly ahead in this lane, bleed speed before overlap.
+  // Anton 2026-05-26: but DON'T bleed speed if the player is already going
+  // close to shatter velocity — at that point they're committing to the
+  // ram, and the auto-brake was robbing them of the crash. Above 95% of
+  // SHATTER_MS we let them collide so _checkCityShatter can fire.
   const ownRoad = _cityRoadScalar(_cityRail);
   let blockerGap = Infinity;
   for (const st of _cityTraffic) {
@@ -3138,12 +3270,31 @@ function _cityDrivePlayer(dt, now) {
     const gap = _cityRoadScalar(st) - ownRoad;
     if (gap > 0 && gap < blockerGap) blockerGap = gap;
   }
-  if (blockerGap < 11) _cityRail.speed = Math.min(_cityRail.speed, Math.max(0, (blockerGap - 4.2) * 1.8));
+  // Anton 2026-05-26 rev8: soft-collision OFF whenever player is going
+  // fast enough to "ram" — 22 m/s ≈ 80 km/h. Below that, normal traffic
+  // courtesy (you brake behind the bumper). Above that, you commit and
+  // _checkCityShatter handles the actual shatter at 300+ km/h.
+  const CITY_RAM_MS = 80 / 3.6;
+  if (blockerGap < 11 && _cityRail.speed < CITY_RAM_MS) {
+    _cityRail.speed = Math.min(_cityRail.speed, Math.max(0, (blockerGap - 4.2) * 1.8));
+  }
 
   const frame = _cityAdvanceRail(_cityRail, _cityRail.speed, dt);
   _cityApplyRailPose(player, _cityRail, frame, _cityRail.lane, 1, _cityRail.speed, _cityRail.laneVel);
   _cityPinCarVisual(player);
   _cityRail.steerVisual = _clampN((_cityLaneOffset(_cityRail.targetLaneIdx) - _cityRail.lane) * 0.16, -MAX_STEER, MAX_STEER);
+  // Anton 2026-05-26: actually rotate the front wheels visually on lane
+  // change. Chassis is kinematic so RaycastVehicle physics ignores this,
+  // but the per-frame wheel sync reads info.steering to render the front
+  // wheels turned. Scaled up so the motion is visible during the brief
+  // lane-shift window.
+  try {
+    if (player.vehicle && player.vehicle.wheelInfos) {
+      const sv = _cityRail.steerVisual * 1.8;
+      player.vehicle.wheelInfos[0].steering = sv;
+      player.vehicle.wheelInfos[1].steering = sv;
+    }
+  } catch (_) {}
   return _cityRail.steerVisual;
 }
 
@@ -3219,15 +3370,30 @@ function _cityStepTraffic(dt, now) {
     _setTailLight(st.car, !!blocker && (blocker.gap < 24 || st.speed < oldSpeed - 0.04));
     const laneDelta = _cityLaneOffset(st.targetLaneIdx) - st.lane;
     _setTurnSignalLights(st.car, Math.abs(laneDelta) > 0.45 ? Math.sign(laneDelta) : 0, now);
+    // Anton 2026-05-26: visible front-wheel turn on lane shifts. Scaled
+    // 0.30 so a full-lane shift (~3m) renders ~17° of wheel turn.
+    try {
+      if (st.car.vehicle && st.car.vehicle.wheelInfos) {
+        const sv = _clampN(laneDelta * 0.30, -MAX_STEER, MAX_STEER);
+        st.car.vehicle.wheelInfos[0].steering = sv;
+        st.car.vehicle.wheelInfos[1].steering = sv;
+      }
+    } catch (_) {}
     const frame = _cityAdvanceRail(st, dir * st.speed, dt);
     _cityApplyRailPose(st.car, st, frame, st.lane, dir, st.speed, st.laneVel);
     _cityPinCarVisual(st.car);
 
     const roadDelta = _cityRoadScalar(st) - _cityRoadScalar(_cityRail);
     if (_trafficMode) {
-      // Tight cycle matched to 80m visible window. Wrap at edges.
-      if (roadDelta < -35 || roadDelta > 60) {
-        const targetAlong = roadDelta > 0 ? -30 - Math.random() * 8 : 55 + Math.random() * 8;
+      // Anton 2026-05-26 rev15: wider cycle window so traffic stays visible
+      // longer + new cars enter from far horizon. Was [-35, +60] (95m
+      // window) → player overtaking everything saw an empty road. Now
+      // [-90, +160] (250m), so as player passes cars they wrap to +130-160
+      // (deep ahead) and emerge from fog naturally.
+      if (roadDelta < -90 || roadDelta > 160) {
+        const targetAlong = roadDelta > 0
+          ? (-80 - Math.random() * 15)   // wrap behind to deep tail
+          : (130 + Math.random() * 30);  // wrap ahead into fog
         _cityPlaceRailState(st, st.targetLaneIdx, targetAlong);
         st.speed = 0.3 + Math.random() * 0.8;
         st._jamUntil = 0;
@@ -3456,6 +3622,13 @@ function enterTrafficMode() {
     if (car.group) car.group.visible = true;
     if (car.wheels) for (const w of car.wheels) w.visible = true;
     if (car.badge) for (const m of _badgeMeshes(car.badge)) m.visible = true;
+    // Anton 2026-05-26: traffic mode = full car (headlights, mirrors, turn
+    // signals all visible — the scene is meant to read as real street
+    // traffic, not a derby fleet). Restore anything _derbyParkSetup hid
+    // for FPS. The flag stays so exitTrafficMode can re-hide on return.
+    if (car.group) car.group.traverse(o => {
+      if (o.isMesh && o.userData && o.userData._parkedHidden) o.visible = true;
+    });
     _citySetRailBody(car, true);
     // If this car wasn't already in _cityTraffic, add a fresh state for it
     if (!_cityTraffic.some(t => t.car === car)) {
@@ -3471,19 +3644,32 @@ function enterTrafficMode() {
     }
   }
 
-  // ── DENSE PRE-POPULATION — bumper-to-bumper jam ─────────────────────
-  // 60 cars / 6 lanes = 10 per lane. Pack into 80m visible window with
-  // ~8m per slot → real-world jam spacing (car ~4m + gap ~4m).
-  const PACK_BACK = 30, PACK_FRONT = 50;       // 80m visible window
+  // ── CHAOTIC PRE-POPULATION — random scatter, no horizontal rows ─────
+  // Anton 2026-05-26: the previous code used i % lanes + i/lanes which
+  // laid cars into a clean grid that read as artificial. Now we deal
+  // each car into a RANDOM lane and a RANDOM alongPos inside a 100m
+  // window, then nudge if too close to a neighbour in the same lane.
+  // Density is preserved (~10 per lane) but the arrangement is organic.
+  const PACK_BACK = 35, PACK_FRONT = 60;       // 95m visible window
   const lanesCount = _CITY_LANE_OFFSETS.length;
+  // Track placements so we can space-check within a lane.
+  const placed = _CITY_LANE_OFFSETS.map(() => []);  // alongPos lists per lane
+  const MIN_GAP = 5.5;   // metres of clearance between bumpers in same lane
   for (let i = 0; i < _cityTraffic.length; i++) {
     const st = _cityTraffic[i];
-    const laneIdx = i % lanesCount;
+    // Spin until we find a (lane, alongPos) that's clear, max 18 tries.
+    let laneIdx = 0, alongPos = 0;
+    for (let tries = 0; tries < 18; tries++) {
+      laneIdx = Math.floor(Math.random() * lanesCount);
+      alongPos = -PACK_BACK + (PACK_BACK + PACK_FRONT) * Math.random();
+      let clear = true;
+      for (const ap of placed[laneIdx]) {
+        if (Math.abs(ap - alongPos) < MIN_GAP) { clear = false; break; }
+      }
+      if (clear) break;
+    }
+    placed[laneIdx].push(alongPos);
     const dir = _cityLaneDir(laneIdx);
-    const slot = Math.floor(i / lanesCount);
-    const slotsPerLane = Math.max(8, Math.ceil(_cityTraffic.length / lanesCount));
-    const t = slot / Math.max(1, slotsPerLane - 1);
-    const alongPos = -PACK_BACK + (PACK_BACK + PACK_FRONT) * t + (Math.random() - 0.5) * 2;
     _cityPlaceRailState(st, laneIdx, alongPos);
     st.cruiseSpeed = 11 + Math.random() * 15;
     st.speed = 0.2 + Math.random() * 1.2;
@@ -3516,6 +3702,15 @@ function exitTrafficMode() {
   const sEl = document.getElementById('ai-count-slider');
   if (sEl) sEl.value = aiCars.length;
   document.getElementById('btn-traffic')?.classList.remove('active');
+  // Anton 2026-05-26: re-apply derby-park hide on cars whose decorative
+  // meshes still carry _parkedHidden=true (we made them visible for
+  // traffic). Derby gets its perf win back.
+  for (const car of aiCars) {
+    if (!car.group) continue;
+    car.group.traverse(o => {
+      if (o.isMesh && o.userData && o.userData._parkedHidden) o.visible = false;
+    });
+  }
   // Restore badge visibility (updateBadges respects _trafficMode flag).
   updateBadges();
 }
@@ -6372,14 +6567,20 @@ function updateBadges() {
   // distracting (the game is meant to read as ordinary city traffic, not
   // a derby scoreboard). Hide all badge meshes globally while _trafficMode
   // is on; restore visibility when traffic mode is left.
+  // Anton 2026-05-26: explicit show/hide. `_trafficMode` is `var` (line
+  // 2195) → safe to reference at any time, no TDZ. We DO NOT touch the
+  // `gamePaused` `let` — that would crash boot. The constructor flow
+  // hides badges via its own _constrHidden mechanism and re-shows on
+  // close; updateBadges may briefly re-enable them during constructor
+  // but that's a harmless no-op (car.group is repositioned not hidden).
   const hideAll = _trafficMode === true;
   for (const c of allCars) {
     paintBadge(c.badge, c.level, c.level === maxLevel, c.design.bodyColor);
     updateBadgePosition(c);
-    if (c.badge) {
-      for (const m of _badgeMeshes(c.badge)) {
-        if (hideAll) m.visible = false;
-      }
+    if (!c.badge) continue;
+    if (c._shattered) continue;       // group hidden anyway during shatter
+    for (const m of _badgeMeshes(c.badge)) {
+      m.visible = !hideAll;
     }
   }
 }
@@ -6519,9 +6720,12 @@ function _derbyPlaceParked(car, st, spot) {
   if (car.group) car.group.traverse(o => { if (o.isMesh) o.castShadow = false; });
   if (car.wheels) for (const w of car.wheels) w.traverse(o => { if (o.isMesh) o.castShadow = false; });
   // Anton 2026-05-25 v3: HIDE decorative meshes on parked cars. Headlights,
-  // taillights, turn-signals, mirrors, badges — invisible from typical
-  // derby camera distance anyway, but each one is a draw call. Saves
-  // hundreds of draws per frame across 42 parked cars. Restored on wake.
+  // taillights, turn-signals, mirrors — invisible from typical derby
+  // camera distance anyway, but each one is a draw call. Saves hundreds
+  // of draws per frame across 42 parked cars. Restored on wake.
+  // Anton 2026-05-26: BADGES stay visible on parked derby cars — the
+  // player wants to see level numbers above every bot. Traffic mode
+  // hides them separately via updateBadges/_trafficMode.
   if (car.group) car.group.traverse(o => {
     if (!o.isMesh) return;
     const kind = o.userData && o.userData._partKind;
@@ -6530,11 +6734,6 @@ function _derbyPlaceParked(car, st, spot) {
       o.visible = false;
     }
   });
-  if (car.badge && car.badge.meshes) {
-    for (const m of car.badge.meshes) {
-      if (m) { m.userData._parkedHidden = true; m.visible = false; }
-    }
-  }
 }
 function _derbyWakeParked(st, now) {
   if (!st) return;
@@ -7665,6 +7864,8 @@ function cgTick() {
 
 // ── DAMAGE / RESPAWN ──────────────────────────────────────────────────────
 function respawnCarTo(car) {
+  // Anton 2026-05-26 rev22: respawn always exits ghost state (resurrects).
+  if (car && car._ghostMode) try { _exitGhost(car); } catch (_) {}
   if (_cityMode) {
     if (car === player) {
       _cityRail.speed = 0;
@@ -7716,9 +7917,15 @@ function damage(victim, attacker) {
   if (victim === attacker) return;
   if (_cityHandleDamage(victim, attacker)) return;
   applyTierMaybeMorph(attacker, attacker.level + 1);
-  if (victim.level <= 1) {
+  // Anton 2026-05-26 rev22: instead of respawning at L1, becoming the
+  // "soul without a body" — ghost mode (level 0, just wheels rolling).
+  // Hit again while ghost → finally respawn fresh at L1.
+  if (victim._ghostMode) {
+    _exitGhost(victim);
     respawnCarTo(victim);
     Synth.respawn();
+  } else if (victim.level <= 1) {
+    _enterGhost(victim);
   } else {
     applyTierMaybeMorph(victim, victim.level - 1);
   }
@@ -8142,24 +8349,90 @@ function _worldFromCarGroup(mesh, car) {
 // through the "passed through obstacle" arc, and snap into formation just
 // as the car re-emerges still in motion. The body fragment carries its
 // remaining velocity into the chassis — no dead-stop on asphalt.
-const SHATTER_REASSEMBLE_MS      = 0;       // 0 wait — drones start immediately
-const SHATTER_REASSEMBLE_ANIM_MS = 1200;    // per-part lerp duration
+// Anton 2026-05-26 rev6: RHYTHM reassembly.
+// Body shatters → flies + slides. CABIN docks first while body still
+// moves. Then wheels arrive one-by-one with chassis WOBBLE (small angular
+// pulse) on each impact — wheel, [pause], wheel, [pause], bam-bam two
+// wheels, then trim in tight succession. The schedule is fixed by time
+// since shatter so the rhythm reads as deliberate, not random.
+const SHATTER_REASSEMBLE_ANIM_MS = 400;      // per-part lerp duration (shorter for snap)
 const SHATTER_WRECKAGE_TTL_MS    = 30000;
-// Anton 2026-05-26 rev5: stagger tripled — parts spread out 3× more so the
-// formation reads as deliberate one-by-one docking instead of bulk swarm.
-const SHATTER_REASSEMBLE_DELAY = {
-  cabin:     300,
-  fender:    900,
-  headlight: 1500,
-  taillight: 1500,
-  mirror:    2100,
-  turnsignal:2100,
+
+// Anton 2026-05-26 rev11: live-tunable shatter physics. UI sliders in
+// "Shatter Tune" panel mutate these in real time, persisted to
+// localStorage. shatterCar reads from here on every event.
+let _SHATTER_CFG = {
+  velInherit:  0.35,    // 0-1, fraction of pre-impact velocity body keeps
+  upBoost:     5.5,     // m/s, guaranteed straight-up launch
+  radialKick:  1.8,     // m/s base horizontal blast (+ baseSpeed * 0.03)
+  linearDamp:  0.30,    // body linear damping
+  angularDamp: 0.45,    // body angular damping
+  angChaos:    3.0,     // rad/s peak random tumble
+  rhythmScale: 1.0,     // multiplier on rhythm event times
+  cooldownMs:  1500,    // ms between consecutive shatters
 };
-// Total reassembly: max delay 2100 + 1200 anim = 3300ms ≈ 3.3s of swarm
+try {
+  const _s = JSON.parse(localStorage.getItem('shatterCfg-v1') || 'null');
+  if (_s) Object.assign(_SHATTER_CFG, _s);
+} catch (_) {}
 const _wreckage = [];   // each: { debris: [...], despawnAt }
+
+// Returns a list of timed events for this car's reassembly. Each event:
+//   { t: ms-since-shatter, action: 'dockPart'|'showWheel'|'finalize',
+//     target: debrisRef|wheelIndex|null, fired: false }
+function _buildRhythmQueue(car) {
+  const debris = car._debris || [];
+  const byKind = (k) => debris.filter(d => d.kind === k);
+  const cabin       = byKind('cabin');
+  const fenders     = byKind('fender');
+  const headlights  = byKind('headlight');
+  const taillights  = byKind('taillight');
+  const mirrors     = byKind('mirror');
+  const turnsignals = byKind('turnsignal');
+  const wheelCount  = (car.wheels || []).length;
+  // Anton 2026-05-26 rev11: scale all rhythm times by _SHATTER_CFG.rhythmScale.
+  const k = _SHATTER_CFG.rhythmScale || 1.0;
+  const T = (ms) => Math.round(ms * k);
+
+  const q = [];
+  // Anton 2026-05-26 rev20: cabin docks FIRST, plus the dockPart action
+  // pre-snaps cabin to a position ABOVE the body so the lerp reads as
+  // "cabin drops onto body" rather than "cabin glides across the air".
+  // Other parts (fenders / lights / mirrors) wait until cabin is in
+  // place, then arrive in their rhythm.
+  for (const d of cabin) {
+    d._cabinSnapAbove = true;     // arming handler reads this
+    q.push({ t: T(0), action: 'dockPart', target: d });
+  }
+  // Wheel rhythm — pushed back so cabin (t=0…600ms) lands first.
+  const wheelTimes = [900, 1500, 2100, 2200];
+  for (let i = 0; i < wheelCount; i++) {
+    q.push({ t: T(wheelTimes[Math.min(i, wheelTimes.length - 1)]),
+             action: 'showWheel', target: i });
+  }
+  fenders.forEach((d, i) => q.push({ t: T(2500 + i * 120), action: 'dockPart', target: d }));
+  headlights.forEach(d => q.push({ t: T(2900), action: 'dockPart', target: d }));
+  taillights.forEach(d => q.push({ t: T(3100), action: 'dockPart', target: d }));
+  mirrors.forEach((d, i) => q.push({ t: T(3350 + i * 70), action: 'dockPart', target: d }));
+  turnsignals.forEach(d => q.push({ t: T(3650), action: 'dockPart', target: d }));
+  q.push({ t: T(4300), action: 'finalize', target: null });
+  return q;
+}
+
+// Anton 2026-05-26 rev10: removed _wobbleBody — it was kicking the landed
+// body's angular + linear Y velocity on every part-attach event, so the
+// car bounced and rolled artificially "as if a child playing with it".
+// Body now lands → stays still → parts arrive cleanly. We keep the
+// function as a no-op so existing call sites don't ReferenceError.
+function _wobbleBody(_car, _strength) { /* no-op */ }
 
 function shatterCar(car, hitPoint, hitDirUnit, mode) {
   if (!car || car._shattered) return;
+  // Anton 2026-05-26: cooldown — block re-shatter for 1.5s after finalize.
+  if (car._shatterCooldownUntil && performance.now() < car._shatterCooldownUntil) return;
+  // Anton 2026-05-26 rev21: ghost-mode (B pressed, only wheels visible)
+  // disables shatter for the player. Touch = brain swap instead.
+  if (car === player && _brainActive) return;
   mode = mode || 'player';
   car._shattered = true;
   car._shatterMode = mode;
@@ -8181,6 +8454,12 @@ function shatterCar(car, hitPoint, hitDirUnit, mode) {
       parts.push(child);
     }
   }
+  // Anton 2026-05-26 rev9: ONE consistent crash profile — every shatter
+  // gives the body a visible up-and-over hop, ~20-30m flight, all parts
+  // stay in frame, then rhythm reassembly AFTER the body has landed on
+  // the asphalt. No more "stays put" or "flies forever" extremes.
+  car._dramaticShatter = false;   // kept for back-compat; always tame now
+  car._landedAt = null;            // set when body fragment first touches ground
 
   for (const mesh of parts) {
     if (mesh.geometry && !mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
@@ -8209,10 +8488,11 @@ function shatterCar(car, hitPoint, hitDirUnit, mode) {
       // Body fragment must NEVER sleep — it's the anchor the camera tracks
       // and the swarm of parts will catch up to. Other parts may sleep.
       allowSleep: !isBody,
-      // Anton 2026-05-26: minimal damping on body (it flies forward through
-      // arena like before); a little more on trim so they don't look dust.
-      linearDamping:  isBody ? 0.02 : 0.18,
-      angularDamping: isBody ? 0.05 : 0.22,
+      // Anton 2026-05-26 rev11: read from live-tunable _SHATTER_CFG so
+      // sliders in the "Shatter Tune" panel adjust feel in real time.
+      // Trim parts always damp ~0.1 more than body so they settle faster.
+      linearDamping:  isBody ? _SHATTER_CFG.linearDamp  : _SHATTER_CFG.linearDamp  + 0.10,
+      angularDamping: isBody ? _SHATTER_CFG.angularDamp : _SHATTER_CFG.angularDamp + 0.10,
     });
     body.position.set(wp.x, wp.y, wp.z);
     body.quaternion.set(wq.x, wq.y, wq.z, wq.w);
@@ -8230,28 +8510,45 @@ function shatterCar(car, hitPoint, hitDirUnit, mode) {
     const ry = wp.y - hitPoint.y;
     const rz = wp.z - hitPoint.z;
     const rL = Math.max(0.4, Math.hypot(rx, ry, rz));
-    // Anton 2026-05-26 rev5: trim parts now share the SAME launch arc as
-    // the body — full velocity inheritance (1.0) + matched upward bias.
-    // Previously trim inherited only 0.75 with upBias 0.06 → they fell
-    // behind and below the soaring body, forming a conical trail behind
-    // the car that read as a smoke plume from bird's-eye. Now all parts
-    // travel together in a tight flock; the staggered reassembly is what
-    // creates visual interest, not a position offset.
-    const upBias     = isBody ? 0.40 : 0.32;
-    const velInherit = 1.0;
-    const blastSpeed = isBody
-      ? (5 + Math.random() * 3   + baseSpeed * 0.15)
-      : (0.8 + Math.random() * 0.6 + baseSpeed * 0.02);   // tiny radial pop only
-    const nx = rx / rL, ny = ry / rL + upBias, nz = rz / rL;
-    const nL2 = Math.hypot(nx, ny, nz);
-    body.velocity.set(
-      baseV.x * velInherit + (nx / nL2) * blastSpeed,
-      baseV.y * velInherit + (ny / nL2) * blastSpeed,
-      baseV.z * velInherit + (nz / nL2) * blastSpeed
-    );
-    // Body tumbles for cinematic interest (now that it's actually flying);
-    // trim still calm so the swarm reads as formation, not chaos.
-    const angChaos = isBody ? 6 : 2;
+    // Anton 2026-05-26 rev9: ONE consistent profile.
+    //   • velInherit 0.35 — body keeps ~1/3 of pre-impact speed (most
+    //     kinetic dissipated). At 80 m/s impact → 28 m/s initial → with
+    //     0.30 damping flight is ~20m + ~5m slide.
+    //   • upBoost = guaranteed Y velocity bump (always lifts off ground,
+    //     so body NEVER wedges into the AI car it hit).
+    //   • Pure-horizontal radial blast for tumble direction; no upBias
+    //     diluting the radial vector.
+    // Anton 2026-05-26 rev12: trim parts fly TOGETHER with body, slightly
+    // wider sideways spread. Body uses radial-from-impact direction; trim
+    // uses perpendicular-to-velocity sideways spread + same forward
+    // inherit + same upBoost so they share the same arc and land near
+    // body, not behind it.
+    const velInherit = _SHATTER_CFG.velInherit;
+    const upBoost    = isBody ? _SHATTER_CFG.upBoost : _SHATTER_CFG.upBoost * 0.92;
+    if (isBody) {
+      const radialKick = _SHATTER_CFG.radialKick + Math.random() * 1.2 + baseSpeed * 0.03;
+      const rhL = Math.max(0.4, Math.hypot(rx, rz));
+      const nx = rx / rhL, nz = rz / rhL;
+      body.velocity.set(
+        baseV.x * velInherit + nx * radialKick,
+        Math.max(baseV.y * 0.3, 0) + upBoost,
+        baseV.z * velInherit + nz * radialKick
+      );
+    } else {
+      // Perpendicular to velocity for sideways spread.
+      const bvLen = Math.max(0.1, Math.hypot(baseV.x, baseV.z));
+      const perpX = -baseV.z / bvLen;
+      const perpZ =  baseV.x / bvLen;
+      const sideSign = (Math.random() < 0.5 ? -1 : 1);
+      const lateral  = 1.2 + Math.random() * 1.8;
+      body.velocity.set(
+        baseV.x * velInherit + perpX * sideSign * lateral,
+        Math.max(baseV.y * 0.3, 0) + upBoost,
+        baseV.z * velInherit + perpZ * sideSign * lateral
+      );
+    }
+    // Tumble — random per axis. Trim spins half as much as body.
+    const angChaos = isBody ? _SHATTER_CFG.angChaos : _SHATTER_CFG.angChaos * 0.5;
     body.angularVelocity.set(
       (Math.random() - 0.5) * angChaos,
       (Math.random() - 0.5) * angChaos,
@@ -8321,6 +8618,38 @@ function shatterCar(car, hitPoint, hitDirUnit, mode) {
   car.chassis.collisionFilterMask  = 0;
   car.chassis.velocity.set(0, 0, 0);
   car.chassis.angularVelocity.set(0, 0, 0);
+  // Anton 2026-05-26 rev12: detach RaycastVehicle from world. Otherwise
+  // the wheels keep raycasting downward → ray hits the body fragment
+  // beneath chassis → suspension forces push the body upward = the
+  // "invisible hand" that bumped the landed body. Re-added on finalize.
+  try {
+    if (car.vehicle && typeof car.vehicle.removeFromWorld === 'function') {
+      car.vehicle.removeFromWorld(world);
+      car._vehicleDetached = true;
+    }
+  } catch (_) {}
+  // Anton 2026-05-26: in city/traffic the chassis is normally rail-locked
+  // (visual pinned by _cityPinCarVisual every frame). That would fight the
+  // body-fragment camera tracking. Release the rail lock for the duration
+  // of the shatter; finalize will respawn the car back onto the rail.
+  if (_cityMode && car._cityRailLocked) {
+    car._cityWasRailLocked = true;
+    car._cityRailLocked = false;
+  }
+  // Anton 2026-05-26 rev10: FREEZE rail speed RIGHT NOW so the road
+  // doesn't keep advancing under us during the 5-6s shatter window. The
+  // segIdx/along stay locked at the crash position → finalize re-rails
+  // the player exactly where the crash happened. Without this, rail
+  // advanced at 80 m/s × 5s = 400m and the player re-spawned that far
+  // forward with a freshly-streamed city around them ("level restarted").
+  if (_cityMode && _cityRail) {
+    car._cityPreShatterRailSpeed = _cityRail.speed;
+    _cityRail.speed = 0;
+  }
+  // Build the per-event rhythm queue (cabin → wheels → trim → finalize).
+  car._reassembleBodyFrag = car._debris.find(d => d.kind === 'body') || car._debris[0];
+  car._rhythmQueue = _buildRhythmQueue(car);
+  car._reassembleStartAt = car._shatteredAt;
 }
 
 // ── Auto-reassembly (player only) + wreckage TTL (AI) ────────────────────
@@ -8342,86 +8671,269 @@ function tickWreckageAndReassembly(now) {
     }
   }
 
-  // 2. Player self-reassembly — staggered wave that chases the moving body
-  //    fragment. Cabin returns first, fenders next, then lights, then trim.
-  //    The body chunk keeps tumbling forward (DYNAMIC throughout) until the
-  //    final part arrives and the whole car snaps together at its location.
+  // 2. Player rhythm reassembly — fire scheduled events from _rhythmQueue,
+  //    and per-frame lerp any parts that have been armed by a 'dockPart'.
   for (const car of allCars) {
     if (!car._shattered || car._shatterMode !== 'player') continue;
+    const bodyFrag = car._reassembleBodyFrag;
+    if (!bodyFrag) { clearDebris(car); continue; }
     const age = now - car._shatteredAt;
 
-    if (age >= SHATTER_REASSEMBLE_MS && !car._reassembling) {
-      // Begin reassembly bookkeeping. Body fragment + all trim parts stay
-      // DYNAMIC for now — they keep flying together (all share velInherit
-      // = 1.0). Each trim part will switch to kinematic-lerp at the FIRST
-      // frame past its per-kind delay, capturing its position at that
-      // moment as the lerp start. This way late parts don't have to
-      // sprint across the arena — they start the dock from wherever the
-      // physics has carried them.
-      const bodyFrag = car._debris.find(d => d.kind === 'body');
-      if (!bodyFrag) { clearDebris(car); continue; }
-      car._reassembling = true;
-      car._reassembleStartAt = now;
-      car._reassembleBodyFrag = bodyFrag;
-      for (const d of car._debris) {
-        if (d === bodyFrag) continue;
-        d.delay = SHATTER_REASSEMBLE_DELAY[d.kind] !== undefined
-          ? SHATTER_REASSEMBLE_DELAY[d.kind] : 0;
-        d._reassembleDone = false;
-        d._reassembleStarted = false;   // becomes true when delay elapses
+    // Anton 2026-05-26 rev9: detect first "landed" moment — body fragment
+    // Y dropped to near ground (cannon center of mass ~0.4-0.8m when
+    // resting on its bounding box). Rhythm events fire from this moment,
+    // not from shatter — so we never assemble while body is still flying.
+    // Fallback: force-land at +3500ms if body never quite settles.
+    if (!car._landedAt) {
+      if (bodyFrag.body.position.y < 1.5 || age > 3500) {
+        car._landedAt = now;
       }
-      try { Synth.respawn(); } catch (_) {}
     }
 
-    if (car._reassembling) {
-      const bodyFrag = car._reassembleBodyFrag;
-      if (!bodyFrag) { clearDebris(car); continue; }
-      // Anchor pose recomputed EVERY FRAME from the still-flying body chunk.
-      const bp = bodyFrag.body.position;
-      const bq = bodyFrag.body.quaternion;
-      _yawHelperQ.set(bq.x, bq.y, bq.z, bq.w);
-      _yawHelperEu.setFromQuaternion(_yawHelperQ, 'YXZ');
-      const anchorPos  = new THREE.Vector3(bp.x, bp.y, bp.z);
-      const anchorQuat = new THREE.Quaternion().setFromEuler(
-        new THREE.Euler(0, _yawHelperEu.y, 0, 'YXZ')
-      );
+    // Anchor pose every frame — body fragment is still DYNAMIC, may be
+    // tumbling / sliding right up to finalize. Yaw-only so the parts dock
+    // into a level frame even while the body rolls.
+    const bp = bodyFrag.body.position;
+    const bq = bodyFrag.body.quaternion;
+    _yawHelperQ.set(bq.x, bq.y, bq.z, bq.w);
+    _yawHelperEu.setFromQuaternion(_yawHelperQ, 'YXZ');
+    const anchorPos  = new THREE.Vector3(bp.x, bp.y, bp.z);
+    const anchorQuat = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(0, _yawHelperEu.y, 0, 'YXZ')
+    );
 
-      let allDone = true;
-      const elapsed = now - car._reassembleStartAt;
-      for (const d of car._debris) {
-        if (d === bodyFrag) continue;
-        if (d._reassembleDone) continue;
-        const localElapsed = elapsed - (d.delay || 0);
-        if (localElapsed <= 0) { allDone = false; continue; }
-        // FIRST frame past delay — capture current pose, freeze to kinematic.
-        // The part has been flying with the body for `delay` ms; now it
-        // starts the dock manoeuvre from wherever it currently is.
-        if (!d._reassembleStarted) {
-          d._reassembleStarted = true;
-          d._lerpStartAt = now;
-          d.startPos  = new THREE.Vector3().copy(d.body.position);
-          d.startQuat = new THREE.Quaternion(d.body.quaternion.x, d.body.quaternion.y, d.body.quaternion.z, d.body.quaternion.w);
-          d.body.type = CANNON.Body.KINEMATIC;
-          d.body.velocity.set(0, 0, 0);
-          d.body.angularVelocity.set(0, 0, 0);
-          d.body.collisionFilterMask = 0;
+    // (a) Fire any rhythm events whose time has come.
+    //     Anton 2026-05-26 rev9: event timer measured from LANDED moment,
+    //     not from shatter, so the wave-of-parts only starts once the
+    //     body is on the ground. If we haven't landed yet, no events.
+    if (!car._landedAt) continue;
+    const sinceLanded = now - car._landedAt;
+    const q = car._rhythmQueue || [];
+    let finalizeRequested = false;
+    for (const ev of q) {
+      if (ev.fired) continue;
+      if (sinceLanded < ev.t) continue;
+      ev.fired = true;
+      if (ev.action === 'dockPart' && ev.target) {
+        // Arm this part: capture current pose, switch to kinematic, will
+        // be lerped per-frame below until t=1.
+        const d = ev.target;
+        d._lerpStartAt = now;
+        // Anton 2026-05-26: cabin SNAPS to a position ABOVE the body
+        // before its lerp begins → reads as "cabin dropping onto chassis"
+        // instead of "cabin gliding through air from wherever it sat".
+        if (d._cabinSnapAbove && bodyFrag && bodyFrag.body) {
+          const bp = bodyFrag.body.position;
+          d.body.position.set(bp.x, bp.y + 4.0, bp.z);
         }
-        const t = Math.min(1, (now - d._lerpStartAt) / SHATTER_REASSEMBLE_ANIM_MS);
-        // Ease-in-out cubic — drone formation feel
-        const e = t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
-        const target = d.localPos.clone().applyQuaternion(anchorQuat).add(anchorPos);
-        const newPos = d.startPos.clone().lerp(target, e);
-        d.body.position.set(newPos.x, newPos.y, newPos.z);
-        d.mesh.position.copy(newPos);
-        const targetQ = anchorQuat.clone().multiply(d.localQuat);
-        const newQ = d.startQuat.clone().slerp(targetQ, e);
-        d.body.quaternion.set(newQ.x, newQ.y, newQ.z, newQ.w);
-        d.mesh.quaternion.copy(newQ);
-        if (t >= 1) d._reassembleDone = true;
-        else allDone = false;
+        d.startPos  = new THREE.Vector3().copy(d.body.position);
+        d.startQuat = new THREE.Quaternion(d.body.quaternion.x, d.body.quaternion.y, d.body.quaternion.z, d.body.quaternion.w);
+        try { d.body.type = CANNON.Body.KINEMATIC; } catch (_) {}
+        d.body.velocity.set(0, 0, 0);
+        d.body.angularVelocity.set(0, 0, 0);
+        d.body.collisionFilterMask = 0;
+        d._armed = true;
+      } else if (ev.action === 'showWheel' && typeof ev.target === 'number') {
+        const w = car.wheels && car.wheels[ev.target];
+        if (w) {
+          w.visible = true;
+          _wobbleBody(car, 1.0);                    // "thud" pulse
+          try { Synth.hit && Synth.hit(); } catch (_) {}
+        }
+      } else if (ev.action === 'finalize') {
+        finalizeRequested = true;
       }
-      if (allDone) _finalizeReassembly(car, anchorPos, anchorQuat);
     }
+
+    // (b) Per-frame lerp every armed part toward its target slot.
+    // Anton 2026-05-26: anchorPos is the body fragment's WORLD position,
+    // but the body MESH is offset from car.group origin by bodyFrag.localPos
+    // (typically up by p.bodyLift + p.bodyHeight/2). For a part at
+    // localPos L, the world target must equal:
+    //     body_world  +  R · (L − bodyLocalPos)
+    // (so the part sits at the same chassis-relative spot it had before
+    // the shatter). Previously we used target = body_world + R·L, which
+    // double-counted the body's offset → parts docked outside the body.
+    const bodyLocalPos = bodyFrag.localPos || new THREE.Vector3();
+    for (const d of car._debris) {
+      if (!d._armed || d._reassembleDone) continue;
+      const t = Math.min(1, (now - d._lerpStartAt) / SHATTER_REASSEMBLE_ANIM_MS);
+      const e = t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+      const relLocal = d.localPos.clone().sub(bodyLocalPos);
+      const target = relLocal.applyQuaternion(anchorQuat).add(anchorPos);
+      const newPos = d.startPos.clone().lerp(target, e);
+      d.body.position.set(newPos.x, newPos.y, newPos.z);
+      d.mesh.position.copy(newPos);
+      const targetQ = anchorQuat.clone().multiply(d.localQuat);
+      const newQ = d.startQuat.clone().slerp(targetQ, e);
+      d.body.quaternion.set(newQ.x, newQ.y, newQ.z, newQ.w);
+      d.mesh.quaternion.copy(newQ);
+      if (t >= 1) {
+        d._reassembleDone = true;
+        // Tiny "click" wobble as each trim part docks. Strength scales
+        // down for small parts so it doesn't shake the car off the road.
+        const k = (d.kind === 'cabin') ? 0.6 : 0.25;
+        _wobbleBody(car, k);
+      }
+    }
+
+    // (c) Finalize once the queue says so. All armed parts will have ~250ms
+    //     slack to finish their 400ms lerp before finalize fires.
+    if (finalizeRequested) _finalizeReassembly(car, anchorPos, anchorQuat);
+  }
+}
+
+// Anton 2026-05-26 rev10: knock a city/traffic car off the rail. Switches
+// chassis to DYNAMIC, applies a sideways+up impulse so the car physically
+// tumbles off the road like a bowling pin. Removed from _cityTraffic so
+// nothing tries to re-rail it. Scheduled for destruction in 5s.
+const _cityKnockedCars = [];   // each: { car, destroyAt }
+function _cityKnockCarAside(car, st, pfwd, sideSign, relSpeed) {
+  if (!car || !car.chassis) return;
+  // Pull from _cityTraffic so its step loop stops pinning the car.
+  const idx = _cityTraffic ? _cityTraffic.indexOf(st) : -1;
+  if (idx >= 0) _cityTraffic.splice(idx, 1);
+  // Release rail lock + switch to DYNAMIC so impulse actually moves the body.
+  car._cityRailLocked = false;
+  try {
+    car.chassis.type = (car._citySavedBodyType === undefined)
+      ? CANNON.Body.DYNAMIC : car._citySavedBodyType;
+  } catch (_) {}
+  car.chassis.wakeUp && car.chassis.wakeUp();
+  // Lateral impulse from player's heading (perpendicular = sideways relative
+  // to road) + a big upward kick so the car lifts off the asphalt and
+  // tumbles. Magnitude scales with impact speed.
+  const lat = new CANNON.Vec3(-pfwd.z * sideSign, 0, pfwd.x * sideSign);
+  const mag = relSpeed * 22;
+  car.chassis.applyImpulse(
+    new CANNON.Vec3(lat.x * mag, 1100 + relSpeed * 8, lat.z * mag),
+    new CANNON.Vec3(0, 0, 0)
+  );
+  // Spin: random axis pulse so it rolls visibly off the road.
+  car.chassis.angularVelocity.set(
+    (Math.random() - 0.5) * 5,
+    (Math.random() - 0.5) * 3,
+    (Math.random() - 0.5) * 5
+  );
+  _cityKnockedCars.push({ car, destroyAt: performance.now() + 5500 });
+}
+
+// Recycle a knocked-aside car back into traffic. Instead of destroying
+// (which would shrink the pool every time you ram), we re-rail the car,
+// reset its physics, and place it at the FAR horizon ahead so the player
+// drives toward it. Pool stays at target size, traffic looks alive.
+function _cityRespawnKnockedCar(car) {
+  if (!car || !car.chassis) return;
+  car.chassis.velocity.set(0, 0, 0);
+  car.chassis.angularVelocity.set(0, 0, 0);
+  try { _citySetRailBody(car, true); } catch (_) {}
+  const lanes = _CITY_LANE_OFFSETS.length;
+  const laneIdx = Math.floor(Math.random() * lanes);
+  const dir = _cityLaneDir(laneIdx);
+  // Anton 2026-05-26 rev15: place inside the wrap window so it stays
+  // visible (was 90-150 → just outside wrap range → instantly recycled).
+  const along = dir > 0 ? 110 + Math.random() * 40 : -110 - Math.random() * 40;
+  const st = {
+    car, segIdx: _cityRail.segIdx, along: 0,
+    laneIdx, targetLaneIdx: laneIdx, lane: _cityLaneOffset(laneIdx), laneVel: 0,
+    speed: 3 + Math.random() * 4,
+    cruiseSpeed: 12 + Math.random() * 14,
+    lastShot: 0, lastEvadeAt: 0, avoidLaneIdx: null,
+    _jamCruise: 3 + Math.random() * 3, _jamUntil: 0,
+  };
+  try { _cityPlaceRailState(st, laneIdx, along); } catch (_) {}
+  _cityTraffic.push(st);
+}
+
+// Cleanup knocked-aside cars after their TTL. Called once per frame from
+// the main loop right after _checkCityShatter.
+function _cityCullKnocked(now) {
+  for (let i = _cityKnockedCars.length - 1; i >= 0; i--) {
+    const k = _cityKnockedCars[i];
+    if (now < k.destroyAt) continue;
+    if (_cityMode && _trafficMode) {
+      // Anton 2026-05-26 rev11: RECYCLE instead of destroy — traffic pool
+      // was shrinking with every ram. Now the car gets teleported to the
+      // far horizon ahead of the player and rejoins the flow.
+      _cityRespawnKnockedCar(k.car);
+    } else {
+      const idx = aiCars.indexOf(k.car);
+      if (idx >= 0) try { _destroyAiCarByIndex(idx); } catch (_) {}
+    }
+    _cityKnockedCars.splice(i, 1);
+  }
+}
+
+// Anton 2026-05-26: city/traffic crash detector. In city mode all chassis
+// are CANNON kinematic (rail-locked), and kinematic-vs-kinematic does NOT
+// emit cannon collide events. So we do our own per-frame proximity scan:
+// when the player is within ~5m of a traffic car AND their rail-velocities
+// differ by > SHATTER_MS (300 km/h), shatter both. Derby mode falls back
+// to the normal cannon collide listener.
+function _checkCityShatter(now) {
+  if (!_cityMode) return;
+  if (!player || !player.chassis || player._shattered) return;
+  if (!_cityTraffic || !_cityTraffic.length) return;
+  const pp = player.chassis.position;
+  // Player's effective forward velocity = rail speed × chassis fwd
+  const pSpeed = (_cityRail && _cityRail.speed) || 0;
+  if (pSpeed < 30) return;        // not fast enough to ever shatter
+  const pq = player.chassis.quaternion;
+  const _fL = new CANNON.Vec3(1, 0, 0);
+  const pfwd = new CANNON.Vec3(); pq.vmult(_fL, pfwd);
+  const pvx = pfwd.x * pSpeed, pvz = pfwd.z * pSpeed;
+  for (const st of _cityTraffic) {
+    const c = st.car;
+    if (!c || c === player || c._shattered) continue;
+    if (!c.chassis) continue;
+    const cp = c.chassis.position;
+    const dx = cp.x - pp.x, dy = cp.y - pp.y, dz = cp.z - pp.z;
+    const dist = Math.hypot(dx, dy, dz);
+    if (dist > 6) continue;
+    const cSpeed = st.speed || 0;
+    const cq = c.chassis.quaternion;
+    const cfwd = new CANNON.Vec3(); cq.vmult(_fL, cfwd);
+    const cvx = cfwd.x * cSpeed, cvz = cfwd.z * cSpeed;
+    const rvx = pvx - cvx, rvz = pvz - cvz;
+    const rel = Math.hypot(rvx, rvz);
+    // Anton 2026-05-26 rev13: closing-speed gate — only count proximity
+    // as a real collision if the cars are APPROACHING each other along
+    // the line between them. Two oncoming cars in different lanes have
+    // high rel speed but separate quickly → don't trigger shatter. This
+    // kills the "spontaneous shatter in empty space" feel.
+    const distXZ = Math.max(0.1, Math.hypot(dx, dz));
+    const closing = -(rvx * (dx / distXZ) + rvz * (dz / distXZ));   // + if approaching
+    if (closing < SHATTER_MS * 0.5) continue;     // separating or skimming — skip
+    // Anton 2026-05-26 rev10: at 80-300 km/h relative, REAL PHYSICS PUSH.
+    // Unrail the AI car, switch it DYNAMIC, slap a sideways+up impulse
+    // proportional to the impact speed. Car tumbles off the road like
+    // a bowling pin. Removed from _cityTraffic so the rail loop stops
+    // pinning it; scheduled for destroy in 5s so the wreck doesn't
+    // pile up. Real shatter still requires ≥ SHATTER_MS.
+    // Anton 2026-05-26 rev14: NO SHATTER in city mode. Player just rams
+    // through traffic at any speed → AI cars knocked off rail like
+    // bowling pins. The shatter cinematic stays a derby-only feature.
+    const CITY_RAM_MS = 80 / 3.6;
+    if (rel >= CITY_RAM_MS) {
+      const sideX = -pfwd.z, sideZ = pfwd.x;
+      const sideSign = (dx * sideX + dz * sideZ) >= 0 ? 1 : -1;
+      _cityKnockCarAside(c, st, pfwd, sideSign, rel);
+      try { Synth.hit && Synth.hit(); } catch (_) {}
+    }
+    continue;   // never shatter in city
+    // Stage pre-step velocities so shatterCar can read them as baseV.
+    if (!player._preStepFullVel) player._preStepFullVel = new CANNON.Vec3();
+    player._preStepFullVel.set(pvx, 0, pvz);
+    if (!c._preStepFullVel) c._preStepFullVel = new CANNON.Vec3();
+    c._preStepFullVel.set(cvx, 0, cvz);
+    const hitPoint = new THREE.Vector3(
+      (pp.x + cp.x) / 2, Math.max(pp.y, cp.y) + 0.5, (pp.z + cp.z) / 2
+    );
+    const hitDir = new THREE.Vector3(rvx, 0, rvz).normalize();
+    shatterCar(player, hitPoint, hitDir,                          'player');
+    shatterCar(c,      hitPoint, hitDir.clone().multiplyScalar(-1), 'ai');
+    try { Synth.hit && Synth.hit(); } catch (_) {}
+    return;   // one crash per frame
   }
 }
 
@@ -8442,44 +8954,49 @@ function _finalizeReassembly(car, anchorPos, anchorQuat) {
   car.chassis.type = (car._preShatterType !== undefined) ? car._preShatterType : CANNON.Body.DYNAMIC;
   car.chassis.collisionFilterGroup = (car._preShatterGroup !== undefined) ? car._preShatterGroup : 1;
   car.chassis.collisionFilterMask  = (car._preShatterMask  !== undefined) ? car._preShatterMask  : -1;
-  // 3. Compute final velocity from body fragment's current state.
-  const cap = SHATTER_MS * 0.75;   // ~375 km/h ceiling — "slightly slower"
-  let vx = 0, vy = 0, vz = 0;
-  if (fv) {
-    vx = fv.x; vy = Math.min(fv.y, 6); vz = fv.z;
-  } else if (car._preShatterVelocity) {
-    vx = car._preShatterVelocity.x; vz = car._preShatterVelocity.z;
+  // 3. Anton 2026-05-26 rev13: CONTINUE motion in pre-impact direction.
+  //    The car was flying north → reassembles → keeps rolling north.
+  //    No "ski-jump landing" snap, no kinematic-pin direction. Just
+  //    pre-shatter heading at a modest speed (~12 m/s = 43 km/h) so the
+  //    car visibly keeps moving forward, no dead stop, no transition.
+  const pv = car._preShatterVelocity;
+  let vx = 0, vz = 0, finalYaw = _yawHelperEu.y;
+  if (pv) {
+    const pvLen = Math.hypot(pv.x, pv.z);
+    if (pvLen > 0.5) {
+      const rollSpeed = 12;   // m/s — continued forward roll
+      vx = (pv.x / pvLen) * rollSpeed;
+      vz = (pv.z / pvLen) * rollSpeed;
+      finalYaw = Math.atan2(-pv.z, pv.x);
+    }
   }
-  const vlen = Math.hypot(vx, vz);
-  if (vlen > cap && vlen > 0) {
-    const s = cap / vlen;
-    vx *= s; vz *= s;
-  }
-  // 4. Anton 2026-05-26: orient the reassembled chassis to FACE the
-  //    velocity vector — like a ski jumper landing forward into the slope.
-  //    Otherwise we'd inherit the body fragment's tumbled yaw, and the
-  //    car could land sideways or backwards even though it's moving fwd.
-  //    Forward axis of the raycast vehicle is local +X
-  //    (indexForwardAxis: 0), and Three uses right-handed Y-up, so the
-  //    yaw that maps local +X to world (vx,_,vz) is atan2(-vz, vx).
-  let finalQuat = anchorQuat;
-  if (vlen > 1.0) {
-    const yaw = Math.atan2(-vz, vx);
-    finalQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, yaw, 0, 'YXZ'));
-  }
-  // 5. Position chassis at body's location (lifted to safe ride height).
-  //    Anton 2026-05-26: silently wrap XZ back into the arena modulo since
-  //    the pacman wrap was skipped during shatter — the body fragment may
-  //    have flown well past the edge. Loop because body could be many tile
-  //    widths out (e.g. 300m forward when A=109).
-  let _fx = anchorPos.x, _fz = anchorPos.z;
+  // 4. Final quaternion = pre-impact heading. Keeps the car pointed the
+  //    way it was going before the crash, regardless of how the body
+  //    fragment tumbled. This is the "as if we flew through the obstacle"
+  //    illusion the user wants — same direction in/out.
+  const finalQuat = new THREE.Quaternion().setFromEuler(
+    new THREE.Euler(0, finalYaw, 0, 'YXZ')
+  );
+  // 5. Position chassis at body's exact spot — NO "drop from sky" lift.
+  //    Anton 2026-05-26 rev12: previous Math.max(..., 2.0) lifted the
+  //    chassis 2m above ground regardless, then physics dropped it →
+  //    "respawn from above" transition. User wants the car to continue
+  //    from wherever the body fragment ended, even if briefly inside the
+  //    asphalt; suspension straightens it out within a frame or two.
+  //    Floor at 0.5 (chassis CoM is ~ride height) so we don't tunnel
+  //    through the ground if body somehow landed below sea-level.
+  const _bodyLocal = (bodyFrag && bodyFrag.localPos) || new THREE.Vector3();
+  const _bodyOff = _bodyLocal.clone().applyQuaternion(finalQuat);
+  let _fx = anchorPos.x - _bodyOff.x;
+  let _fz = anchorPos.z - _bodyOff.z;
   while (_fx >  A) _fx -= 2 * A;
   while (_fx < -A) _fx += 2 * A;
   while (_fz >  A) _fz -= 2 * A;
   while (_fz < -A) _fz += 2 * A;
-  car.chassis.position.set(_fx, Math.max(anchorPos.y, 2.0), _fz);
+  const _fy = Math.max(anchorPos.y - _bodyOff.y, 0.5);
+  car.chassis.position.set(_fx, _fy, _fz);
   car.chassis.quaternion.set(finalQuat.x, finalQuat.y, finalQuat.z, finalQuat.w);
-  car.chassis.velocity.set(vx, vy, vz);
+  car.chassis.velocity.set(vx, 0, vz);
   car.chassis.angularVelocity.set(0, 0, 0);
   // 4. Restore visuals
   car._shattered = false;
@@ -8493,6 +9010,31 @@ function _finalizeReassembly(car, anchorPos, anchorQuat) {
   // 5. Rebuild visual — group's parts were detached during shatter
   rebuildCarVisual(car);
   updateBadges();
+  // Re-attach RaycastVehicle now that the body fragment is gone (no more
+  // phantom-hand pushing). Wheels rejoin chassis, suspension takes over.
+  try {
+    if (car._vehicleDetached && car.vehicle && typeof car.vehicle.addToWorld === 'function') {
+      car.vehicle.addToWorld(world);
+      car._vehicleDetached = false;
+    }
+  } catch (_) {}
+  // 6. Anton 2026-05-26: re-attach to city rail if we were locked there.
+  //    DO NOT call respawnCarTo — in city it resets segIdx/along to 0
+  //    (= "start of road"), which made the player teleport backwards after
+  //    every shatter. Just re-lock the rail at the CURRENT rail state
+  //    (we kept _cityRail untouched during shatter). The next city tick
+  //    will pin the visual to the current segment.
+  if (_cityMode && car._cityWasRailLocked) {
+    car._cityWasRailLocked = false;
+    try { _citySetRailBody(car, true); } catch (_) {}
+    // Reset rail speed to 0 so the player has to accelerate again —
+    // otherwise we'd still be doing 300 km/h post-reassembly and slam
+    // straight into the next car on the road within a frame.
+    if (_cityRail) _cityRail.speed = 0;
+  }
+  // Cooldown: block another shatter (configurable). Otherwise the player
+  // can re-shatter the next physics frame against debris-pushed cars.
+  car._shatterCooldownUntil = performance.now() + (_SHATTER_CFG.cooldownMs || 1500);
 }
 
 function clearDebris(car) {
@@ -8619,7 +9161,13 @@ window.addEventListener('keydown', e => {
   if (e.code === 'KeyM') toggleMute();
   if (e.code === 'KeyG') applyTierMaybeMorph(player, player.level || 1);
   if (e.code === 'KeyC') openConstructor();
-  const block = ['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyQ','KeyE','KeyV','KeyM','KeyC'];
+  // Anton 2026-05-26: B for "Brain" — pop out of car as a hopping brain,
+  // jump onto another car, swap identities. Derby only (city is rail-locked).
+  if (e.code === 'KeyB' && !_cityMode) {
+    if (_brainActive) _cancelBrain();
+    else _spawnBrain();
+  }
+  const block = ['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyQ','KeyE','KeyV','KeyM','KeyC','KeyB'];
   if (block.includes(e.code)) e.preventDefault();
 });
 window.addEventListener('keyup', e => { K[e.code] = false; });
@@ -8783,7 +9331,298 @@ window.addEventListener('keydown', e => {
   if (e.key === 'l' || e.key === 'L') {
     document.body.classList.toggle('lab-mode');
   }
+  // T key = toggle Shatter Tune panel (Anton 2026-05-26)
+  if (e.key === 't' || e.key === 'T') {
+    // Don't fire while typing in inputs (sliders count as inputs).
+    const tgt = e.target;
+    if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA')) return;
+    document.body.classList.toggle('stt-hidden');
+  }
 });
+
+// ── Shatter Tune panel binding (Anton 2026-05-26) ─────────────────────────
+// ══════════════════════════════════════════════════════════════════════════
+// TWINS — A/B taste training (Anton 2026-05-26). Pick the better-looking
+// car of two random options. Choices logged to localStorage under
+// `twinsLog-v1` as { ts, seedA, seedB, levelA, levelB, similarity, chosen }
+// so we can later mine patterns (which features Anton consistently picks).
+// ══════════════════════════════════════════════════════════════════════════
+(function bindTwins() {
+  const ov = document.getElementById('twins-overlay');
+  if (!ov) return;
+  const btn = document.getElementById('btn-twins');
+  const imgA = document.getElementById('tw-img-a');
+  const imgB = document.getElementById('tw-img-b');
+  const metaA = document.getElementById('tw-meta-a');
+  const metaB = document.getElementById('tw-meta-b');
+  const cardA = document.getElementById('tw-card-a');
+  const cardB = document.getElementById('tw-card-b');
+  const counter = document.getElementById('tw-counter');
+  const STORAGE_KEY = 'twinsLog-v1';
+
+  let _twinsCurrent = null;   // { seedA, levelA, typeA, designA, seedB, levelB, typeB, designB, similarity }
+
+  function loadLog() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+    catch (_) { return []; }
+  }
+  function saveLog(arr) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); } catch (_) {}
+  }
+  function updateCounter() {
+    counter.textContent = `${loadLog().length} saved`;
+  }
+
+  // Render a car in the iso preview's render target by temporarily swapping
+  // the player's design with the target seed, snapping a frame, then
+  // restoring. Uses the existing _isoRT machinery for speed + isolation.
+  function renderCarToDataURL(seed, level) {
+    // Save current player state.
+    const savedDesign = JSON.parse(JSON.stringify(player.design));
+    const savedLevel = player.level;
+    const savedType = player.bodyType;
+    const savedSeed = player.designSeed;
+    // Apply target seed.
+    applyTier(player, level, seed);
+    rebuildPlayerPreview();
+    // Force one full preview-render cycle to update _isoRT.
+    previewGroup.updateMatrixWorld(true);
+    const _box = new THREE.Box3().setFromObject(previewGroup);
+    const _ctr = _box.getCenter(new THREE.Vector3());
+    const camDir = new THREE.Vector3(6, 4.0, -6).normalize();
+    isoCam.position.copy(camDir).multiplyScalar(20).add(_ctr);
+    isoCam.lookAt(_ctr.x, _ctr.y, _ctr.z);
+    const fwd   = new THREE.Vector3().subVectors(_ctr, isoCam.position).normalize();
+    const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), fwd).normalize();
+    const upAx  = new THREE.Vector3().crossVectors(fwd, right).normalize();
+    let extX = 0, extY = 0;
+    const corners = [
+      new THREE.Vector3(_box.min.x, _box.min.y, _box.min.z), new THREE.Vector3(_box.min.x, _box.min.y, _box.max.z),
+      new THREE.Vector3(_box.min.x, _box.max.y, _box.min.z), new THREE.Vector3(_box.min.x, _box.max.y, _box.max.z),
+      new THREE.Vector3(_box.max.x, _box.min.y, _box.min.z), new THREE.Vector3(_box.max.x, _box.min.y, _box.max.z),
+      new THREE.Vector3(_box.max.x, _box.max.y, _box.min.z), new THREE.Vector3(_box.max.x, _box.max.y, _box.max.z),
+    ];
+    for (const c of corners) {
+      const v = c.sub(_ctr);
+      extX = Math.max(extX, Math.abs(v.dot(right)));
+      extY = Math.max(extY, Math.abs(v.dot(upAx)));
+    }
+    const rtAspect = _ISO_RT_W / _ISO_RT_H;
+    const margin = 1.1;
+    const halfH = Math.max(extY, extX / rtAspect) * margin;
+    const halfW = halfH * rtAspect;
+    isoCam.left  = -halfW; isoCam.right =  halfW;
+    isoCam.top   =  halfH; isoCam.bottom = -halfH;
+    isoCam.updateProjectionMatrix();
+    const savedBg = scene.background;
+    try {
+      scene.background = new THREE.Color(0xeeeeee);
+      renderer.setRenderTarget(_isoRT);
+      renderer.autoClear = false;
+      renderer.clearColor();
+      renderer.clear(true, true, false);
+      renderer.render(scene, isoCam);
+    } finally {
+      scene.background = savedBg;
+      renderer.setRenderTarget(null);
+      renderer.autoClear = true;
+      resetMainViewport();
+    }
+    // Capture the render target to a 2D canvas → toDataURL.
+    const pixelW = _ISO_RT_W, pixelH = _ISO_RT_H;
+    const buf = new Uint8Array(pixelW * pixelH * 4);
+    renderer.readRenderTargetPixels(_isoRT, 0, 0, pixelW, pixelH, buf);
+    const cv = document.createElement('canvas');
+    cv.width = pixelW; cv.height = pixelH;
+    const cx = cv.getContext('2d');
+    const img = cx.createImageData(pixelW, pixelH);
+    // Flip Y (GL is bottom-left origin, canvas top-left)
+    for (let y = 0; y < pixelH; y++) {
+      const srcRow = (pixelH - 1 - y) * pixelW * 4;
+      const dstRow = y * pixelW * 4;
+      for (let x = 0; x < pixelW * 4; x++) img.data[dstRow + x] = buf[srcRow + x];
+    }
+    cx.putImageData(img, 0, 0);
+    const url = cv.toDataURL('image/png');
+    // Capture data we need before restoring
+    const capturedDesign = JSON.parse(JSON.stringify(player.design));
+    const capturedType = player.bodyType;
+    // Restore player.
+    player.design = savedDesign;
+    player.level = savedLevel;
+    player.bodyType = savedType;
+    player.designSeed = savedSeed;
+    applyDesignVisuals(player);
+    rebuildPlayerPreview();
+    return { url, design: capturedDesign, type: capturedType };
+  }
+
+  function genPair() {
+    // Similarity bucket: 0 = nearly identical, 1 = very different.
+    // Distribution skewed: half are mid-range, quarter near-identical,
+    // quarter very different — full spectrum coverage.
+    const r = Math.random();
+    let similarity;
+    if (r < 0.25) similarity = Math.random() * 0.15;            // very similar
+    else if (r < 0.75) similarity = 0.15 + Math.random() * 0.55; // mid
+    else similarity = 0.70 + Math.random() * 0.30;               // very different
+    // Generate seeds: for "similar" we use neighbouring seeds; for "different",
+    // far-apart seeds. mulberry32 doesn't have locality so we instead generate
+    // A first, then for B re-roll a few times more or less to vary distance.
+    const seedA = (Math.floor(Math.random() * 0xFFFFFFFE) + 1) >>> 0;
+    const seedB = similarity < 0.2
+      ? (seedA ^ Math.floor(Math.random() * 16))   // 4-bit XOR neighbour
+      : (Math.floor(Math.random() * 0xFFFFFFFE) + 1) >>> 0;
+    // Levels — sometimes same, sometimes wildly different.
+    const levelA = 1 + Math.floor(Math.random() * 80);
+    const levelB = (Math.random() < 0.5)
+      ? Math.max(1, levelA + Math.floor((Math.random() - 0.5) * 20))
+      : 1 + Math.floor(Math.random() * 80);
+    return { seedA, seedB, levelA, levelB, similarity };
+  }
+
+  function showPair() {
+    const pair = genPair();
+    const a = renderCarToDataURL(pair.seedA, pair.levelA);
+    const b = renderCarToDataURL(pair.seedB, pair.levelB);
+    imgA.src = a.url;
+    imgB.src = b.url;
+    metaA.textContent = `seed ${pair.seedA}  /  L${pair.levelA}  /  ${a.type}`;
+    metaB.textContent = `seed ${pair.seedB}  /  L${pair.levelB}  /  ${b.type}`;
+    _twinsCurrent = {
+      seedA: pair.seedA, levelA: pair.levelA, typeA: a.type, designA: a.design,
+      seedB: pair.seedB, levelB: pair.levelB, typeB: b.type, designB: b.design,
+      similarity: pair.similarity,
+    };
+  }
+
+  function recordChoice(chosen) {   // 'A' | 'B' | 'skip'
+    if (!_twinsCurrent) return;
+    const entry = { ts: Date.now(),
+      seedA:_twinsCurrent.seedA, levelA:_twinsCurrent.levelA, typeA:_twinsCurrent.typeA,
+      seedB:_twinsCurrent.seedB, levelB:_twinsCurrent.levelB, typeB:_twinsCurrent.typeB,
+      similarity: _twinsCurrent.similarity,
+      chosen,
+    };
+    const arr = loadLog();
+    arr.push(entry);
+    saveLog(arr);
+    updateCounter();
+    // Anton 2026-05-26: ALSO fire-and-forget POST to /twins-log so the
+    // node serve.js sidekick appends it to twins-log.jsonl on disk.
+    // Silent failure if no server (e.g. python http.server still running).
+    try {
+      fetch('/twins-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entry),
+        keepalive: true,
+      }).catch(() => {});
+    } catch (_) {}
+    showPair();
+  }
+
+  btn?.addEventListener('click', () => {
+    ov.style.display = 'flex';
+    updateCounter();
+    showPair();
+  });
+  document.getElementById('tw-close')?.addEventListener('click', () => {
+    ov.style.display = 'none';
+  });
+  cardA?.addEventListener('click', () => recordChoice('A'));
+  cardB?.addEventListener('click', () => recordChoice('B'));
+  document.getElementById('tw-skip')?.addEventListener('click', () => recordChoice('skip'));
+  document.getElementById('tw-export')?.addEventListener('click', () => {
+    const data = loadLog();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `twins-log-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+  });
+  // VIEW LOG → show inline + also dump to console so user can copy easily.
+  document.getElementById('tw-view')?.addEventListener('click', () => {
+    const data = loadLog();
+    const view = document.getElementById('tw-log-view');
+    if (!view) return;
+    if (view.style.display === 'none') {
+      // Compact summary: count by chosen, similarity buckets.
+      const tally = { A: 0, B: 0, skip: 0 };
+      const simBuckets = { veryClose: 0, mid: 0, veryDiff: 0 };
+      for (const e of data) {
+        tally[e.chosen] = (tally[e.chosen] || 0) + 1;
+        if (e.similarity < 0.2) simBuckets.veryClose++;
+        else if (e.similarity < 0.7) simBuckets.mid++;
+        else simBuckets.veryDiff++;
+      }
+      const summary = `TOTAL: ${data.length}    A: ${tally.A}    B: ${tally.B}    SKIP: ${tally.skip}\n`
+        + `SIMILARITY:  very-close ${simBuckets.veryClose}    mid ${simBuckets.mid}    very-diff ${simBuckets.veryDiff}\n`
+        + '─'.repeat(72) + '\n'
+        + JSON.stringify(data, null, 2);
+      view.textContent = summary;
+      view.style.display = 'block';
+      try { console.log('twinsLog-v1:', data); } catch (_) {}
+    } else {
+      view.style.display = 'none';
+    }
+  });
+  document.getElementById('tw-clear')?.addEventListener('click', () => {
+    if (!confirm('Clear all twin choices?')) return;
+    try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+    updateCounter();
+    const view = document.getElementById('tw-log-view');
+    if (view) { view.textContent = ''; view.style.display = 'none'; }
+  });
+})();
+
+(function bindShatterTune() {
+  const panel = document.getElementById('shatter-tune');
+  if (!panel) return;
+  const STORAGE_KEY = 'shatterCfg-v1';
+  const DEFAULTS = {
+    velInherit: 0.35, upBoost: 5.5, radialKick: 1.8,
+    linearDamp: 0.30, angularDamp: 0.45, angChaos: 3.0,
+    rhythmScale: 1.0, cooldownMs: 1500,
+  };
+  function save() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_SHATTER_CFG)); } catch (_) {}
+  }
+  function fmt(k, v) {
+    if (k === 'cooldownMs') return String(Math.round(v));
+    if (k === 'angChaos' || k === 'upBoost' || k === 'radialKick') return v.toFixed(1);
+    return v.toFixed(2);
+  }
+  function syncRowsFromCfg() {
+    panel.querySelectorAll('.stt-row').forEach(row => {
+      const key = row.dataset.key;
+      const v = _SHATTER_CFG[key];
+      if (v === undefined) return;
+      const inp = row.querySelector('input');
+      const lbl = row.querySelector('.stt-v');
+      inp.value = v;
+      lbl.textContent = fmt(key, v);
+    });
+  }
+  panel.querySelectorAll('.stt-row').forEach(row => {
+    const key = row.dataset.key;
+    const inp = row.querySelector('input');
+    const lbl = row.querySelector('.stt-v');
+    inp.addEventListener('input', () => {
+      const v = parseFloat(inp.value);
+      if (!Number.isFinite(v)) return;
+      _SHATTER_CFG[key] = v;
+      lbl.textContent = fmt(key, v);
+      save();
+    });
+  });
+  document.getElementById('stt-reset')?.addEventListener('click', () => {
+    Object.assign(_SHATTER_CFG, DEFAULTS);
+    save();
+    syncRowsFromCfg();
+  });
+  syncRowsFromCfg();
+})();
 document.getElementById('cg-restart').addEventListener('click', () => { cgExit(); cgEnter(); });
 document.getElementById('cg-back').addEventListener('click', cgExit);
 function toggleMute() {
@@ -8795,6 +9634,327 @@ function toggleMute() {
 }
 
 // ── PLAYER RESPAWN ────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════
+// BRAIN TRANSPLANT v2 (Anton 2026-05-26) — press B → player's car body
+// goes "ghost" (only wheels remain visible). You keep driving exactly the
+// same — same physics, same controls. The moment you touch another car,
+// you swap into it: designs + positions exchange. Old car gets your old
+// design at your pre-B spot; you appear at the target's spot driving its
+// design. Derby only — city is rail-locked.
+// ══════════════════════════════════════════════════════════════════════════
+let _brainActive = false;
+let _brainOrigPos = null;
+let _brainOrigQuat = null;
+let _brainFacing = new THREE.Vector3(0, 0, -1);   // unused now; kept for compat
+let _wheelSpinAngle = 0;   // unused now; kept for compat
+
+// Universal ghost-mode entry: works for player OR any AI car. Hides every
+// child of car.group; wheels (outside the group) remain visible. Sets level
+// to 0 ("soul without a body"). Player gets the swap-on-touch behaviour
+// via _brainTick; AI ghosts just keep driving until they get hit again.
+function _enterGhost(car) {
+  if (!car || !car.chassis || car._ghostMode) return;
+  if (car.group) {
+    for (const child of car.group.children) {
+      child.userData._ghostSavedVisible = child.visible;
+      child.visible = false;
+    }
+  }
+  car._ghostMode = true;
+  car.level = 0;
+  // Player-specific bookkeeping for the swap-on-touch flow.
+  if (car === player) {
+    _brainActive = true;
+    _brainOrigPos  = new THREE.Vector3().copy(car.chassis.position);
+    _brainOrigQuat = new THREE.Quaternion().copy(car.chassis.quaternion);
+  }
+}
+
+function _exitGhost(car) {
+  if (!car || !car._ghostMode) return;
+  if (car.group) {
+    for (const child of car.group.children) {
+      if (child.userData._ghostSavedVisible !== undefined) {
+        child.visible = child.userData._ghostSavedVisible;
+        delete child.userData._ghostSavedVisible;
+      } else {
+        child.visible = true;
+      }
+    }
+  }
+  car._ghostMode = false;
+  if (car === player) _brainActive = false;
+}
+
+function _spawnBrain() {
+  if (_brainActive || !player || !player.chassis) return;
+  if (_cityMode) return;
+  _enterGhost(player);
+  try { Synth.hit && Synth.hit(); } catch (_) {}
+  return;   // Legacy ball-setup below is dead code.
+}
+
+// Stub kept so any stray references don't crash (legacy from rev17+).
+function _spawnBrainOldDONOTUSE() {
+  if (!player || !player.chassis) return;
+  _brainOrigPos  = new THREE.Vector3().copy(player.chassis.position);
+  _brainOrigQuat = new THREE.Quaternion().copy(player.chassis.quaternion);
+
+  // Anton 2026-05-26 rev20: forget the brain — single lonely wheel rolling
+  // through space. Black tyre with a simple rim ring for character.
+  const group = new THREE.Group();
+  const tyreMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1c, roughness: 0.85, metalness: 0.0 });
+  const rimMat  = new THREE.MeshStandardMaterial({ color: 0xd0d4d8, roughness: 0.35, metalness: 0.75 });
+  const WHEEL_R = 0.42, WHEEL_W = 0.22;
+  // Tyre: cylinder with its long axis = local X (so the wheel "stands"
+  // and can roll in local +Z direction). Rotation applied directly to
+  // the geometry so the group's quaternion = (yaw × spin) directly maps.
+  const tyreGeom = new THREE.CylinderGeometry(WHEEL_R, WHEEL_R, WHEEL_W, 24, 1, false);
+  tyreGeom.rotateZ(Math.PI / 2);   // axis Y → axis X
+  group.add(new THREE.Mesh(tyreGeom, tyreMat));
+  // Rim discs on both sides (slightly inset)
+  const rimGeom = new THREE.CylinderGeometry(WHEEL_R * 0.62, WHEEL_R * 0.62, WHEEL_W * 0.55, 18, 1, false);
+  rimGeom.rotateZ(Math.PI / 2);
+  const rim = new THREE.Mesh(rimGeom, rimMat);
+  group.add(rim);
+  // Tiny hub centre (purely cosmetic)
+  const hubGeom = new THREE.CylinderGeometry(0.06, 0.06, WHEEL_W * 1.05, 12);
+  hubGeom.rotateZ(Math.PI / 2);
+  const hub = new THREE.Mesh(hubGeom, rimMat);
+  group.add(hub);
+  scene.add(group);
+
+  // Anton 2026-05-26 rev19: hop physics was unreliable (kept landing in
+  // place). Switching to a ROLLING ball: sphere body with normal rotation,
+  // friction does the work. Visual mesh position-locks to body but
+  // quaternion is yaw-only from _brainFacing (eyes always front-facing
+  // even as physics ball spins underneath — like the eyes are a sticker
+  // on a remote-control ball).
+  const body = new CANNON.Body({
+    mass: 0.6,
+    shape: new CANNON.Sphere(0.42),
+    material: matDyn,
+    linearDamping: 0.15,
+    angularDamping: 0.40,
+  });
+  const cp = player.chassis.position;
+  body.position.set(cp.x, cp.y + 1.2, cp.z);
+  // Pop out: small forward+up burst, like the brain ejects upward.
+  const fwdL = new CANNON.Vec3(1, 0, 0), fwdW = new CANNON.Vec3();
+  player.chassis.quaternion.vmult(fwdL, fwdW);
+  body.velocity.set(fwdW.x * 2.5, 6.5, fwdW.z * 2.5);
+  body.angularVelocity.set(0, 0, 0);
+  // Initial facing = car forward direction (where eyes point on spawn).
+  _brainFacing.set(fwdW.x, 0, fwdW.z);
+  const _bfL = Math.max(0.001, Math.hypot(_brainFacing.x, _brainFacing.z));
+  _brainFacing.x /= _bfL; _brainFacing.z /= _bfL;
+  // Collide with cars + ground only (not debris or wreckage)
+  body.collisionFilterGroup = 16;
+  body.collisionFilterMask  = -1 & ~8;
+  world.addBody(body);
+
+  _brain = { group, body };
+  _brainActive = true;
+  // Hide player car visuals + park chassis (so its physics + visuals don't
+  // interfere; we re-pin chassis to brain each frame for camera tracking).
+  player.group.visible = false;
+  if (player.wheels) for (const w of player.wheels) w.visible = false;
+  _brainSavedChassisType = player.chassis.type;
+  _brainSavedChassisMask = player.chassis.collisionFilterMask;
+  player.chassis.type = CANNON.Body.KINEMATIC;
+  player.chassis.collisionFilterMask = 0;
+  player.chassis.velocity.set(0, 0, 0);
+  player.chassis.angularVelocity.set(0, 0, 0);
+  // Vehicle off — wheels stop raycasting (would push the brain).
+  try { player.vehicle && player.vehicle.removeFromWorld(world); } catch (_) {}
+
+  try { Synth.hit && Synth.hit(); } catch (_) {}
+}
+
+function _brainTick(dt, now) {
+  if (!_brainActive) return;
+  // Ghost-mode brain: player keeps driving normally. Just watch for any
+  // close approach to another car → swap.
+  if (!player || !player.chassis) return;
+  const pp = player.chassis.position;
+  for (const car of allCars) {
+    if (car === player) continue;
+    if (!car.chassis || car._shattered) continue;
+    const cp = car.chassis.position;
+    const d2 = (cp.x - pp.x) ** 2 + ((cp.y - pp.y) * 0.4) ** 2 + (cp.z - pp.z) ** 2;
+    if (d2 < 9.0) {     // ~3m centre-to-centre
+      _swapToBrainTargetCar(car);
+      return;
+    }
+  }
+  return;   // Skip the legacy ball-control code below (kept for diffability)
+}
+
+function _brainTickLegacyDONOTUSE(dt, now) {
+  if (!_brainActive || !_brain) return;
+  // Pin player chassis to brain so the camera follows it.
+  player.chassis.position.copy(_brain.body.position);
+  // ── Input → desired facing (camera-relative) ──────────────────────
+  let dx = 0, dz = 0;
+  if (K.KeyW || K.ArrowUp)    dz -= 1;
+  if (K.KeyS || K.ArrowDown)  dz += 1;
+  if (K.KeyA || K.ArrowLeft)  dx -= 1;
+  if (K.KeyD || K.ArrowRight) dx += 1;
+  if (dx || dz) {
+    const l = Math.hypot(dx, dz);
+    dx /= l; dz /= l;
+    const camFwd = new THREE.Vector3();
+    camera.getWorldDirection(camFwd);
+    camFwd.y = 0;
+    if (camFwd.lengthSq() < 0.001) camFwd.set(0, 0, -1);
+    camFwd.normalize();
+    const camRight = new THREE.Vector3().crossVectors(camFwd, new THREE.Vector3(0,1,0)).normalize();
+    const fwdSign = -dz;
+    const wx = camFwd.x * fwdSign + camRight.x * dx;
+    const wz = camFwd.z * fwdSign + camRight.z * dx;
+    const wl = Math.max(0.001, Math.hypot(wx, wz));
+    const desired = new THREE.Vector3(wx / wl, 0, wz / wl);
+    _brainFacing.lerp(desired, Math.min(1, dt * 6));
+    const fL = Math.max(0.001, Math.hypot(_brainFacing.x, _brainFacing.z));
+    _brainFacing.x /= fL; _brainFacing.z /= fL;
+    _brainFacing.y = 0;
+  }
+  // ── Sync mesh: position-follow body, quaternion = yaw × spin.
+  //    Yaw orients the wheel's axle perpendicular to motion direction.
+  //    Spin rolls the wheel around that axle at speed/R rad/s — physical
+  //    rolling speed. Sign matches whether we move forward or backward
+  //    along facing.
+  const yaw = Math.atan2(_brainFacing.x, _brainFacing.z);
+  const speedXZ = Math.hypot(_brain.body.velocity.x, _brain.body.velocity.z);
+  const dirDot = _brain.body.velocity.x * _brainFacing.x
+               + _brain.body.velocity.z * _brainFacing.z;
+  const rollSign = dirDot >= 0 ? 1 : -1;
+  _wheelSpinAngle += rollSign * (speedXZ * dt) / 0.42;
+  const yawQ  = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+  const spinQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), _wheelSpinAngle);
+  _brain.group.position.copy(_brain.body.position);
+  _brain.group.quaternion.copy(yawQ).multiply(spinQ);
+
+  // ── ROLLING ball control: lerp velocity toward facing × target speed.
+  //    Sphere physics naturally rolls + friction with ground = realistic
+  //    "remote-control ball" feel. No hops, no airtime, no flying off.
+  const ROLL_SPEED = 8.0;   // m/s target — quick enough to be useful
+  const ROLL_DECEL = 0.20;  // when no input, ease toward 0 (extra brake)
+  if (dx || dz) {
+    const tx = _brainFacing.x * ROLL_SPEED;
+    const tz = _brainFacing.z * ROLL_SPEED;
+    // Lerp velocity toward target so motion feels smooth, not snappy.
+    _brain.body.velocity.x += (tx - _brain.body.velocity.x) * 0.18;
+    _brain.body.velocity.z += (tz - _brain.body.velocity.z) * 0.18;
+  } else {
+    // No input → brake horizontally
+    _brain.body.velocity.x *= (1 - ROLL_DECEL * Math.min(1, dt * 60));
+    _brain.body.velocity.z *= (1 - ROLL_DECEL * Math.min(1, dt * 60));
+  }
+
+  // Land-on-car check: small radius around brain.
+  for (const car of allCars) {
+    if (car === player) continue;
+    if (!car.chassis) continue;
+    if (car._shattered) continue;
+    const cp = car.chassis.position;
+    const bp = _brain.body.position;
+    const d2 = (cp.x - bp.x) ** 2 + ((cp.y - bp.y) * 0.4) ** 2 + (cp.z - bp.z) ** 2;
+    if (d2 < 6.5) {     // ~2.5m horizontal
+      _swapToBrainTargetCar(car);
+      return;
+    }
+  }
+}
+
+function _swapToBrainTargetCar(targetCar) {
+  if (!_brainActive) return;
+  // Exit ghost on player (restore visuals) BEFORE swap so the new design
+  // applied below paints onto a normal car, not a ghost shell.
+  _exitGhost(player);
+
+  // SWAP: designs + positions.
+  const oldPos  = _brainOrigPos ? _brainOrigPos.clone() : new THREE.Vector3().copy(player.chassis.position);
+  const oldQuat = _brainOrigQuat ? _brainOrigQuat.clone() : new THREE.Quaternion().copy(player.chassis.quaternion);
+  const tgtPos  = new THREE.Vector3().copy(targetCar.chassis.position);
+  const tgtQuat = new THREE.Quaternion().copy(targetCar.chassis.quaternion);
+
+  const playerDesign = JSON.parse(JSON.stringify(player.design));
+  const playerLevel  = player.level;
+  const playerType   = player.bodyType;
+  const playerSeed   = player.designSeed;
+
+  // Player ← target's design, target ← player's design.
+  player.design      = JSON.parse(JSON.stringify(targetCar.design));
+  player.level       = targetCar.level;
+  player.bodyType    = targetCar.bodyType;
+  player.designSeed  = targetCar.designSeed;
+  applyDesignVisuals(player);
+  targetCar.design     = playerDesign;
+  targetCar.level      = playerLevel;
+  targetCar.bodyType   = playerType;
+  targetCar.designSeed = playerSeed;
+  applyDesignVisuals(targetCar);
+
+  // Restore ALL hidden visuals on player.group.
+  for (const child of player.group.children) {
+    if (child.userData._brainSavedVisible !== undefined) {
+      child.visible = child.userData._brainSavedVisible;
+      delete child.userData._brainSavedVisible;
+    } else {
+      child.visible = true;
+    }
+  }
+
+  // Teleport player into target car's seat.
+  player.chassis.position.set(tgtPos.x, Math.max(tgtPos.y, 1.0), tgtPos.z);
+  player.chassis.quaternion.copy(tgtQuat);
+  player.chassis.velocity.set(0, 0, 0);
+  player.chassis.angularVelocity.set(0, 0, 0);
+  // Target moves to where player was when B was pressed.
+  targetCar.chassis.position.set(oldPos.x, Math.max(oldPos.y, 1.0), oldPos.z);
+  targetCar.chassis.quaternion.copy(oldQuat);
+  targetCar.chassis.velocity.set(0, 0, 0);
+  targetCar.chassis.angularVelocity.set(0, 0, 0);
+
+  updateBadges();
+  try { Synth.respawn && Synth.respawn(); } catch (_) {}
+}
+
+// Anton 2026-05-26 rev21: ghost-mode brain — player drives normal car with
+// only wheels visible. Camera follows player chassis as usual (NO override
+// needed). This function is now a no-op; kept so the main-loop call site
+// doesn't ReferenceError.
+function _brainCameraOverride() {
+  return;
+  // Legacy: previously moved camera to follow a separate brain object.
+  if (!_brainActive) return;
+  const bp = _brain.body.position;
+  const facing = _brainFacing.clone();
+  if (facing.lengthSq() < 0.001) facing.set(0, 0, -1);
+  facing.normalize();
+  // Position: 5m behind facing, 3.5m above
+  const camPos = new THREE.Vector3(
+    bp.x - facing.x * 5.0,
+    bp.y + 3.5,
+    bp.z - facing.z * 5.0
+  );
+  // Look at the brain, slightly ahead (so brain isn't dead-centre — leaves
+  // room to see what's coming).
+  const camLook = new THREE.Vector3(
+    bp.x + facing.x * 1.5,
+    bp.y + 0.4,
+    bp.z + facing.z * 1.5
+  );
+  camera.position.copy(camPos);
+  camera.lookAt(camLook);
+}
+
+function _cancelBrain() {
+  if (!_brainActive) return;
+  _exitGhost(player);
+}
+
 function resetPlayer() {
   // Clear any debris first (player AND any AI shattered in the same crash),
   // so the rebuilt visual isn't competing with floating wreckage parts.
@@ -12110,6 +13270,9 @@ function loop() {
   syncDebrisFrame();
   // Player reassembly + AI wreckage despawn (runs every frame; cheap).
   tickWreckageAndReassembly(now);
+  _checkCityShatter(now);
+  _cityCullKnocked(now);
+  _brainTick(dt, now);
 
   // Sync ALL cars (lift over hills + badge sprite)
   for (const car of allCars) {
@@ -12717,6 +13880,10 @@ function loop() {
     renderer.renderLists.dispose();
     lastRendererCleanup = now;
   }
+  // Anton 2026-05-26: brain camera override runs LAST so it wins over the
+  // mode-specific camera code that pinned to chassis (chassis is itself
+  // pinned to brain → that placed camera at brain altitude = ground level).
+  _brainCameraOverride();
   renderer.render(scene, camera);
 
   // ── ISO PREVIEW — frozen 3/4 hero shot, top-right of stage ──────────────

@@ -8,3 +8,6 @@ Best Body Config Anton/
 # Dev tooling for taste-training (regenerated as needed)
 baseline_designs.json
 baseline_for_diff.js
+probe_live.js
+# Runtime data — twins choice log lives on the user's disk only
+twins-log.jsonl
