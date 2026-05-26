@@ -3,3 +3,8 @@
 *.swp
 node_modules/
 generated-cars/
+# Source JSONs for the garage — baked into garage.js, not needed in repo
+Best Body Config Anton/
+# Dev tooling for taste-training (regenerated as needed)
+baseline_designs.json
+baseline_for_diff.js
