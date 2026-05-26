@@ -1,0 +1,131 @@
+{
+  "name": "popcorn-status-derby-sedan-2814923164",
+  "type": "sedan",
+  "seed": 2814923164,
+  "level": 1,
+  "design": {
+    "bodyColor": 16711680,
+    "bodyLength": 4.736138927564025,
+    "bodyHeight": 0.8000520168327466,
+    "bodyWidth": 1.863577740022447,
+    "bodyLift": -0.6680970308065415,
+    "cabinOffset": 0.18409114463902315,
+    "cabinLength": 2.3609734468685324,
+    "cabinHeight": 0.6272853902462396,
+    "cabinWidth": 1.4217823467555446,
+    "cabinColor": 1053462,
+    "cabinPosition": "center",
+    "cabinSlopeFront": 0.1999948697117594,
+    "cabinSlopeRear": 0.25187196290525454,
+    "cabinSlopeSides": 0,
+    "bodyRound": 0.25,
+    "cabinRound": 0.39446216899226616,
+    "cabinSink": -0.0621006415584614,
+    "metalness": 1,
+    "cabinOpacity": 0.93,
+    "bodyFront": {
+      "tipNarrow": 0.4653035296214574,
+      "tipDrop": 0.20521259451660012,
+      "tipRise": 0.1307876904997627
+    },
+    "bodyRear": {
+      "tipNarrow": 0,
+      "tipDrop": 0.22813796142039564,
+      "tipRise": 0.07979302672135737
+    },
+    "convertible": false,
+    "headlightStyle": "round",
+    "headlightX": 0,
+    "headlightY": 0,
+    "headlightW": 1,
+    "headlightH": 1,
+    "headlightSpread": 0.08269646022816646,
+    "headlightDepth": 0.025,
+    "taillightStyle": "round",
+    "taillightX": 0,
+    "taillightY": 0,
+    "taillightW": 1,
+    "taillightH": 1,
+    "taillightSpread": 0.08269646022816646,
+    "taillightDepth": 0.025,
+    "turnSignal": {
+      "enabled": true,
+      "x": 1.9999999999999987,
+      "y": -0.0022527063216528018,
+      "w": 0.17022332018706948,
+      "h": 0.03583644898608327,
+      "orient": "h"
+    },
+    "accessories": {
+      "antenna": false,
+      "spoiler": true,
+      "scoop": false,
+      "roofbox": true
+    },
+    "antennaMount": "rear",
+    "spoilerHeight": 0.26,
+    "scoopRise": 0.1053980607446283,
+    "scoopX": 0,
+    "scoopZ": 0,
+    "roofboxLength": 0.8207425053231419,
+    "roofboxWidth": 0.6789180111605674,
+    "roofboxHeight": 0.01,
+    "roofboxRound": 0.034281930904835466,
+    "accessory": "none",
+    "wheelScale": 0.9729729729729729,
+    "wheelbase": 2.885433566212722,
+    "trackWidth": 1.9427091740651066,
+    "wheelWidth": 0.245,
+    "rimDepth": 0.12560127895558254,
+    "rimSize": 0.5773998539708555,
+    "rimColor": 3618098,
+    "sideMirrors": {
+      "enabled": true,
+      "x": 1.3656519940799339,
+      "y": 0.06295902575470058,
+      "length": 0.18,
+      "height": 0.15656590331553671,
+      "depth": 0.3327212661757515,
+      "stalk": 0.13547120614765043,
+      "round": 0.07041357434144442
+    },
+    "fenders": {
+      "enabled": true,
+      "front": {
+        "height": 0.7703973372748196,
+        "y": -0.40009703080654146,
+        "width": 0.5004617263456249,
+        "inset": 0.10339473355586014,
+        "round": 0.09,
+        "front": 0.9053526806756516,
+        "rear": 0.7032995343552904
+      },
+      "rear": {
+        "height": 0.7703973372748196,
+        "y": -0.40009703080654146,
+        "width": 0.5004617263456249,
+        "inset": 0.10339473355586014,
+        "round": 0.09,
+        "front": 0.7032995343552904,
+        "rear": 0.9803526806756516
+      }
+    },
+    "archFenders": {
+      "front": {
+        "thickness": 0,
+        "width": 0,
+        "extrude": -0.12,
+        "round": 0,
+        "cut": -0.395
+      },
+      "rear": {
+        "thickness": 0,
+        "width": 0,
+        "extrude": -0.12,
+        "round": 0,
+        "cut": -0.4
+      }
+    },
+    "_realKey": "wild"
+  }
+}

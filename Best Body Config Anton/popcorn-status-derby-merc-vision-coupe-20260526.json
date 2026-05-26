@@ -1,0 +1,131 @@
+{
+  "name": "popcorn-status-derby-merc-vision-coupe-20260526",
+  "type": "coupe",
+  "seed": 20260526,
+  "level": 16,
+  "design": {
+    "bodyColor": 12632256,
+    "bodyLength": 4.40,
+    "bodyHeight": 0.62,
+    "bodyWidth": 1.92,
+    "bodyLift": -0.55,
+    "cabinOffset": -0.25,
+    "cabinLength": 2.85,
+    "cabinHeight": 0.35,
+    "cabinWidth": 1.72,
+    "cabinColor": 0,
+    "cabinPosition": "center",
+    "cabinSlopeFront": 0.85,
+    "cabinSlopeRear": 0.85,
+    "cabinSlopeSides": 0.28,
+    "bodyRound": 0.18,
+    "cabinRound": 0.08,
+    "cabinSink": -0.06,
+    "metalness": 1,
+    "cabinOpacity": 0.93,
+    "bodyFront": {
+      "tipNarrow": 0.20,
+      "tipDrop": 0.28,
+      "tipRise": 0.10
+    },
+    "bodyRear": {
+      "tipNarrow": 0.08,
+      "tipDrop": 0.05,
+      "tipRise": 0.18
+    },
+    "convertible": false,
+    "headlightStyle": "bar",
+    "headlightX": 0.05,
+    "headlightY": -0.04,
+    "headlightW": 0.55,
+    "headlightH": 1.10,
+    "headlightSpread": -0.18,
+    "headlightDepth": 0.05,
+    "taillightStyle": "mono-h",
+    "taillightX": 0,
+    "taillightY": 0.10,
+    "taillightW": 0.85,
+    "taillightH": 0.75,
+    "taillightSpread": -0.18,
+    "taillightDepth": 0.05,
+    "turnSignal": {
+      "enabled": true,
+      "x": 0.70,
+      "y": 0.05,
+      "w": 0.12,
+      "h": 0.04,
+      "orient": "h"
+    },
+    "accessories": {
+      "antenna": false,
+      "spoiler": false,
+      "scoop": false,
+      "roofbox": false
+    },
+    "antennaMount": "front",
+    "spoilerHeight": 0,
+    "scoopRise": 0,
+    "scoopX": 0,
+    "scoopZ": 0,
+    "roofboxLength": 0,
+    "roofboxWidth": 0,
+    "roofboxHeight": 0,
+    "roofboxRound": 0,
+    "accessory": "none",
+    "wheelScale": 0.92,
+    "wheelbase": 2.35,
+    "trackWidth": 1.62,
+    "wheelWidth": 0.42,
+    "rimDepth": 0.32,
+    "rimSize": 0.78,
+    "rimColor": 2632236,
+    "sideMirrors": {
+      "enabled": true,
+      "x": 1.15,
+      "y": 0.02,
+      "length": 0.08,
+      "height": 0.10,
+      "depth": 0.22,
+      "stalk": 0.02,
+      "round": 0.02
+    },
+    "fenders": {
+      "enabled": true,
+      "front": {
+        "height": 0.10,
+        "y": -0.06,
+        "width": 0.52,
+        "inset": 0.5,
+        "round": 0.05,
+        "front": 0.55,
+        "rear": 1.55
+      },
+      "rear": {
+        "height": 0.38,
+        "y": -0.06,
+        "width": 0.55,
+        "inset": 0.5,
+        "round": 0.05,
+        "front": 1.55,
+        "rear": 0.45
+      }
+    },
+    "archFenders": {
+      "front": {
+        "thickness": 0.10,
+        "width": 0,
+        "extrude": 0,
+        "round": 0.02,
+        "cut": -0.10
+      },
+      "rear": {
+        "thickness": 0.10,
+        "width": 0,
+        "extrude": 0,
+        "round": 0.02,
+        "cut": -0.10
+      }
+    },
+    "_realKey": "sports_coupe"
+  }
+}
