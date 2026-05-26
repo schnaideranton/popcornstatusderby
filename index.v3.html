@@ -6373,19 +6373,13 @@ function updateBadges() {
   // a derby scoreboard). Hide all badge meshes globally while _trafficMode
   // is on; restore visibility when traffic mode is left.
   const hideAll = _trafficMode === true;
-  // Skip the visibility pass while constructor is open — it has its own
-  // _constrHidden hide-everything-else flow, and we don't want to override
-  // it. Also skip if a car is currently shattered — its group is hidden
-  // wholesale, so badge visibility doesn't matter for it.
-  const constrOpen = (typeof gamePaused !== 'undefined') && gamePaused;
   for (const c of allCars) {
     paintBadge(c.badge, c.level, c.level === maxLevel, c.design.bodyColor);
     updateBadgePosition(c);
-    if (!c.badge) continue;
-    if (constrOpen) continue;
-    if (c._shattered) continue;
-    for (const m of _badgeMeshes(c.badge)) {
-      m.visible = !hideAll;   // derby: show; traffic: hide
+    if (c.badge) {
+      for (const m of _badgeMeshes(c.badge)) {
+        if (hideAll) m.visible = false;
+      }
     }
   }
 }
@@ -6525,12 +6519,9 @@ function _derbyPlaceParked(car, st, spot) {
   if (car.group) car.group.traverse(o => { if (o.isMesh) o.castShadow = false; });
   if (car.wheels) for (const w of car.wheels) w.traverse(o => { if (o.isMesh) o.castShadow = false; });
   // Anton 2026-05-25 v3: HIDE decorative meshes on parked cars. Headlights,
-  // taillights, turn-signals, mirrors — invisible from typical derby
-  // camera distance anyway, but each one is a draw call. Saves hundreds
-  // of draws per frame across 42 parked cars. Restored on wake.
-  // Anton 2026-05-26: BADGES stay visible on parked derby cars — user
-  // wants to see level numbers above every bot, parked or driving. Only
-  // hidden globally in traffic mode (handled in updateBadges).
+  // taillights, turn-signals, mirrors, badges — invisible from typical
+  // derby camera distance anyway, but each one is a draw call. Saves
+  // hundreds of draws per frame across 42 parked cars. Restored on wake.
   if (car.group) car.group.traverse(o => {
     if (!o.isMesh) return;
     const kind = o.userData && o.userData._partKind;
@@ -6539,6 +6530,11 @@ function _derbyPlaceParked(car, st, spot) {
       o.visible = false;
     }
   });
+  if (car.badge && car.badge.meshes) {
+    for (const m of car.badge.meshes) {
+      if (m) { m.userData._parkedHidden = true; m.visible = false; }
+    }
+  }
 }
 function _derbyWakeParked(st, now) {
   if (!st) return;
