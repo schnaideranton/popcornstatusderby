@@ -636,18 +636,32 @@
   #twins-overlay .tw-mode:hover { background: rgba(255,208,96,0.20); }
   #twins-overlay .tw-mode.active { background: rgba(255,208,96,0.30); color: #fff; }
   #twins-overlay .tw-quartet {
-    flex: 1; display: none;
+    flex: 1; min-height: 0;                  /* let grid shrink to available height */
+    display: none;
     grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
-    gap: 14px; padding: 20px;
+    gap: 10px; padding: 10px;
   }
   #twins-overlay.mode-quartet .tw-body { display: none; }
   #twins-overlay.mode-quartet .tw-quartet { display: grid; }
   #twins-overlay .tw-quartet .tw-card {
+    /* Anton 2026-05-27: grid items default to min-content size which made
+       2×2 overflow vertically on short screens (Anton saw only 2½ rows).
+       min-width/min-height:0 lets the card shrink to its grid cell. */
+    min-width: 0; min-height: 0;
     max-width: 100%; max-height: 100%;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    padding: 8px;
   }
   #twins-overlay .tw-quartet .tw-img {
-    aspect-ratio: 4 / 3;
+    /* Override the pair's fixed 4/3 ratio — in quartet the image just
+       fills whatever vertical space the card cell leaves after the meta. */
+    aspect-ratio: auto;
+    flex: 1 1 auto; min-height: 0;
+    height: auto; max-height: 100%;
+    object-fit: contain;
   }
+  #twins-overlay .tw-quartet .tw-meta { flex-shrink: 0; }
 
   /* ── Shatter Tune panel — live sliders, toggle with T ─────────────── */
   #shatter-tune {
