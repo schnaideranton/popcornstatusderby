@@ -9,5 +9,16 @@ Best Body Config Anton/
 baseline_designs.json
 baseline_for_diff.js
 probe_live.js
+analyze_picks.js
+twins_analyze.js
+twins_analysis.json
+garage_mine.js
+garage_mining.json
 # Runtime data — twins choice log lives on the user's disk only
 twins-log.jsonl
+# Local sandboxes / drafts — not part of the public build
+Lab/
+index.v4.html
+car_palette.html
+parking-plan-300-spaces.ai
+turbina adhd logo.pdf

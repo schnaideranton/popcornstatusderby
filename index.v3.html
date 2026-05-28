@@ -432,16 +432,18 @@
   body.portrait #cg-hud { font-size: 11px; gap: 8px; padding: 0 4px; }
 
   /* ── Settings drawer (gear button at bottom-left of stage) ────────────── */
-  #settings-gear {
-    position: absolute; bottom: 8px; left: 8px;
-    width: 32px; height: 32px; border-radius: 50%;
-    background: rgba(0,0,0,0.65); color: #ffd060;
-    border: 1px solid rgba(255,208,96,0.55);
-    font-size: 16px; cursor: pointer; pointer-events: auto;
-    z-index: 6; line-height: 30px; text-align: center;
-    title: 'Camera & scene tweaks';
-  }
-  #settings-gear:hover { background: rgba(0,0,0,0.85); border-color: #ffd060; color: #fff; }
+  /* Anton 2026-05-27: the floating bottom-left gear was promoted to a
+     stage-btn in the top row (#btn-settings-gear, admin-only). The original
+     #settings-gear is kept as an internal trigger but visually hidden — the
+     drawer still toggles via #settings-gear.click() inside the existing
+     handlers, so we route the new top button through it. */
+  #settings-gear { display: none; }
+  /* Admin-only icons (gear + twins): hidden by default, shown when L is
+     pressed (body.admin-on). The Shatter Tune corner panel and the floating
+     drawer follow the same rule. */
+  body:not(.admin-on) .admin-only { display: none !important; }
+  body:not(.admin-on) #shatter-tune { display: none !important; }
+  body:not(.admin-on) #settings-drawer { display: none !important; }
   #settings-drawer {
     display: none; position: absolute; bottom: 44px; left: 8px;
     width: 280px; max-height: calc(100% - 60px); overflow-y: auto;
@@ -512,6 +514,69 @@
   }
   body.portrait #iso-preview-slot { width: 100px; height: 80px; top: 4px; right: 4px; }
 
+  /* ── DEMO REEL — autoplay splash slides ──────────────────────────── */
+  #demo-reel {
+    position: absolute; left: 50%; bottom: 14%;
+    transform: translateX(-50%);
+    width: min(560px, 86vw);
+    pointer-events: none;
+    z-index: 18;
+    display: none;
+  }
+  body.demo-reel-on #demo-reel { display: block; }
+  #demo-reel .dr-card {
+    background: rgba(8,10,14,0.84);
+    color: #f4eede;
+    border: 1px solid rgba(255,208,96,0.55);
+    border-radius: 10px;
+    padding: 18px 22px 12px;
+    text-align: center;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    animation: dr-slide-in 0.45s ease-out;
+    font-family: 'Courier New', monospace;
+  }
+  body.demo-reel-on #demo-reel .dr-card.dr-out {
+    animation: dr-slide-out 0.35s ease-in forwards;
+  }
+  #demo-reel .dr-icon {
+    font-size: 48px; line-height: 1;
+    margin-bottom: 8px;
+    animation: dr-icon-pulse 1.6s ease-in-out infinite;
+  }
+  #demo-reel .dr-title {
+    font-size: 22px; font-weight: bold;
+    color: #ffd060; letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  #demo-reel .dr-body {
+    font-size: 14px; line-height: 1.5;
+    color: #f4eede;
+    margin-bottom: 12px;
+    max-width: 460px; margin-left: auto; margin-right: auto;
+  }
+  #demo-reel .dr-meta {
+    display: flex; justify-content: space-between;
+    font-size: 9px; color: #888; letter-spacing: 1.5px;
+    border-top: 1px solid rgba(255,255,255,0.10);
+    padding-top: 8px;
+  }
+  #demo-reel .dr-hint { opacity: 0.7; }
+  @keyframes dr-slide-in {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes dr-slide-out {
+    from { opacity: 1; transform: translateY(0); }
+    to   { opacity: 0; transform: translateY(-12px); }
+  }
+  @keyframes dr-icon-pulse {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.15); }
+  }
+
   /* ── TWINS overlay — A/B taste training ──────────────────────────── */
   #twins-overlay {
     position: absolute; inset: 0;
@@ -562,6 +627,27 @@
   }
   #twins-overlay .tw-skip:hover { background: rgba(255,208,96,0.20); }
   #twins-overlay .tw-hint { color: #777; margin-left: auto; font-size: 10px; }
+  /* Anton 2026-05-27: Quartet mode — 2×2 grid of similar cars, click best. */
+  #twins-overlay .tw-mode {
+    background: rgba(255,208,96,0.10); color: #ffd060;
+    border: 1px solid rgba(255,208,96,0.40); border-radius: 4px;
+    padding: 4px 10px; font-family: inherit; font-size: 10px; letter-spacing: 1px; cursor: pointer;
+  }
+  #twins-overlay .tw-mode:hover { background: rgba(255,208,96,0.20); }
+  #twins-overlay .tw-mode.active { background: rgba(255,208,96,0.30); color: #fff; }
+  #twins-overlay .tw-quartet {
+    flex: 1; display: none;
+    grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+    gap: 14px; padding: 20px;
+  }
+  #twins-overlay.mode-quartet .tw-body { display: none; }
+  #twins-overlay.mode-quartet .tw-quartet { display: grid; }
+  #twins-overlay .tw-quartet .tw-card {
+    max-width: 100%; max-height: 100%;
+  }
+  #twins-overlay .tw-quartet .tw-img {
+    aspect-ratio: 4 / 3;
+  }
 
   /* ── Shatter Tune panel — live sliders, toggle with T ─────────────── */
   #shatter-tune {
@@ -1173,7 +1259,9 @@
       <button class="stage-btn" id="btn-autoplay" title="Auto pilot">🤖</button>
       <button class="stage-btn" id="btn-city" title="City mode — infinite procedural town">🏙</button>
       <button class="stage-btn" id="btn-traffic" title="Traffic — fixed-camera contemplative jam">🚦</button>
-      <button class="stage-btn" id="btn-twins" title="Twins — A/B taste training. Pick the better car.">👯</button>
+      <!-- Admin-only icons: appear when L is pressed (admin mode on). -->
+      <button class="stage-btn admin-only" id="btn-settings-gear" title="Tune cameras / sun / clouds / fog">⚙</button>
+      <button class="stage-btn admin-only" id="btn-twins" title="Twins — A/B taste training. Pick the better car.">👯</button>
       <!-- camera (V) and regen (R) keep their hidden buttons for keyboard handlers -->
       <button class="stage-btn" id="btn-camera" title="Camera" style="display:none">📷</button>
       <button class="stage-btn" id="btn-regen" title="Regen car" style="display:none">⟲</button>
@@ -1257,10 +1345,24 @@
     <!-- Iso preview — frozen 3/4 hero shot of player car (top-right) -->
     <div id="iso-preview-slot"></div>
 
+    <!-- DEMO REEL — splash slides shown while AutoPlay is on. Game keeps
+         playing in the background; this is a top overlay that explains
+         the rules + features one slide at a time, like an advert. -->
+    <div id="demo-reel">
+      <div class="dr-card">
+        <div class="dr-icon" id="dr-icon">🍿</div>
+        <div class="dr-title" id="dr-title"></div>
+        <div class="dr-body" id="dr-body"></div>
+        <div class="dr-meta"><span id="dr-counter">1 / 1</span><span class="dr-hint">AutoPlay on — toggle 🤖 to dismiss</span></div>
+      </div>
+    </div>
+
     <!-- TWINS — A/B taste training overlay. Click a car = it's the better one. -->
-    <div id="twins-overlay" style="display:none">
+    <div id="twins-overlay" class="mode-pair" style="display:none">
       <div class="tw-head">
         <span>TWINS — pick the one you like more</span>
+        <button class="tw-mode active" id="tw-mode-pair" title="Two random cars">PAIR</button>
+        <button class="tw-mode" id="tw-mode-quartet" title="Four similar cars">QUARTET</button>
         <span class="tw-counter" id="tw-counter">0 / saved</span>
         <button class="tw-close" id="tw-close">✕</button>
       </div>
@@ -1274,6 +1376,12 @@
           <img class="tw-img" id="tw-img-b" alt="">
           <div class="tw-meta" id="tw-meta-b">—</div>
         </div>
+      </div>
+      <div class="tw-quartet">
+        <div class="tw-card" id="tw-card-q0"><img class="tw-img" id="tw-img-q0" alt=""><div class="tw-meta" id="tw-meta-q0">—</div></div>
+        <div class="tw-card" id="tw-card-q1"><img class="tw-img" id="tw-img-q1" alt=""><div class="tw-meta" id="tw-meta-q1">—</div></div>
+        <div class="tw-card" id="tw-card-q2"><img class="tw-img" id="tw-img-q2" alt=""><div class="tw-meta" id="tw-meta-q2">—</div></div>
+        <div class="tw-card" id="tw-card-q3"><img class="tw-img" id="tw-img-q3" alt=""><div class="tw-meta" id="tw-meta-q3">—</div></div>
       </div>
       <div class="tw-foot">
         <button class="tw-skip" id="tw-skip">SKIP (no preference)</button>
@@ -5808,42 +5916,66 @@ function _applyAntonTaste(p, typeKey, level) {
   if (!p.accessories) p.accessories = { antenna:false, spoiler:false, scoop:false, roofbox:true };
   p.accessories.roofbox = true;
 
-  // Per-type headlight bias (Anton's library frequencies):
-  //   coupe  → oval        (2/2)
-  //   pickup → dot-2-v     (5/8) or round (2/8)
-  //   suv    → bar-v       (9/12)
-  //   wagon  → sq-2-h      (6/13)
-  //   hatch  → pill        (2/7) or pill-2-h (2/7) or bar-wide (2/7)
-  //   kei    → pill-2-v    (2/4)
-  //   van    → dot-2-v     (3/4)
-  // Soft bias: 55% chance we lock to Anton's top pick, else leave the
-  // random gen's choice alone.
-  const TASTE_HL = {
-    coupe:  'oval',
-    pickup: 'dot-2-v',
-    suv:    'bar-v',
-    wagon:  'sq-2-h',
-    hatch:  'pill',
-    kei:    'pill-2-v',
-    van:    'dot-2-v',
+  // Per-type headlight bias.
+  // Sources (priority):
+  //   1. GARAGE frequency (n=82 hand-tuned cars) — what Anton builds when
+  //      given full creative freedom. This is THE source for "look like
+  //      Anton's garage" — wins over twins because twins is preference
+  //      between random gens, garage is unconstrained creation.
+  //   2. TWINS top-3 as secondary signal blended in.
+  // Apply: 65% chance we lock to a weighted random of the top-3.
+  const TASTE_HL_TOP = {
+    suv:    ['bar-v', 'wide', 'pill'],            // garage: bar-v 13/18
+    wagon:  ['sq-2-h', 'dot-2-h', 'bar-v'],       // garage: sq-2-h 6/14
+    pickup: ['dot-2-v', 'round', 'bar-v'],        // garage: dot-2-v 6/11
+    hatch:  ['pill', 'pill-2-h', 'bar-wide'],
+    kei:    ['round', 'pill-2-v', 'bar-2-h'],
+    van:    ['dot-2-v', 'wide', 'bar-2-h'],
+    coupe:  ['oval', 'bar', 'wide'],
+    sedan:  ['mono-h', 'sq-2-h', 'pill'],
+    jeep:   ['round', 'box'],
+    sports: ['dot', 'wide', 'oval'],
   };
-  if (TASTE_HL[typeKey] && Math.random() < 0.55) {
-    p.headlightStyle = TASTE_HL[typeKey];
+  const _hlTop = TASTE_HL_TOP[typeKey];
+  if (_hlTop && _hlTop.length && Math.random() < 0.65) {
+    // Weighted: 1st 60%, 2nd 28%, 3rd 12%.
+    const _r = Math.random();
+    p.headlightStyle = _r < 0.60 ? _hlTop[0] : (_r < 0.88 ? (_hlTop[1] || _hlTop[0]) : (_hlTop[2] || _hlTop[1] || _hlTop[0]));
   }
 
-  // Wagons: 12/13 had BOTH spoiler AND scoop. Anton clearly likes the
-  // "shooting brake with attitude" look — bake a 70% combo for wagons.
-  if (typeKey === 'wagon' && Math.random() < 0.70) {
-    p.accessories.spoiler = true;
-    p.accessories.scoop   = true;
-    if (!p.spoilerHeight || p.spoilerHeight < 0.05) p.spoilerHeight = 0.22 + Math.random() * 0.18;
-    if (!p.scoopRise     || p.scoopRise     < 0.05) p.scoopRise     = 0.10 + Math.random() * 0.10;
+  // Anton 2026-05-27: GARAGE MINING — gen produces lights locked at W=H=1.0,
+  // but Anton's 82 garage cars span [0.66..1.80] on both. The biggest
+  // single visual signal of "looks hand-tuned" is per-design light SIZE
+  // randomization. Apply ~70% of the time.
+  if (Math.random() < 0.70) {
+    p.headlightW = 0.75 + Math.random() * 0.95;   // 0.75..1.70
+    p.headlightH = 0.75 + Math.random() * 0.95;
+  }
+  if (Math.random() < 0.70) {
+    p.taillightW = 0.80 + Math.random() * 0.75;   // 0.80..1.55
+    p.taillightH = 0.80 + Math.random() * 0.95;   // 0.80..1.75
   }
 
-  // Sedans: 4/5 had spoiler. Slight bias.
-  if (typeKey === 'sedan' && Math.random() < 0.55) {
-    p.accessories.spoiler = true;
-    if (!p.spoilerHeight || p.spoilerHeight < 0.05) p.spoilerHeight = 0.18 + Math.random() * 0.15;
+  // Garage allows arch fenders to be FULLY INVISIBLE (width=0) — used in
+  // 5+ cars to give the "no arch" minimalist look. Baseline gen never
+  // does this. 12% chance.
+  if (p.archFenders && Math.random() < 0.12) {
+    if (p.archFenders.front) p.archFenders.front.width = 0;
+    if (p.archFenders.rear)  p.archFenders.rear.width  = 0;
+  }
+
+  // Anton 2026-05-27: TWINS analysis showed:
+  //   - spoiler=false lifts +4.9% (Anton picks NO-SPOILER more often than
+  //     random). Strong signal — kill the old sedan/wagon spoiler bias.
+  //   - antenna=false lifts +2.4% — same direction.
+  // So drop both the 70% wagon spoiler+scoop combo and the 55% sedan
+  // spoiler bias. Random gen's natural rate stays untouched.
+  //
+  // Kept: scoopRise increase when scoop is already on (twins showed
+  // chosenMedian +4.5% on scoopRise — when there IS a scoop, Anton wants
+  // it taller, not subtler).
+  if (p.accessories && p.accessories.scoop && (!p.scoopRise || p.scoopRise < 0.10)) {
+    p.scoopRise = 0.10 + Math.random() * 0.12;
   }
 
   // ── Anton 2026-05-26: numeric biases learned from 16 hand-edited cars ──
@@ -5914,12 +6046,74 @@ function _applyAntonTaste(p, typeKey, level) {
   }
 
   // CABIN: LONGER (+0.98 on average, baseline 2.5 → saved 3.1). 60% nudge.
+  // Anton 2026-05-27: TWINS analysis confirmed +9.7% chosen-vs-rejected
+  // on cabinLength (n=370, the strongest single numeric signal). Keep the
+  // 60% rate; the delta we apply already lands in his preferred range.
   if (r() < 0.60 && typeof p.cabinLength === 'number') {
     p.cabinLength = Math.min(3.6, p.cabinLength + 0.4 + r() * 0.7);
+  }
+  // Anton 2026-05-27: TWINS-derived biases (n=370).
+  //   - cabinRound  −10.8% (sharper corners, less rounded cabin)
+  //   - cabinOffset −9.4%  (pushed slightly more rearward)
+  //   - cabinSink   +5.6%  (less buried into body, slightly more visible)
+  if (r() < 0.55 && typeof p.cabinRound === 'number') {
+    p.cabinRound = Math.max(0.02, p.cabinRound - 0.02 - r() * 0.04);
+  }
+  if (r() < 0.55 && typeof p.cabinOffset === 'number') {
+    p.cabinOffset = p.cabinOffset - 0.02 - r() * 0.04;   // more negative
+  }
+  if (r() < 0.50 && typeof p.cabinSink === 'number') {
+    p.cabinSink = Math.min(0.05, p.cabinSink + 0.02 + r() * 0.03);
   }
   // bodyFront.tipNarrow: sharper nose (+0.25). 55% nudge.
   if (p.bodyFront && r() < 0.55) {
     p.bodyFront.tipNarrow = Math.min(0.45, (p.bodyFront.tipNarrow || 0.05) + 0.10 + r() * 0.20);
+  }
+  // Anton 2026-05-27: GARAGE MINING signals (n=82). New patterns the
+  // baseline gen never produces:
+  //   bodyLength    median -0.32m (garage cars are SHORTER overall)
+  //   wheelbase     median -0.135m (matches the shorter body)
+  //   bodyWidth     median +0.045m (slightly wider — fatter stance)
+  //   bodyFront.tipDrop +0.074 (nose drops down — sharks)
+  //   bodyRear.tipNarrow +0.054 (rear also narrows)
+  if (r() < 0.55 && typeof p.bodyLength === 'number') {
+    p.bodyLength = Math.max(3.4, p.bodyLength - 0.15 - r() * 0.30);
+  }
+  if (r() < 0.55 && typeof p.wheelbase === 'number') {
+    p.wheelbase = Math.max(2.30, p.wheelbase - 0.08 - r() * 0.16);
+  }
+  if (r() < 0.50 && typeof p.bodyWidth === 'number') {
+    p.bodyWidth = Math.min(2.10, p.bodyWidth + 0.02 + r() * 0.08);
+  }
+  if (p.bodyFront && r() < 0.50 && typeof p.bodyFront.tipDrop === 'number') {
+    p.bodyFront.tipDrop = Math.min(0.35, p.bodyFront.tipDrop + 0.05 + r() * 0.12);
+  }
+  if (p.bodyRear && r() < 0.45 && typeof p.bodyRear.tipNarrow === 'number') {
+    p.bodyRear.tipNarrow = Math.min(0.30, p.bodyRear.tipNarrow + 0.03 + r() * 0.10);
+  }
+  // Stretch cabinLength further into garage's [3.0..4.0] tail.
+  if (r() < 0.30 && typeof p.cabinLength === 'number') {
+    p.cabinLength = Math.min(4.0, p.cabinLength + 0.3 + r() * 0.6);
+  }
+
+  // Per-type accessory rates from garage (override the generic random):
+  //   wagon  → antenna 0.93, scoop 0.86  (the "shooting brake" combo)
+  //   hatch  → antenna 0.63
+  //   sedan  → spoiler 0.57
+  // Apply on top of whatever random gen produced.
+  if (p.accessories) {
+    if (typeKey === 'wagon') {
+      if (Math.random() < 0.85) p.accessories.antenna = true;
+      if (Math.random() < 0.80) {
+        p.accessories.scoop = true;
+        if (!p.scoopRise || p.scoopRise < 0.10) p.scoopRise = 0.12 + Math.random() * 0.10;
+      }
+    } else if (typeKey === 'hatch' && Math.random() < 0.55) {
+      p.accessories.antenna = true;
+    } else if (typeKey === 'sedan' && Math.random() < 0.45) {
+      p.accessories.spoiler = true;
+      if (!p.spoilerHeight || p.spoilerHeight < 0.10) p.spoilerHeight = 0.16 + Math.random() * 0.15;
+    }
   }
 
   // PER-TYPE bodyHeight tuning (kei -7%, sports -15%, others unchanged).
@@ -7866,6 +8060,32 @@ function cgTick() {
 function respawnCarTo(car) {
   // Anton 2026-05-26 rev22: respawn always exits ghost state (resurrects).
   if (car && car._ghostMode) try { _exitGhost(car); } catch (_) {}
+  // Anton 2026-05-27: bulletproof reset. If R is pressed mid-shatter or
+  // after an interrupted shatter, chassis stays KINEMATIC and the
+  // RaycastVehicle is detached — respawn used to JUST move the body to
+  // (x, 2.5, z) leaving the kinematic flag + missing vehicle, so the car
+  // hung in the air and never fell. Tear down any leftover shatter state
+  // BEFORE the new position is applied.
+  if (car && car._shattered) try { clearDebris(car); } catch (_) {}
+  if (car && car.chassis && car.chassis.type !== CANNON.Body.DYNAMIC) {
+    car.chassis.type = (car._preShatterType !== undefined) ? car._preShatterType : CANNON.Body.DYNAMIC;
+    if (car._preShatterGroup !== undefined) car.chassis.collisionFilterGroup = car._preShatterGroup;
+    if (car._preShatterMask  !== undefined) car.chassis.collisionFilterMask  = car._preShatterMask;
+  }
+  if (car && car._vehicleDetached && car.vehicle && typeof car.vehicle.addToWorld === 'function') {
+    try { car.vehicle.addToWorld(world); } catch (_) {}
+    car._vehicleDetached = false;
+  }
+  // Make sure the car is visible (shatter hides group + wheels for player).
+  if (car && car.group) car.group.visible = true;
+  if (car && car.wheels) for (const w of car.wheels) w.visible = true;
+  if (car && car.badge && car.badge.mesh) {
+    for (const m of _badgeMeshes(car.badge)) m.visible = true;
+  }
+  // Wake the body so it falls under gravity instead of staying asleep.
+  if (car && car.chassis && typeof car.chassis.wakeUp === 'function') {
+    try { car.chassis.wakeUp(); } catch (_) {}
+  }
   if (_cityMode) {
     if (car === player) {
       _cityRail.speed = 0;
@@ -9167,7 +9387,15 @@ window.addEventListener('keydown', e => {
     if (_brainActive) _cancelBrain();
     else _spawnBrain();
   }
-  const block = ['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyQ','KeyE','KeyV','KeyM','KeyC','KeyB'];
+  // Anton 2026-05-27: L toggles "admin" mode — reveals the camera-tune gear,
+  // the Twins (👯) button, and the Shatter Tune corner panel. Default off so
+  // a regular player sees a clean UI; admin lets the author keep poking.
+  if (e.code === 'KeyL') {
+    const on = !document.body.classList.contains('admin-on');
+    document.body.classList.toggle('admin-on', on);
+    try { localStorage.setItem('psd-admin-on-v1', on ? '1' : '0'); } catch (_) {}
+  }
+  const block = ['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyQ','KeyE','KeyV','KeyM','KeyC','KeyB','KeyL'];
   if (block.includes(e.code)) e.preventDefault();
 });
 window.addEventListener('keyup', e => { K[e.code] = false; });
@@ -9288,7 +9516,73 @@ document.getElementById('btn-autoplay').addEventListener('click', () => {
       burstShots: 0, burstMax: 0, burstPauseUntil: 0, nextBurstShot: 0,
     });
   }
+  // Anton 2026-05-26: autoplay also drives the demo-reel splash slides.
+  if (autoPlay) _startDemoReel(); else _stopDemoReel();
 });
+
+// ══════════════════════════════════════════════════════════════════════════
+// DEMO REEL — rotating splash slides over the running game while AutoPlay
+// is on. Explains rules + features one card at a time. ~7s per slide.
+// ══════════════════════════════════════════════════════════════════════════
+const _DEMO_SLIDES = [
+  { icon: '🍿', title: 'POPCORN STATUS DERBY',
+    body: 'Бей других — поднимаешься в уровне. Тебя бьют — падаешь. Уровень 1 + удар = ты призрак, едут одни колёса. Удар по призраку = респаун.' },
+  { icon: '🛠️', title: 'КОНСТРУКТОР  (C)',
+    body: 'Жми 🛠️ или клавишу C — попадёшь в лабораторию. Крути слайдеры: размер кузова, форма кабины, фары, диски, цвет. Сохраняй JSON, грузи обратно.' },
+  { icon: '🏠', title: 'ГАРАЖ',
+    body: '82 hand-tuned машинки Антона уже встроены. С шансом 18% выпадают как AI или как твой morph при level-up. В конструкторе нажми «GARAGE» чтоб подсунуть одну.' },
+  { icon: '🧠', title: 'BRAIN  (B)',
+    body: 'Жми B — кузов исчезает, остаются только колёса (душа без тела). Едешь как обычно. Касание любой машины = пересаживаешься в неё, она едет с твоим старым дизайном.' },
+  { icon: '💥', title: 'SHATTER 300+ км/ч',
+    body: 'Врежешься в дерби на 300+ — машина разваливается на куски. Кузов летит, кабина первой возвращается, потом колёса по ритму, потом — собрался и поехал дальше.' },
+  { icon: '📷', title: 'КАМЕРА  (V)',
+    body: 'V переключает ракурс: погоня, кабина, сбоку, сверху, под полом (с прозрачным асфальтом!), кинематик. Иконка 📷 — то же самое мышью.' },
+  { icon: '🏙', title: 'CITY  (🏙)',
+    body: 'Бесконечная процедурная улица: дома стримятся вперёд, дорога не кончается. На скорости 80+ км/ч тарань трафик — машины улетают в стороны как кегли.' },
+  { icon: '🚦', title: 'TRAFFIC  (🚦)',
+    body: 'Городская пробка: 45 машин в hex-плотности, бампер к бамперу, ползут как утром в Москве. Камера созерцательная. В этом режиме фары/зеркала видны полностью.' },
+  { icon: '👯', title: 'TWINS  (👯)',
+    body: 'A/B-обучение моего вкуса. Показываются 2 случайных машины — выбирай лучшую. Каждый выбор сохраняется в файл. Со временем я пойму твою эстетику и подкручу рандом.' },
+  { icon: '🤖', title: 'AUTOPLAY  (🤖)',
+    body: 'То что ты сейчас смотришь. Игра играет сама, AI стреляет и кувыркается. Нажми 🤖 ещё раз чтоб вернуться за руль.' },
+  { icon: '🎵', title: 'POPCORN MELODY  (🎵)',
+    body: 'Каждый выстрел = нота из «Popcorn» Гершона Кингсли (1972). Двигатель играет басовую линию. Жми 🎵 для смены мелодии, 🔊 для mute.' },
+];
+let _demoIdx = 0;
+let _demoTimer = null;
+function _renderDemoSlide() {
+  const s = _DEMO_SLIDES[_demoIdx];
+  if (!s) return;
+  const card = document.querySelector('#demo-reel .dr-card');
+  if (!card) return;
+  card.classList.add('dr-out');
+  setTimeout(() => {
+    document.getElementById('dr-icon').textContent  = s.icon;
+    document.getElementById('dr-title').textContent = s.title;
+    document.getElementById('dr-body').textContent  = s.body;
+    document.getElementById('dr-counter').textContent =
+      (_demoIdx + 1) + ' / ' + _DEMO_SLIDES.length;
+    card.classList.remove('dr-out');
+    // Trigger re-flow so the fade-in animation replays
+    card.style.animation = 'none';
+    void card.offsetWidth;
+    card.style.animation = '';
+  }, 350);
+}
+function _startDemoReel() {
+  document.body.classList.add('demo-reel-on');
+  _demoIdx = 0;
+  _renderDemoSlide();
+  if (_demoTimer) clearInterval(_demoTimer);
+  _demoTimer = setInterval(() => {
+    _demoIdx = (_demoIdx + 1) % _DEMO_SLIDES.length;
+    _renderDemoSlide();
+  }, 7000);
+}
+function _stopDemoReel() {
+  document.body.classList.remove('demo-reel-on');
+  if (_demoTimer) { clearInterval(_demoTimer); _demoTimer = null; }
+}
 function _toggleMusicAll() {
   const label = Synth.toggleMusic();
   document.getElementById('btn-music').textContent = label;
@@ -9496,14 +9790,90 @@ window.addEventListener('keydown', e => {
     };
   }
 
-  function recordChoice(chosen) {   // 'A' | 'B' | 'skip'
-    if (!_twinsCurrent) return;
-    const entry = { ts: Date.now(),
-      seedA:_twinsCurrent.seedA, levelA:_twinsCurrent.levelA, typeA:_twinsCurrent.typeA,
-      seedB:_twinsCurrent.seedB, levelB:_twinsCurrent.levelB, typeB:_twinsCurrent.typeB,
-      similarity: _twinsCurrent.similarity,
-      chosen,
+  // Anton 2026-05-27: QUARTET mode — 4 similar cars, click best.
+  // Two flavours alternate to keep variety:
+  //   • neighbour: a base seed + 3 XOR-neighbour seeds at the same level.
+  //     Same body type, small-to-medium variations (random gen within type
+  //     bounds). Reads as "four cousins".
+  //   • opera:     the next quartet uses a fresh distant base seed. Four
+  //     siblings again, but a different family altogether. By alternating
+  //     neighbour ↔ opera between batches we cover both fine-grained
+  //     comparisons AND coarse style-family preferences.
+  let _quartetFlavour = 'neighbour';
+  function _quartetSeeds() {
+    const base = (Math.floor(Math.random() * 0xFFFFFFFE) + 1) >>> 0;
+    const level = 1 + Math.floor(Math.random() * 80);
+    // Three neighbours at varying XOR-distance: small, medium, larger.
+    const bits = [
+      1 << Math.floor(Math.random() * 4),                                    // 1-bit flip
+      (1 << Math.floor(Math.random() * 8)) | (1 << Math.floor(Math.random() * 8)),   // 2-bit
+      (Math.floor(Math.random() * 0xFFFF))                                    // up to 16-bit XOR
+    ];
+    return [
+      base >>> 0,
+      (base ^ bits[0]) >>> 0,
+      (base ^ bits[1]) >>> 0,
+      (base ^ bits[2]) >>> 0,
+    ].map(s => ({ seed: s, level }));
+  }
+  function showQuartet() {
+    const seeds = _quartetSeeds();
+    const cars = seeds.map(s => renderCarToDataURL(s.seed, s.level));
+    for (let i = 0; i < 4; i++) {
+      const img = document.getElementById('tw-img-q' + i);
+      const meta = document.getElementById('tw-meta-q' + i);
+      if (img)  img.src = cars[i].url;
+      if (meta) meta.textContent = `seed ${seeds[i].seed}  /  L${seeds[i].level}  /  ${cars[i].type}`;
+    }
+    _twinsCurrent = {
+      mode: 'quartet',
+      flavour: _quartetFlavour,
+      seeds: seeds.map(s => s.seed),
+      levels: seeds.map(s => s.level),
+      types: cars.map(c => c.type),
+      designs: cars.map(c => c.design),
     };
+    // Flip flavour for next batch — alternate similar/opera.
+    _quartetFlavour = (_quartetFlavour === 'neighbour') ? 'opera' : 'neighbour';
+  }
+
+  function showCurrent() {
+    if (_twinsMode === 'quartet') showQuartet();
+    else                          showPair();
+  }
+  let _twinsMode = 'pair';
+  function setMode(m) {
+    _twinsMode = m;
+    ov.classList.toggle('mode-pair',    m === 'pair');
+    ov.classList.toggle('mode-quartet', m === 'quartet');
+    const pairBtn = document.getElementById('tw-mode-pair');
+    const quartBtn = document.getElementById('tw-mode-quartet');
+    if (pairBtn)  pairBtn.classList.toggle('active',  m === 'pair');
+    if (quartBtn) quartBtn.classList.toggle('active', m === 'quartet');
+    showCurrent();
+  }
+
+  function recordChoice(chosen) {   // 'A' | 'B' | 'skip' | 0..3 (quartet) | 'skip'
+    if (!_twinsCurrent) return;
+    let entry;
+    if (_twinsCurrent.mode === 'quartet') {
+      entry = { ts: Date.now(),
+        mode: 'quartet',
+        flavour: _twinsCurrent.flavour,
+        seeds: _twinsCurrent.seeds,
+        levels: _twinsCurrent.levels,
+        types: _twinsCurrent.types,
+        chosen,   // number 0..3 or 'skip'
+      };
+    } else {
+      entry = { ts: Date.now(),
+        mode: 'pair',
+        seedA:_twinsCurrent.seedA, levelA:_twinsCurrent.levelA, typeA:_twinsCurrent.typeA,
+        seedB:_twinsCurrent.seedB, levelB:_twinsCurrent.levelB, typeB:_twinsCurrent.typeB,
+        similarity: _twinsCurrent.similarity,
+        chosen,
+      };
+    }
     const arr = loadLog();
     arr.push(entry);
     saveLog(arr);
@@ -9519,19 +9889,25 @@ window.addEventListener('keydown', e => {
         keepalive: true,
       }).catch(() => {});
     } catch (_) {}
-    showPair();
+    showCurrent();
   }
 
   btn?.addEventListener('click', () => {
     ov.style.display = 'flex';
     updateCounter();
-    showPair();
+    showCurrent();
   });
   document.getElementById('tw-close')?.addEventListener('click', () => {
     ov.style.display = 'none';
   });
   cardA?.addEventListener('click', () => recordChoice('A'));
   cardB?.addEventListener('click', () => recordChoice('B'));
+  for (let i = 0; i < 4; i++) {
+    const c = document.getElementById('tw-card-q' + i);
+    if (c) c.addEventListener('click', () => recordChoice(i));
+  }
+  document.getElementById('tw-mode-pair')   ?.addEventListener('click', () => setMode('pair'));
+  document.getElementById('tw-mode-quartet')?.addEventListener('click', () => setMode('quartet'));
   document.getElementById('tw-skip')?.addEventListener('click', () => recordChoice('skip'));
   document.getElementById('tw-export')?.addEventListener('click', () => {
     const data = loadLog();
@@ -9547,16 +9923,31 @@ window.addEventListener('keydown', e => {
     const view = document.getElementById('tw-log-view');
     if (!view) return;
     if (view.style.display === 'none') {
-      // Compact summary: count by chosen, similarity buckets.
+      // Compact summary: pair tally + quartet tally + similarity buckets.
       const tally = { A: 0, B: 0, skip: 0 };
       const simBuckets = { veryClose: 0, mid: 0, veryDiff: 0 };
+      const qTally = { 0: 0, 1: 0, 2: 0, 3: 0, skip: 0 };
+      const qFlav  = { neighbour: 0, opera: 0 };
+      let pairN = 0, quartN = 0;
       for (const e of data) {
-        tally[e.chosen] = (tally[e.chosen] || 0) + 1;
-        if (e.similarity < 0.2) simBuckets.veryClose++;
-        else if (e.similarity < 0.7) simBuckets.mid++;
-        else simBuckets.veryDiff++;
+        if (e.mode === 'quartet') {
+          quartN++;
+          const k = (e.chosen === 'skip') ? 'skip' : String(e.chosen);
+          qTally[k] = (qTally[k] || 0) + 1;
+          if (e.flavour) qFlav[e.flavour] = (qFlav[e.flavour] || 0) + 1;
+        } else {
+          pairN++;
+          tally[e.chosen] = (tally[e.chosen] || 0) + 1;
+          if (typeof e.similarity === 'number') {
+            if (e.similarity < 0.2) simBuckets.veryClose++;
+            else if (e.similarity < 0.7) simBuckets.mid++;
+            else simBuckets.veryDiff++;
+          }
+        }
       }
-      const summary = `TOTAL: ${data.length}    A: ${tally.A}    B: ${tally.B}    SKIP: ${tally.skip}\n`
+      const summary = `TOTAL: ${data.length}    pair: ${pairN}    quartet: ${quartN}\n`
+        + `PAIR    A: ${tally.A}    B: ${tally.B}    SKIP: ${tally.skip}\n`
+        + `QUARTET 0: ${qTally[0]}    1: ${qTally[1]}    2: ${qTally[2]}    3: ${qTally[3]}    SKIP: ${qTally.skip}    [neighbour ${qFlav.neighbour}  opera ${qFlav.opera}]\n`
         + `SIMILARITY:  very-close ${simBuckets.veryClose}    mid ${simBuckets.mid}    very-diff ${simBuckets.veryDiff}\n`
         + '─'.repeat(72) + '\n'
         + JSON.stringify(data, null, 2);
@@ -9648,16 +10039,95 @@ let _brainOrigQuat = null;
 let _brainFacing = new THREE.Vector3(0, 0, -1);   // unused now; kept for compat
 let _wheelSpinAngle = 0;   // unused now; kept for compat
 
-// Universal ghost-mode entry: works for player OR any AI car. Hides every
-// child of car.group; wheels (outside the group) remain visible. Sets level
-// to 0 ("soul without a body"). Player gets the swap-on-touch behaviour
-// via _brainTick; AI ghosts just keep driving until they get hit again.
+// Universal ghost-mode entry: works for player OR any AI car. Each
+// body part (body, cabin, fenders, lights, mirrors, signals) physically
+// DETACHES from the chassis as a small dynamic body that falls to the
+// ground and lies there for ~30s before despawning. Wheels (outside the
+// group) keep rolling, chassis stays driveable — reads as "I shed the
+// shell, only the wheels are left under me". Sets level to 0.
+// Player gets the swap-on-touch behaviour via _brainTick.
+// Anton 2026-05-27: was just-hide-children → now real physics shedding.
+const GHOST_DEBRIS_TTL_MS = 30000;
 function _enterGhost(car) {
   if (!car || !car.chassis || car._ghostMode) return;
+  car._ghostDebris = car._ghostDebris || [];
+  const baseV = car.chassis.velocity;
+  // Collect detachable parts BEFORE we mutate car.group.children.
+  const parts = [];
   if (car.group) {
-    for (const child of car.group.children) {
-      child.userData._ghostSavedVisible = child.visible;
-      child.visible = false;
+    for (const child of car.group.children.slice()) {
+      if (child && child.userData && SHATTER_PARTS.has(child.userData._partKind)) {
+        parts.push(child);
+      }
+    }
+  }
+  const nowMs = performance.now();
+  for (const mesh of parts) {
+    if (mesh.geometry && !mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+    const bb = mesh.geometry && mesh.geometry.boundingBox;
+    if (!bb) { mesh.visible = false; continue; }
+    const { wp, wq } = _worldFromCarGroup(mesh, car);
+    const sx = Math.max(0.05, (bb.max.x - bb.min.x) * Math.abs(mesh.scale.x || 1) / 2);
+    const sy = Math.max(0.05, (bb.max.y - bb.min.y) * Math.abs(mesh.scale.y || 1) / 2);
+    const sz = Math.max(0.05, (bb.max.z - bb.min.z) * Math.abs(mesh.scale.z || 1) / 2);
+    const kind = mesh.userData._partKind;
+    const isBody = (kind === 'body');
+    const mass = isBody                ? 1.8
+              : (kind === 'cabin')    ? 0.9
+              : (kind === 'fender')   ? 0.35
+              :                          0.15;
+    const body = new CANNON.Body({
+      mass,
+      material: matCar,
+      shape: new CANNON.Box(new CANNON.Vec3(sx, sy, sz)),
+      allowSleep: true,
+      // Heavy damping so pieces settle quickly into a small heap, not
+      // skid halfway across the arena like the shatter debris does.
+      linearDamping:  0.45,
+      angularDamping: 0.60,
+    });
+    body.position.set(wp.x, wp.y, wp.z);
+    body.quaternion.set(wq.x, wq.y, wq.z, wq.w);
+    body.collisionFilterGroup = 8;
+    body.collisionFilterMask  = -1 & ~8;   // collide with cars + ground, not other debris
+    // "Fell off" feel: small forward-inherit (so pieces don't slam into
+    // the wheels you're still driving), tiny upward bump, light random
+    // sideways scatter, mild tumble.
+    body.velocity.set(
+      baseV.x * 0.20 + (Math.random() - 0.5) * 1.2,
+      0.4 + Math.random() * 1.0,
+      baseV.z * 0.20 + (Math.random() - 0.5) * 1.2
+    );
+    body.angularVelocity.set(
+      (Math.random() - 0.5) * 1.6,
+      (Math.random() - 0.5) * 1.6,
+      (Math.random() - 0.5) * 1.6
+    );
+    // Cabin glass is normally semi-transparent — opaque-clone for debris
+    // so it doesn't read as a fuzzy smoke spot while tumbling.
+    if (kind === 'cabin' && mesh.material) {
+      const opaqueClone = mesh.material.clone();
+      opaqueClone.transparent = false;
+      opaqueClone.opacity = 1.0;
+      opaqueClone.depthWrite = true;
+      mesh.material = opaqueClone;
+    }
+    world.addBody(body);
+    // Detach mesh from car.group → scene root so sync doesn't snap it
+    // back to chassis pose each frame.
+    car.group.remove(mesh);
+    scene.add(mesh);
+    mesh.position.set(wp.x, wp.y, wp.z);
+    mesh.quaternion.set(wq.x, wq.y, wq.z, wq.w);
+    car._ghostDebris.push({ mesh, body, despawnAt: nowMs + GHOST_DEBRIS_TTL_MS });
+  }
+  // Badge meshes aren't in SHATTER_PARTS — just hide them (cheaper than
+  // making a physics body for a paper-thin decal).
+  if (car.badge) {
+    for (const m of _badgeMeshes(car.badge)) {
+      if (!m) continue;
+      m.userData._ghostSavedVisible = m.visible;
+      m.visible = false;
     }
   }
   car._ghostMode = true;
@@ -9672,18 +10142,54 @@ function _enterGhost(car) {
 
 function _exitGhost(car) {
   if (!car || !car._ghostMode) return;
-  if (car.group) {
-    for (const child of car.group.children) {
-      if (child.userData._ghostSavedVisible !== undefined) {
-        child.visible = child.userData._ghostSavedVisible;
-        delete child.userData._ghostSavedVisible;
+  // Tear down any still-live dropped debris immediately — about to rebuild
+  // the car visual fresh, no point leaving old pieces on the ground.
+  if (car._ghostDebris && car._ghostDebris.length) {
+    for (const d of car._ghostDebris) {
+      try { world.removeBody(d.body); } catch (_) {}
+      try { scene.remove(d.mesh); disposeCarVisualObject(d.mesh); } catch (_) {}
+    }
+    car._ghostDebris.length = 0;
+  }
+  // Restore badge visibility.
+  if (car.badge) {
+    for (const m of _badgeMeshes(car.badge)) {
+      if (!m) continue;
+      if (m.userData._ghostSavedVisible !== undefined) {
+        m.visible = m.userData._ghostSavedVisible;
+        delete m.userData._ghostSavedVisible;
       } else {
-        child.visible = true;
+        m.visible = true;
       }
     }
   }
+  // Rebuild the car shell — the original mesh objects were detached and
+  // disposed during _enterGhost, so the only way to get the body back is
+  // a fresh build. Swap flow will call applyDesignVisuals after this,
+  // which also rebuilds (the double-rebuild is harmless).
+  try { rebuildCarVisual(car); } catch (_) {}
   car._ghostMode = false;
   if (car === player) _brainActive = false;
+}
+
+// Per-frame sync for dropped ghost debris: copy body pose → mesh pose,
+// despawn pieces older than TTL.
+function _tickGhostDebris(now) {
+  if (!Array.isArray(allCars)) return;
+  for (const car of allCars) {
+    if (!car || !car._ghostDebris || !car._ghostDebris.length) continue;
+    for (let i = car._ghostDebris.length - 1; i >= 0; i--) {
+      const d = car._ghostDebris[i];
+      if (now >= d.despawnAt) {
+        try { world.removeBody(d.body); } catch (_) {}
+        try { scene.remove(d.mesh); disposeCarVisualObject(d.mesh); } catch (_) {}
+        car._ghostDebris.splice(i, 1);
+      } else {
+        d.mesh.position.copy(d.body.position);
+        d.mesh.quaternion.copy(d.body.quaternion);
+      }
+    }
+  }
 }
 
 function _spawnBrain() {
@@ -12393,6 +12899,15 @@ function _applyCameraFovForMode(m = camMode) {
 const drawerEl  = document.getElementById('settings-drawer');
 const gearEl    = document.getElementById('settings-gear');
 gearEl.addEventListener('click', () => drawerEl.classList.toggle('open'));
+// Anton 2026-05-27: new top-row admin button mirrors the legacy gear.
+const gearTopEl = document.getElementById('btn-settings-gear');
+if (gearTopEl) gearTopEl.addEventListener('click', () => drawerEl.classList.toggle('open'));
+// Restore admin mode from localStorage so reloads remember the state.
+try {
+  if (localStorage.getItem('psd-admin-on-v1') === '1') {
+    document.body.classList.add('admin-on');
+  }
+} catch (_) {}
 
 function bindRange(id, valId, init, onInput, key) {
   const el = document.getElementById(id);
@@ -13270,6 +13785,8 @@ function loop() {
   syncDebrisFrame();
   // Player reassembly + AI wreckage despawn (runs every frame; cheap).
   tickWreckageAndReassembly(now);
+  // Ghost-mode dropped body parts: lie on ground, fade after 30s.
+  _tickGhostDebris(now);
   _checkCityShatter(now);
   _cityCullKnocked(now);
   _brainTick(dt, now);
