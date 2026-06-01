@@ -10440,7 +10440,14 @@ function _brainTick(dt, now) {
   if (!_brainActive) return;
   // Ghost-mode brain: player keeps driving normally. Just watch for any
   // close approach to another car → swap.
+  // Anton 2026-06-01: BULLET MODE — at 300+ km/h the ghost wheels become
+  // an indestructible projectile. Touch = victim shatters, no swap. Drop
+  // below 300 → swap-on-touch returns. Speed threshold gives the player
+  // a real reason to gun the throttle while ghosted.
   if (!player || !player.chassis) return;
+  const pv = player.chassis.velocity;
+  const playerSpeedKmh = Math.hypot(pv.x, pv.y, pv.z) * 3.6;
+  const bulletMode = playerSpeedKmh >= 300;
   const pp = player.chassis.position;
   for (const car of allCars) {
     if (car === player) continue;
@@ -10448,6 +10455,15 @@ function _brainTick(dt, now) {
     const cp = car.chassis.position;
     const d2 = (cp.x - pp.x) ** 2 + ((cp.y - pp.y) * 0.4) ** 2 + (cp.z - pp.z) ** 2;
     if (d2 < 9.0) {     // ~3m centre-to-centre
+      if (bulletMode) {
+        // Shatter the victim — we ARE the bullet, they're the target.
+        const hitPoint = new CANNON.Vec3(cp.x, cp.y, cp.z);
+        const dirCannon = new CANNON.Vec3(pv.x, 0, pv.z);
+        if (dirCannon.lengthSquared() > 1e-4) dirCannon.normalize();
+        else dirCannon.set(1, 0, 0);
+        try { shatterCar(car, hitPoint, dirCannon, 'bullet'); } catch (e) {}
+        continue;  // keep looking — bullet might tag several in a frame
+      }
       _swapToBrainTargetCar(car);
       return;
     }
@@ -10810,27 +10826,39 @@ function _crossyMakeCar() {
   if (c.badge) try { for (const m of _badgeMeshes(c.badge)) m.visible = false; } catch (_) {}
   return c;
 }
-function _crossyPoseCar(car, x, y, z, heading) {
+// PSD chassis rests at world Y=0.77 (line 5448–5464). bodyLift is relative to
+// chassis (~-0.4) and bodyHeight ~0.55. With suspension rest=0.40 and
+// visualWheelRadius=0.37, the wheel hub sits at 0.77-0.40 = 0.37 = wR, so
+// the wheel touches the ground exactly. For oversized wheels we lift the hub
+// up by max(0, wR-0.37). Same math as the derby's gamePaused branch.
+const _CROSSY_GROUND_Y = 0.0;
+const _CROSSY_CHASSIS_Y = 0.77;
+function _crossyPoseCar(car, x, z, heading) {
   if (!car.group) return;
-  car.group.position.set(x, y, z);
+  car.group.position.set(x, _CROSSY_CHASSIS_Y, z);
   car.group.rotation.set(0, heading, 0);
   if (car.vehicle && car.vehicle.wheelInfos && car.wheels) {
     const wR = (typeof visualWheelRadius === 'function') ? visualWheelRadius(car.design) : 0.37;
+    const baseR = (car.vehicle.wheelInfos[0] && car.vehicle.wheelInfos[0].radius) || 0.37;
+    const lift = Math.max(0, wR - baseR);     // oversized wheels lifted up
     const cosH = Math.cos(heading), sinH = Math.sin(heading);
     const qHead = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), heading);
     const qSpin = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), car._wheelSpin || 0);
     const qOut = new THREE.Quaternion().multiplyQuaternions(qHead, qSpin);
     for (let i = 0; i < car.wheels.length && i < car.vehicle.wheelInfos.length; i++) {
       const cpl = car.vehicle.wheelInfos[i].chassisConnectionPointLocal;
-      const rest = car.vehicle.wheelInfos[i].suspensionRestLength || 0.40;
-      const lx = cpl.x, ly = cpl.y - rest, lz = cpl.z;
+      const lx = cpl.x, lz = cpl.z;
       const wx = x + lx * cosH - lz * sinH;
       const wz = z + lx * sinH + lz * cosH;
-      const wy = y + ly + wR;
-      const wg = car.wheels[i];
-      wg.position.set(wx, wy, wz);
-      wg.quaternion.copy(qOut);
+      // Wheel sits on ground: hub Y = wheel radius. Larger-than-base wheels
+      // also lift the body relative to ground, but the chassis Y already
+      // accounts for the base case.
+      const wy = _CROSSY_GROUND_Y + wR;
+      car.wheels[i].position.set(wx, wy, wz);
+      car.wheels[i].quaternion.copy(qOut);
     }
+    // If wheels are oversized, lift the body too so it doesn't sink into them.
+    if (lift > 0.001) car.group.position.y = _CROSSY_CHASSIS_Y + lift;
   }
 }
 function _crossyDestroyCar(car) {
@@ -10840,6 +10868,113 @@ function _crossyDestroyCar(car) {
     try { if (w.parent) w.parent.remove(w); } catch (_) {}
   }
   try { if (car.badge && car.badge.mesh && car.badge.mesh.parent) car.badge.mesh.parent.remove(car.badge.mesh); } catch (_) {}
+}
+// Anton 2026-06-01: chicken is invincible. Cars shatter on impact — body
+// parts and wheels fly outward with gravity, settle on the ground, fade out.
+// No CANNON physics — manual ballistic ticking like the ghost-debris feature.
+const _CROSSY_DEBRIS_TTL_MS = 3500;
+function _crossyShatterCar(cc, row, chicken) {
+  if (!cc || !cc.car || cc._shattered) return;
+  cc._shattered = true;
+  const car = cc.car;
+  const carX = CR.WORLD_OFFSET.x + cc.x;
+  const carZ = _crossyZForRow(row.idx);
+  const incomingVx = cc.dir * cc.speed;
+  const debris = _crossyState.debris = _crossyState.debris || [];
+  const partsToFling = [];
+  // Body parts — yank meshes OUT of car.group into scene root, give each its
+  // own world position (was group-local), then add to debris with velocity.
+  if (car.group) {
+    car.group.updateMatrixWorld(true);
+    for (const child of car.group.children.slice()) {
+      if (!child) continue;
+      // Snapshot world transform
+      const wp = new THREE.Vector3();
+      const wq = new THREE.Quaternion();
+      child.getWorldPosition(wp);
+      child.getWorldQuaternion(wq);
+      car.group.remove(child);
+      child.position.copy(wp);
+      child.quaternion.copy(wq);
+      scene.add(child);
+      partsToFling.push(child);
+    }
+  }
+  // Wheels — already in scene root, just adopt them
+  if (car.wheels) for (const w of car.wheels) partsToFling.push(w);
+  // Remove badge
+  try { if (car.badge && car.badge.mesh && car.badge.mesh.parent) car.badge.mesh.parent.remove(car.badge.mesh); } catch (_) {}
+  // Give each part an outward velocity, biased by incoming car direction and
+  // away from the chicken (so debris flies AROUND her, not through her).
+  const chWorldX = CR.WORLD_OFFSET.x + chicken.posX;
+  const chWorldZ = CR.WORLD_OFFSET.z + chicken.posZ;
+  const nowMs = performance.now();
+  for (const mesh of partsToFling) {
+    const awayX = mesh.position.x - chWorldX;
+    const awayZ = mesh.position.z - chWorldZ;
+    const awayLen = Math.max(0.5, Math.hypot(awayX, awayZ));
+    const ax = awayX / awayLen, az = awayZ / awayLen;
+    debris.push({
+      mesh,
+      vx: incomingVx * 0.35 + ax * (4 + Math.random() * 5) + (Math.random() - 0.5) * 2,
+      vy: 4 + Math.random() * 5,
+      vz: az * (4 + Math.random() * 5) + (Math.random() - 0.5) * 2,
+      avx: (Math.random() - 0.5) * 8,
+      avy: (Math.random() - 0.5) * 8,
+      avz: (Math.random() - 0.5) * 8,
+      bornAt: nowMs,
+      grounded: false,
+    });
+  }
+  // Mark car gone — caller filters cc out of row.cars.
+  car._crossyShattered = true;
+}
+function _crossyTickDebris(dt, now) {
+  const debris = _crossyState && _crossyState.debris;
+  if (!debris || debris.length === 0) return;
+  const survivors = [];
+  for (const d of debris) {
+    const age = now - d.bornAt;
+    if (!d.grounded) {
+      d.vy -= 22 * dt;     // gravity (a bit stronger than 9.8 for snappier settle)
+      d.mesh.position.x += d.vx * dt;
+      d.mesh.position.y += d.vy * dt;
+      d.mesh.position.z += d.vz * dt;
+      d.mesh.rotation.x += d.avx * dt;
+      d.mesh.rotation.y += d.avy * dt;
+      d.mesh.rotation.z += d.avz * dt;
+      if (d.mesh.position.y < 0.05) {
+        d.mesh.position.y = 0.05;
+        d.vy *= -0.25;
+        d.vx *= 0.55;
+        d.vz *= 0.55;
+        d.avx *= 0.4; d.avy *= 0.4; d.avz *= 0.4;
+        if (Math.abs(d.vy) < 0.4 && Math.hypot(d.vx, d.vz) < 0.5) {
+          d.grounded = true; d.vy = 0; d.vx = 0; d.vz = 0;
+        }
+      }
+    }
+    if (age < _CROSSY_DEBRIS_TTL_MS) {
+      // Fade out in last 700ms
+      if (age > _CROSSY_DEBRIS_TTL_MS - 700) {
+        const a = 1 - (age - (_CROSSY_DEBRIS_TTL_MS - 700)) / 700;
+        d.mesh.traverse(o => {
+          if (o.material) {
+            o.material.transparent = true;
+            o.material.opacity = Math.max(0, a);
+          }
+        });
+      }
+      survivors.push(d);
+    } else {
+      try { scene.remove(d.mesh); } catch (_) {}
+      d.mesh.traverse(o => {
+        if (o.geometry && typeof o.geometry.dispose === 'function') o.geometry.dispose();
+        if (o.material && typeof o.material.dispose === 'function') o.material.dispose();
+      });
+    }
+  }
+  _crossyState.debris = survivors;
 }
 
 function _crossyZForRow(idx) {
@@ -10861,24 +10996,64 @@ function _crossyGenRow(idx, forceGrass) {
 }
 function _crossyGenRoadRow(idx) {
   const dir = Math.random() < 0.5 ? -1 : +1;
-  const speed = 6 + Math.random() * 10;    // 6..16 m/s
-  const spawnGap = 6 + Math.random() * 14; // tiles between car bumpers
+  const speed = 7 + Math.random() * 11;    // 7..18 m/s — a bit faster
+  // Anton 2026-06-01: doubled traffic density. Cars spaced 3–8 tiles apart
+  // instead of 6–20. Gives "real Crossy Road" feel of nervous timing.
+  const spawnGap = 3 + Math.random() * 5;
   return {
     type: 'road', idx, dir, speed, spawnGap,
     lastSpawnAt: 0,
-    nextSpawnDelay: 400 + Math.random() * 1800,
+    nextSpawnDelay: 200 + Math.random() * 900,
     cars: [],
   };
 }
+// Shared textures for crossy ground — baked once. The road texture has the
+// dashed centre lines pre-drawn so each road row is a SINGLE mesh that
+// tiles a wide strip, instead of hundreds of tiny stripe meshes.
+var _crossyRoadTexture = null;
+function _crossyGetRoadTexture() {
+  if (_crossyRoadTexture) return _crossyRoadTexture;
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 96;
+  const g = c.getContext('2d');
+  g.fillStyle = '#3a3a40';
+  g.fillRect(0, 0, 256, 96);
+  // 2 dashed yellow centre lines at ~1/3 and ~2/3
+  g.fillStyle = '#efe79f';
+  const dashW = 60, gapW = 60;
+  for (let y of [28, 64]) {
+    for (let x = 0; x < 256; x += dashW + gapW) {
+      g.fillRect(x, y, dashW, 4);
+    }
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.anisotropy = 4;
+  _crossyRoadTexture = tex;
+  return tex;
+}
 function _crossyBuildGroundForRow(row, zCenter) {
-  const width = (CR.ROW_HALF_WIDTH * 2 + 6) * CR.TILE;
+  // Anton 2026-06-01: ROW_VISUAL_HALF is the *visual* extent of each strip
+  // (huge — so chicken never sees the edge of the world). ROW_HALF_WIDTH is
+  // the playable corridor (where chicken can hop sideways).
+  const visualWidth = 220;          // metres — big enough that chicken never sees edge
   const depth = CR.TILE;
   let color = CR.GRASS;
   if (row.type === 'road')   color = CR.ROAD;
   if (row.type === 'island') color = CR.ISLAND;
   if (row.type === 'grass' && (row.idx % 2 === 0)) color = CR.GRASS_DARK;
-  const geo = new THREE.PlaneGeometry(width, depth);
-  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.95 });
+  const geo = new THREE.PlaneGeometry(visualWidth, depth);
+  const matOpts = { color, roughness: 0.95 };
+  if (row.type === 'road') {
+    matOpts.map = _crossyGetRoadTexture();
+    // Tile the dashed-line texture across the full visual width.
+    matOpts.map.repeat = new THREE.Vector2(visualWidth / 12, 1);
+    matOpts.color = 0xffffff;       // let texture colour show through
+  }
+  const mat = new THREE.MeshStandardMaterial(matOpts);
   const m = new THREE.Mesh(geo, mat);
   m.rotation.x = -Math.PI / 2;
   m.position.set(CR.WORLD_OFFSET.x, 0.005, zCenter);
@@ -10886,22 +11061,8 @@ function _crossyBuildGroundForRow(row, zCenter) {
   scene.add(m);
   row.groundMesh = m;
   if (row.type === 'road') {
+    // Texture handles all markings — no extra stripe meshes needed.
     row.stripeMeshes = [];
-    const stripeMat = new THREE.MeshStandardMaterial({ color: CR.ROAD_LINE, roughness: 0.7 });
-    for (const yOff of [-CR.TILE * 0.33, CR.TILE * 0.33]) {
-      // Dashed line: build segments
-      const dashLen = 0.6, dashGap = 0.7, total = width;
-      let x = -total / 2;
-      while (x < total / 2) {
-        const sGeo = new THREE.PlaneGeometry(dashLen, 0.10);
-        const s = new THREE.Mesh(sGeo, stripeMat);
-        s.rotation.x = -Math.PI / 2;
-        s.position.set(CR.WORLD_OFFSET.x + x + dashLen / 2, 0.012, zCenter + yOff);
-        scene.add(s);
-        row.stripeMeshes.push(s);
-        x += dashLen + dashGap;
-      }
-    }
   } else {
     // Grass / island — scatter a few voxel "trees" outside the playable corridor
     row.decoMeshes = [];
@@ -10989,10 +11150,13 @@ function _crossyHop(dx, dz) {
   ch.toZ = -newTileZ * CR.TILE;
   ch.tileX = newTileX;
   ch.tileZ = newTileZ;
-  if      (dz > 0) ch.targetHeading = 0;
-  else if (dz < 0) ch.targetHeading = Math.PI;
-  else if (dx > 0) ch.targetHeading = -Math.PI / 2;
-  else if (dx < 0) ch.targetHeading = Math.PI / 2;
+  // Chicken model's face points +Z by default. Forward hop moves chicken
+  // toward −Z, so the face needs to rotate by π. Right hop = +X = face rotated
+  // by +π/2 around Y (since +Z → +X for positive Y-rotation). Etc.
+  if      (dz > 0) ch.targetHeading = Math.PI;          // forward (−Z)
+  else if (dz < 0) ch.targetHeading = 0;                // back (+Z)
+  else if (dx > 0) ch.targetHeading = Math.PI / 2;      // right (+X)
+  else if (dx < 0) ch.targetHeading = -Math.PI / 2;     // left (−X)
   _crossyState.hopT = 0;
   _crossyState.hopStartedAt = performance.now();
   if (newTileZ > _crossyState.bestZ) {
@@ -11026,6 +11190,10 @@ function _crossyRestart() {
     try { scene.remove(_crossyState.chicken.group); } catch (_) {}
   }
   for (const row of _crossyState.rows) _crossyDestroyRow(row);
+  if (_crossyState.debris) for (const d of _crossyState.debris) {
+    try { scene.remove(d.mesh); } catch (_) {}
+  }
+  _crossyState.debris = [];
   _crossyState.rows = [];
   _crossyState.headRowIdx = 0;
   _crossyState.score = 0;
@@ -11080,6 +11248,7 @@ function enterCrossyMode() {
     hopT: 1, hopStartedAt: 0,
     score: 0, bestZ: 0, bestEver,
     dead: false,
+    debris: [],
     lastTick: performance.now(),
   };
   const chickenG = _crossyMakeChicken();
@@ -11108,6 +11277,10 @@ function exitCrossyMode() {
       try { scene.remove(_crossyState.chicken.group); } catch (_) {}
     }
     for (const row of _crossyState.rows) _crossyDestroyRow(row);
+    // Clean any in-flight debris from car shatters
+    if (_crossyState.debris) for (const d of _crossyState.debris) {
+      try { scene.remove(d.mesh); } catch (_) {}
+    }
   }
   _crossyState = null;
   _crossyRestoreMainWorld();
@@ -11169,27 +11342,36 @@ function _crossyTick(now) {
       cc.x += cc.dir * cc.speed * dt;
       cc.car._wheelSpin = (cc.car._wheelSpin || 0) + cc.speed * dt / 0.37;
       const heading = (cc.dir > 0) ? 0 : Math.PI;
-      _crossyPoseCar(cc.car, CR.WORLD_OFFSET.x + cc.x, 0.05, zRow, heading);
+      _crossyPoseCar(cc.car, CR.WORLD_OFFSET.x + cc.x, zRow, heading);
       if (Math.abs(cc.x) > cullLim) _crossyDestroyCar(cc.car);
       else survivors.push(cc);
     }
     row.cars = survivors;
   }
 
-  // Collision: chicken vs cars on chicken's current row
-  if (!_crossyState.dead && _crossyState.hopT >= 0.4) {
+  // Collision: chicken vs cars on chicken's current row. Anton 2026-06-01:
+  // chicken is INVINCIBLE. Cars shatter on impact instead. The chicken stands
+  // her ground, the car explodes into debris around her.
+  if (_crossyState.hopT >= 0.4) {
     const chRow = _crossyState.rows.find(r => r.idx === ch.tileZ);
     if (chRow && chRow.type === 'road') {
       const cxWorld = ch.posX;
+      const survivors = [];
       for (const cc of chRow.cars) {
         const dx = Math.abs(cc.x - cxWorld);
-        if (dx < (cc.car._crossyLen * 0.5 + CR.CHICKEN_R)) {
-          _crossyDie();
-          break;
+        if (dx < (cc.car._crossyLen * 0.5 + CR.CHICKEN_R) && !cc._shattered) {
+          _crossyShatterCar(cc, chRow, ch);
+          // car gone from row.cars; debris ticks in _crossyTickDebris
+        } else {
+          survivors.push(cc);
         }
       }
+      chRow.cars = survivors;
     }
   }
+
+  // Tick debris (cars that hit the chicken explode here)
+  _crossyTickDebris(dt, now);
 
   // Camera: isometric chase. Chicken faces forward (-Z when ch.targetHeading=0).
   const cx = CR.WORLD_OFFSET.x + ch.posX;
