@@ -663,6 +663,91 @@
   }
   #twins-overlay .tw-quartet .tw-meta { flex-shrink: 0; }
 
+  /* ── CROSSY ROAD HUD — score, close, d-pad, game-over modal ───────── */
+  body.crossy-mode #crossy-hud { display: flex; }
+  body.crossy-mode #crossy-dpad { display: grid; }
+  body:not(.crossy-mode) #crossy-hud,
+  body:not(.crossy-mode) #crossy-gameover,
+  body:not(.crossy-mode) #crossy-dpad { display: none !important; }
+  /* Hide all the other stage chrome while in crossy so the mini-game owns the screen */
+  body.crossy-mode #cg-trigger,
+  body.crossy-mode #cg-hud,
+  body.crossy-mode #shatter-tune,
+  body.crossy-mode #drawer,
+  body.crossy-mode #card-bottom,
+  body.crossy-mode #iso-preview-slot,
+  body.crossy-mode #info-panel,
+  body.crossy-mode #demo-reel { display: none !important; }
+  /* Also hide the other stage buttons so only chicken (active) and close are framed */
+  body.crossy-mode #stage-buttons > button:not(#btn-crossy),
+  body.crossy-mode #stage-buttons > img,
+  body.crossy-mode #stage-buttons > div:not(#crossy-hud) { display: none !important; }
+  #crossy-hud {
+    position: absolute; top: 10px; left: 10px; right: 10px;
+    z-index: 55; pointer-events: none;
+    display: flex; align-items: center; gap: 14px;
+    font-family: 'Courier New', monospace;
+  }
+  #crossy-hud .cr-stats {
+    display: flex; gap: 18px; padding: 6px 14px;
+    background: rgba(8,10,14,0.65); color: #fff;
+    border-radius: 6px; font-size: 18px; letter-spacing: 2px;
+    pointer-events: auto;
+  }
+  #crossy-hud .cr-stats .cr-best { color: #ffd060; font-size: 14px; }
+  #crossy-hud .cr-close {
+    margin-left: auto; pointer-events: auto;
+    background: rgba(220,80,80,0.30); color: #fff;
+    border: 1px solid rgba(220,80,80,0.55); border-radius: 6px;
+    padding: 6px 12px; font-size: 16px; cursor: pointer;
+    font-family: inherit;
+  }
+  #crossy-gameover {
+    position: absolute; inset: 0; z-index: 56;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(8,10,14,0.55);
+    font-family: 'Courier New', monospace;
+  }
+  #crossy-gameover .cr-go-card {
+    background: #1c2026; color: #fff;
+    padding: 28px 36px; border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+    min-width: 240px;
+  }
+  #crossy-gameover .cr-go-title { color: #ff5d5d; font-size: 32px; letter-spacing: 4px; margin-bottom: 14px; font-weight: bold; }
+  #crossy-gameover .cr-go-line  { font-size: 18px; margin: 6px 0; }
+  #crossy-gameover .cr-go-line b { color: #ffd060; }
+  #crossy-gameover .cr-go-hint  { color: #aaa; font-size: 12px; margin: 12px 0; }
+  #crossy-gameover .cr-go-btn {
+    display: block; margin: 8px auto; padding: 10px 28px;
+    background: #ffd060; color: #1c2026; border: none; border-radius: 6px;
+    font-size: 14px; font-weight: bold; letter-spacing: 2px; cursor: pointer;
+    font-family: inherit; min-width: 180px;
+  }
+  #crossy-gameover .cr-go-btn:hover { background: #ffdf80; }
+  #crossy-gameover .cr-go-btn.cr-go-quit { background: rgba(255,255,255,0.10); color: #ddd; }
+  #crossy-gameover .cr-go-btn.cr-go-quit:hover { background: rgba(255,255,255,0.18); }
+  #crossy-dpad {
+    position: absolute; right: 18px; bottom: 18px; z-index: 55;
+    display: none;
+    grid-template-columns: 56px 56px 56px;
+    grid-template-rows: 56px 56px 56px;
+    gap: 4px;
+  }
+  #crossy-dpad .cr-dpad {
+    background: rgba(8,10,14,0.55); color: #fff;
+    border: 1px solid rgba(255,255,255,0.18); border-radius: 8px;
+    font-size: 20px; cursor: pointer; user-select: none;
+    touch-action: manipulation; font-family: inherit;
+  }
+  #crossy-dpad .cr-dpad:active { background: rgba(255,208,96,0.30); }
+  #crossy-dpad .cr-dpad-up    { grid-column: 2; grid-row: 1; }
+  #crossy-dpad .cr-dpad-left  { grid-column: 1; grid-row: 2; }
+  #crossy-dpad .cr-dpad-right { grid-column: 3; grid-row: 2; }
+  #crossy-dpad .cr-dpad-down  { grid-column: 2; grid-row: 3; }
+  #btn-crossy.active { background: rgba(255,208,96,0.30); }
+
   /* ── Shatter Tune panel — live sliders, toggle with T ─────────────── */
   #shatter-tune {
     position: absolute; bottom: 8px; right: 8px;
@@ -1273,6 +1358,8 @@
       <button class="stage-btn" id="btn-autoplay" title="Auto pilot">🤖</button>
       <button class="stage-btn" id="btn-city" title="City mode — infinite procedural town">🏙</button>
       <button class="stage-btn" id="btn-traffic" title="Traffic — fixed-camera contemplative jam">🚦</button>
+      <!-- Crossy Road mini-game — chicken hops the traffic, our cars as rolling stock. -->
+      <button class="stage-btn" id="btn-crossy" title="Crossy Road — chicken hops the traffic">🐔</button>
       <!-- Admin-only icons: appear when L is pressed (admin mode on). -->
       <button class="stage-btn admin-only" id="btn-settings-gear" title="Tune cameras / sun / clouds / fog">⚙</button>
       <button class="stage-btn admin-only" id="btn-twins" title="Twins — A/B taste training. Pick the better car.">👯</button>
@@ -1405,6 +1492,34 @@
         <span class="tw-hint">Pairs vary in similarity: identical → very different</span>
       </div>
       <div id="tw-log-view" style="display:none; padding:10px 18px; max-height:40vh; overflow:auto; background:#0a0a0a; border-top:1px solid rgba(255,255,255,0.10); font-size:10px; color:#aaa; white-space:pre-wrap"></div>
+    </div>
+
+    <!-- CROSSY ROAD HUD — score + close button. CSS rules drive visibility:
+         hidden via body:not(.crossy-mode) !important; shown via body.crossy-mode. -->
+    <div id="crossy-hud">
+      <div class="cr-stats">
+        <span>🐔 <b id="cr-score">0</b></span>
+        <span class="cr-best">★ <b id="cr-best">0</b></span>
+      </div>
+      <button class="cr-close" id="cr-close" title="Exit Crossy (Esc)">✕</button>
+    </div>
+    <!-- Crossy game-over modal -->
+    <div id="crossy-gameover" style="display:none">
+      <div class="cr-go-card">
+        <div class="cr-go-title">SQUASHED</div>
+        <div class="cr-go-line">Score: <b id="cr-go-score">0</b></div>
+        <div class="cr-go-line">Best:  <b id="cr-go-best">0</b></div>
+        <div class="cr-go-hint">Press any arrow / WASD to retry</div>
+        <button class="cr-go-btn" id="cr-go-restart">PLAY AGAIN</button>
+        <button class="cr-go-btn cr-go-quit" id="cr-go-quit">QUIT</button>
+      </div>
+    </div>
+    <!-- Crossy mobile d-pad — touch hops. CSS rules drive visibility. -->
+    <div id="crossy-dpad">
+      <button class="cr-dpad cr-dpad-up"    data-dx="0"  data-dz="1">▲</button>
+      <button class="cr-dpad cr-dpad-left"  data-dx="-1" data-dz="0">◀</button>
+      <button class="cr-dpad cr-dpad-right" data-dx="1"  data-dz="0">▶</button>
+      <button class="cr-dpad cr-dpad-down"  data-dx="0"  data-dz="-1">▼</button>
     </div>
 
     <!-- Shatter Tune — live sliders for crash physics. Toggle with T key. -->
@@ -9383,6 +9498,22 @@ function _resetDriveCameraBlend() {
 }
 
 window.addEventListener('keydown', e => {
+  // Crossy Road owns input while its mode is on — arrows/WASD = chicken hops.
+  if (_crossyMode) {
+    if (e.code === 'Escape') { exitCrossyMode(); e.preventDefault(); return; }
+    let dx = 0, dz = 0;
+    if (e.code === 'ArrowUp'    || e.code === 'KeyW') dz = +1;  // forward
+    if (e.code === 'ArrowDown'  || e.code === 'KeyS') dz = -1;  // back
+    if (e.code === 'ArrowLeft'  || e.code === 'KeyA') dx = -1;
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') dx = +1;
+    if (dx || dz) {
+      _crossyHop(dx, dz);
+      e.preventDefault();
+      return;
+    }
+    if (e.code === 'Space') { e.preventDefault(); return; }
+    return;
+  }
   if (constrOverlay.classList.contains('open')) {
     if (e.code === 'KeyC' || e.code === 'Escape') closeConstructor();
     if (e.code === 'KeyG') _randomizeConstr(applyTier);
@@ -9513,11 +9644,25 @@ document.getElementById('btn-camera').addEventListener('click', () => { setCamer
 document.getElementById('btn-regen').addEventListener('click', () => applyTierMaybeMorph(player, player.level || 1));
 document.getElementById('btn-mute').addEventListener('click', toggleMute);
 document.getElementById('btn-city')?.addEventListener('click', () => {
+  if (_crossyMode) exitCrossyMode();
   if (_trafficMode) exitTrafficMode();
   if (_cityMode) exitCityMode(); else enterCityMode();
 });
 document.getElementById('btn-traffic')?.addEventListener('click', () => {
+  if (_crossyMode) exitCrossyMode();
   if (_trafficMode) exitTrafficMode(); else enterTrafficMode();
+});
+// ── Crossy Road wiring ────────────────────────────────────────────────────
+document.getElementById('btn-crossy')?.addEventListener('click', () => {
+  if (_crossyMode) exitCrossyMode(); else enterCrossyMode();
+});
+document.getElementById('cr-close')?.addEventListener('click', () => exitCrossyMode());
+document.getElementById('cr-go-restart')?.addEventListener('click', () => _crossyRestart());
+document.getElementById('cr-go-quit')?.addEventListener('click', () => exitCrossyMode());
+document.querySelectorAll('#crossy-dpad .cr-dpad').forEach(btn => {
+  const dx = parseInt(btn.getAttribute('data-dx'), 10) | 0;
+  const dz = parseInt(btn.getAttribute('data-dz'), 10) | 0;
+  btn.addEventListener('click', () => { _crossyHop(dx, dz); });
 });
 document.getElementById('btn-autoplay').addEventListener('click', () => {
   autoPlay = !autoPlay;
@@ -10554,6 +10699,514 @@ function _restoreFromConstructor() {
   for (const c of allCars) {
     if (c.badge && c.badge.mesh) for (const m of _badgeMeshes(c.badge)) m.visible = true;
   }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// CROSSY ROAD — chicken mini-game. Anton 2026-06-01.
+// Self-contained: reuses makeCar() + applyTier() so cars keep our aesthetic,
+// but CANNON is stripped from each car — they slide on rails at fixed
+// velocity, collisions checked via AABB-ish distance. Main game is paused
+// (gamePaused=true) and the main world hidden so the same scene/renderer
+// can render the crossy ground/cars built at +XZ offset.
+// ════════════════════════════════════════════════════════════════════════════
+const CR = {
+  TILE: 3.0,                       // 1 chicken-tile in world units
+  LANES_AHEAD: 22,                 // generate this many rows ahead of headRowIdx
+  LANES_BEHIND: 6,                 // recycle rows that fall this far behind
+  WORLD_OFFSET: { x: 4000, z: 4000 }, // far from derby/city geometry
+  GRASS: 0x6cb959, GRASS_DARK: 0x5fa84e,
+  ROAD: 0x3a3a40, ROAD_LINE: 0xefe79f,
+  ISLAND: 0xb6c79a,
+  HOP_MS: 130,
+  CHICKEN_R: 0.55,                 // chicken half-width for collision
+  ROW_HALF_WIDTH: 9,               // ±tiles allowed sideways
+};
+var _crossyMode = false;
+var _crossyState = null;
+var _crossyHiddenMeshes = [];
+var _crossyCamSavedFov = null;
+var _crossyCamSavedPos = null;
+var _crossyCamSavedQuat = null;
+var _crossySavedSceneBg = null;
+var _crossySavedFogState = null;
+
+function _crossyHideMainWorld() {
+  _crossyHiddenMeshes = [];
+  const push = (m) => { if (m) { _crossyHiddenMeshes.push(m); m.visible = false; } };
+  if (typeof groundMesh   !== 'undefined') push(groundMesh);
+  if (typeof cloudGroup   !== 'undefined') push(cloudGroup);
+  if (typeof previewGroup !== 'undefined') push(previewGroup);
+  for (const c of (typeof aiCars !== 'undefined' ? aiCars : [])) {
+    if (c.group)  push(c.group);
+    if (c.wheels) for (const w of c.wheels) push(w);
+    if (c.badge)  for (const m of _badgeMeshes(c.badge)) push(m);
+  }
+  if (typeof player !== 'undefined' && player) {
+    if (player.group)  push(player.group);
+    if (player.wheels) for (const w of player.wheels) push(w);
+  }
+  for (const c of (typeof allCars !== 'undefined' ? allCars : [])) {
+    if (c.shadowBodies)    for (const s of c.shadowBodies) push(s);
+    if (c.shadowWheelSets) for (const ws of c.shadowWheelSets) for (const w of ws) push(w);
+  }
+  for (const d of (typeof dynamics !== 'undefined' ? dynamics : [])) push(d.mesh);
+}
+function _crossyRestoreMainWorld() {
+  for (const m of _crossyHiddenMeshes) { if (m) m.visible = true; }
+  _crossyHiddenMeshes = [];
+}
+
+function _crossyMakeChicken() {
+  const grp = new THREE.Group();
+  const matBody = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 });
+  const matBeak = new THREE.MeshStandardMaterial({ color: 0xff9a1a, roughness: 0.70 });
+  const matComb = new THREE.MeshStandardMaterial({ color: 0xd83a3a, roughness: 0.70 });
+  const matEye  = new THREE.MeshStandardMaterial({ color: 0x101010, roughness: 0.50 });
+  const matWing = new THREE.MeshStandardMaterial({ color: 0xf3f3f3, roughness: 0.85 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.85, 1.05), matBody);
+  body.position.set(0, 0.43, 0); body.castShadow = true; grp.add(body);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.65, 0.70), matBody);
+  head.position.set(0, 1.18, 0.18); head.castShadow = true; grp.add(head);
+  const beak = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.18, 0.28), matBeak);
+  beak.position.set(0, 1.10, 0.62); grp.add(beak);
+  const comb = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.22, 0.30), matComb);
+  comb.position.set(0, 1.60, 0.15); grp.add(comb);
+  const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.10, 0.05), matEye);
+  eyeL.position.set(-0.22, 1.22, 0.51); grp.add(eyeL);
+  const eyeR = eyeL.clone(); eyeR.position.x = 0.22; grp.add(eyeR);
+  const wingL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.55, 0.75), matWing);
+  wingL.position.set(-0.55, 0.45, 0.0); grp.add(wingL);
+  const wingR = wingL.clone(); wingR.position.x = 0.55; grp.add(wingR);
+  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.20, 0.16), matBeak);
+  legL.position.set(-0.22, -0.05, 0.05); grp.add(legL);
+  const legR = legL.clone(); legR.position.x = 0.22; grp.add(legR);
+  return grp;
+}
+
+function _crossyMakeCar() {
+  const palette = [0xe63946, 0xf4a261, 0xffd166, 0x06d6a0, 0x118ab2, 0xa78bfa, 0xef476f, 0x8d99ae, 0x2ec4b6, 0xff7f51, 0x457b9d, 0xe9c46a];
+  const color = palette[(Math.random() * palette.length) | 0];
+  // makeCar puts chassis at (0, 1.4, 0). We immediately strip CANNON.
+  const c = makeCar(0, 0, color);
+  try {
+    if (typeof applyTier === 'function') {
+      applyTier(c, 1 + ((Math.random() * 3) | 0), (Math.random() * 1e9) | 0);
+    }
+  } catch (_) {}
+  try { if (c.vehicle && typeof c.vehicle.removeFromWorld === 'function') c.vehicle.removeFromWorld(world); } catch (_) {}
+  try { world.removeBody(c.chassis); } catch (_) {}
+  c._crossy = true;
+  c._wheelSpin = 0;
+  let len = 4.6;
+  try {
+    const box = new THREE.Box3().setFromObject(c.group);
+    if (!box.isEmpty()) {
+      const sz = box.getSize(new THREE.Vector3());
+      len = Math.max(3.8, Math.min(6.0, sz.x));    // forward axis is X
+    }
+  } catch (_) {}
+  c._crossyLen = len;
+  // Hide any badge that might have been attached during tier-roll.
+  if (c.badge) try { for (const m of _badgeMeshes(c.badge)) m.visible = false; } catch (_) {}
+  return c;
+}
+function _crossyPoseCar(car, x, y, z, heading) {
+  if (!car.group) return;
+  car.group.position.set(x, y, z);
+  car.group.rotation.set(0, heading, 0);
+  if (car.vehicle && car.vehicle.wheelInfos && car.wheels) {
+    const wR = (typeof visualWheelRadius === 'function') ? visualWheelRadius(car.design) : 0.37;
+    const cosH = Math.cos(heading), sinH = Math.sin(heading);
+    const qHead = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), heading);
+    const qSpin = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), car._wheelSpin || 0);
+    const qOut = new THREE.Quaternion().multiplyQuaternions(qHead, qSpin);
+    for (let i = 0; i < car.wheels.length && i < car.vehicle.wheelInfos.length; i++) {
+      const cpl = car.vehicle.wheelInfos[i].chassisConnectionPointLocal;
+      const rest = car.vehicle.wheelInfos[i].suspensionRestLength || 0.40;
+      const lx = cpl.x, ly = cpl.y - rest, lz = cpl.z;
+      const wx = x + lx * cosH - lz * sinH;
+      const wz = z + lx * sinH + lz * cosH;
+      const wy = y + ly + wR;
+      const wg = car.wheels[i];
+      wg.position.set(wx, wy, wz);
+      wg.quaternion.copy(qOut);
+    }
+  }
+}
+function _crossyDestroyCar(car) {
+  if (!car) return;
+  try { if (car.group && car.group.parent) car.group.parent.remove(car.group); } catch (_) {}
+  if (car.wheels) for (const w of car.wheels) {
+    try { if (w.parent) w.parent.remove(w); } catch (_) {}
+  }
+  try { if (car.badge && car.badge.mesh && car.badge.mesh.parent) car.badge.mesh.parent.remove(car.badge.mesh); } catch (_) {}
+}
+
+function _crossyZForRow(idx) {
+  // Forward = -Z. row 0 = chicken start.
+  return CR.WORLD_OFFSET.z - idx * CR.TILE;
+}
+function _crossyGenRow(idx, forceGrass) {
+  if (forceGrass) return { type: 'grass', idx, cars: [] };
+  const prev  = _crossyState.rows[_crossyState.rows.length - 1];
+  const prev2 = _crossyState.rows[_crossyState.rows.length - 2];
+  // Two roads in a row → force island for safety
+  if (prev && prev2 && prev.type === 'road' && prev2.type === 'road') {
+    return { type: 'island', idx, cars: [] };
+  }
+  const r = Math.random();
+  if (r < 0.55) return _crossyGenRoadRow(idx);
+  if (r < 0.85) return { type: 'grass', idx, cars: [] };
+  return { type: 'island', idx, cars: [] };
+}
+function _crossyGenRoadRow(idx) {
+  const dir = Math.random() < 0.5 ? -1 : +1;
+  const speed = 6 + Math.random() * 10;    // 6..16 m/s
+  const spawnGap = 6 + Math.random() * 14; // tiles between car bumpers
+  return {
+    type: 'road', idx, dir, speed, spawnGap,
+    lastSpawnAt: 0,
+    nextSpawnDelay: 400 + Math.random() * 1800,
+    cars: [],
+  };
+}
+function _crossyBuildGroundForRow(row, zCenter) {
+  const width = (CR.ROW_HALF_WIDTH * 2 + 6) * CR.TILE;
+  const depth = CR.TILE;
+  let color = CR.GRASS;
+  if (row.type === 'road')   color = CR.ROAD;
+  if (row.type === 'island') color = CR.ISLAND;
+  if (row.type === 'grass' && (row.idx % 2 === 0)) color = CR.GRASS_DARK;
+  const geo = new THREE.PlaneGeometry(width, depth);
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.95 });
+  const m = new THREE.Mesh(geo, mat);
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(CR.WORLD_OFFSET.x, 0.005, zCenter);
+  m.receiveShadow = true;
+  scene.add(m);
+  row.groundMesh = m;
+  if (row.type === 'road') {
+    row.stripeMeshes = [];
+    const stripeMat = new THREE.MeshStandardMaterial({ color: CR.ROAD_LINE, roughness: 0.7 });
+    for (const yOff of [-CR.TILE * 0.33, CR.TILE * 0.33]) {
+      // Dashed line: build segments
+      const dashLen = 0.6, dashGap = 0.7, total = width;
+      let x = -total / 2;
+      while (x < total / 2) {
+        const sGeo = new THREE.PlaneGeometry(dashLen, 0.10);
+        const s = new THREE.Mesh(sGeo, stripeMat);
+        s.rotation.x = -Math.PI / 2;
+        s.position.set(CR.WORLD_OFFSET.x + x + dashLen / 2, 0.012, zCenter + yOff);
+        scene.add(s);
+        row.stripeMeshes.push(s);
+        x += dashLen + dashGap;
+      }
+    }
+  } else {
+    // Grass / island — scatter a few voxel "trees" outside the playable corridor
+    row.decoMeshes = [];
+    const n = 1 + ((Math.random() * 3) | 0);
+    for (let i = 0; i < n; i++) {
+      const sideSign = Math.random() < 0.5 ? -1 : 1;
+      const sideTile = sideSign * (CR.ROW_HALF_WIDTH + 1 + ((Math.random() * 4) | 0));
+      const treeMat = new THREE.MeshStandardMaterial({
+        color: row.type === 'island' ? 0x6e8a4a : (Math.random() < 0.5 ? 0x3d8a3f : 0x4e9b48),
+        roughness: 0.9,
+      });
+      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5b3a1a, roughness: 0.95 });
+      const tg = new THREE.Group();
+      const trunk = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.6, 0.45), trunkMat);
+      trunk.position.y = 0.3; tg.add(trunk);
+      const crown = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.4, 1.3), treeMat);
+      crown.position.y = 1.25; tg.add(crown);
+      const px = CR.WORLD_OFFSET.x + sideTile * CR.TILE + (Math.random() - 0.5) * CR.TILE * 0.4;
+      tg.position.set(px, 0, zCenter + (Math.random() - 0.5) * CR.TILE * 0.4);
+      scene.add(tg);
+      row.decoMeshes.push(tg);
+    }
+  }
+}
+function _crossyDestroyRow(row) {
+  if (row.groundMesh) try { scene.remove(row.groundMesh); row.groundMesh.geometry.dispose(); row.groundMesh.material.dispose(); } catch (_) {}
+  if (row.stripeMeshes) for (const s of row.stripeMeshes) try { scene.remove(s); s.geometry.dispose(); } catch (_) {}
+  if (row.decoMeshes) for (const tg of row.decoMeshes) try {
+    scene.remove(tg);
+    tg.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+  } catch (_) {}
+  if (row.cars) for (const cc of row.cars) _crossyDestroyCar(cc.car);
+}
+function _crossyEnsureRowsAhead() {
+  const headIdx = _crossyState.headRowIdx;
+  // Seed a few grass rows BEHIND chicken's start so the camera doesn't see
+  // void below the playable strip. Only on first call.
+  if (_crossyState.rows.length === 0) {
+    for (let i = -4; i <= -1; i++) {
+      const row = { type: 'grass', idx: i, cars: [] };
+      _crossyState.rows.push(row);
+      _crossyBuildGroundForRow(row, _crossyZForRow(i));
+    }
+  }
+  // Grow forward
+  while (
+    _crossyState.rows[_crossyState.rows.length - 1].idx < headIdx + CR.LANES_AHEAD
+  ) {
+    const last = _crossyState.rows[_crossyState.rows.length - 1];
+    const nextIdx = last.idx + 1;
+    const forceGrass = nextIdx <= 2;
+    const row = _crossyGenRow(nextIdx, forceGrass);
+    _crossyState.rows.push(row);
+    _crossyBuildGroundForRow(row, _crossyZForRow(nextIdx));
+  }
+  // Recycle far-behind rows (but never one we're standing on, and never the
+  // seeded -4..-1 backdrop while chicken is still near start).
+  const chTileZ = _crossyState.chicken ? _crossyState.chicken.tileZ : 0;
+  const recycleBelow = Math.min(chTileZ, headIdx) - CR.LANES_BEHIND;
+  while (_crossyState.rows.length > 0 && _crossyState.rows[0].idx < recycleBelow) {
+    const dead = _crossyState.rows.shift();
+    _crossyDestroyRow(dead);
+  }
+}
+
+function _crossyUpdateHUD() {
+  const sc = document.getElementById('cr-score');
+  const bs = document.getElementById('cr-best');
+  if (sc) sc.textContent = String(_crossyState.score | 0);
+  if (bs) bs.textContent = String(_crossyState.bestEver | 0);
+}
+function _crossyHop(dx, dz) {
+  if (!_crossyState) return;
+  if (_crossyState.dead) { _crossyRestart(); return; }
+  if (_crossyState.hopT < 1) return;       // mid-hop
+  const ch = _crossyState.chicken;
+  const newTileX = ch.tileX + dx;
+  const newTileZ = ch.tileZ + dz;
+  if (Math.abs(newTileX) > CR.ROW_HALF_WIDTH) return;
+  if (newTileZ < 0) return;
+  if (newTileZ < _crossyState.headRowIdx - CR.LANES_BEHIND + 1) return;
+  ch.fromX = ch.posX;
+  ch.fromZ = ch.posZ;
+  ch.toX = newTileX * CR.TILE;
+  ch.toZ = -newTileZ * CR.TILE;
+  ch.tileX = newTileX;
+  ch.tileZ = newTileZ;
+  if      (dz > 0) ch.targetHeading = 0;
+  else if (dz < 0) ch.targetHeading = Math.PI;
+  else if (dx > 0) ch.targetHeading = -Math.PI / 2;
+  else if (dx < 0) ch.targetHeading = Math.PI / 2;
+  _crossyState.hopT = 0;
+  _crossyState.hopStartedAt = performance.now();
+  if (newTileZ > _crossyState.bestZ) {
+    _crossyState.bestZ = newTileZ;
+    _crossyState.score = newTileZ;
+    _crossyState.headRowIdx = newTileZ;
+    _crossyEnsureRowsAhead();
+    _crossyUpdateHUD();
+  }
+}
+function _crossyDie() {
+  if (!_crossyState || _crossyState.dead) return;
+  _crossyState.dead = true;
+  if (_crossyState.score > _crossyState.bestEver) {
+    _crossyState.bestEver = _crossyState.score;
+    try { localStorage.setItem('psd-crossy-best-v1', String(_crossyState.bestEver)); } catch (_) {}
+  }
+  const ov = document.getElementById('crossy-gameover');
+  if (ov) {
+    const s = document.getElementById('cr-go-score');
+    const b = document.getElementById('cr-go-best');
+    if (s) s.textContent = String(_crossyState.score | 0);
+    if (b) b.textContent = String(_crossyState.bestEver | 0);
+    ov.style.display = 'flex';
+  }
+  _crossyUpdateHUD();
+}
+function _crossyRestart() {
+  if (!_crossyState) return;
+  if (_crossyState.chicken && _crossyState.chicken.group) {
+    try { scene.remove(_crossyState.chicken.group); } catch (_) {}
+  }
+  for (const row of _crossyState.rows) _crossyDestroyRow(row);
+  _crossyState.rows = [];
+  _crossyState.headRowIdx = 0;
+  _crossyState.score = 0;
+  _crossyState.bestZ = 0;
+  _crossyState.dead = false;
+  const chickenG = _crossyMakeChicken();
+  chickenG.position.set(CR.WORLD_OFFSET.x, 0, CR.WORLD_OFFSET.z);
+  scene.add(chickenG);
+  _crossyState.chicken = {
+    group: chickenG, tileX: 0, tileZ: 0,
+    posX: 0, posZ: 0, fromX: 0, fromZ: 0, toX: 0, toZ: 0,
+    heading: 0, targetHeading: 0,
+  };
+  _crossyState.hopT = 1;
+  _crossyEnsureRowsAhead();
+  const ov = document.getElementById('crossy-gameover');
+  if (ov) ov.style.display = 'none';
+  _crossyUpdateHUD();
+}
+
+function enterCrossyMode() {
+  if (_crossyMode) return;
+  // Clean exit from other modes first
+  try { if (typeof _trafficMode !== 'undefined' && _trafficMode) exitTrafficMode(); } catch (_) {}
+  try { if (typeof _cityMode    !== 'undefined' && _cityMode)    exitCityMode();    } catch (_) {}
+  _crossyMode = true;
+  document.body.classList.add('crossy-mode');
+  document.getElementById('btn-crossy')?.classList.add('active');
+  gamePaused = true;
+  // Freeze player so it doesn't drift while we're away
+  if (typeof player !== 'undefined' && player && player.chassis) {
+    try { player.chassis.velocity.set(0, 0, 0); player.chassis.angularVelocity.set(0, 0, 0); } catch (_) {}
+  }
+  _crossyCamSavedFov  = camera.fov;
+  _crossyCamSavedPos  = camera.position.clone();
+  _crossyCamSavedQuat = camera.quaternion.clone();
+  camera.fov = 38;
+  camera.updateProjectionMatrix();
+  // Sky-blue scene backdrop so the void doesn't show through the horizon.
+  _crossySavedSceneBg = scene.background;
+  scene.background = new THREE.Color(0xcfe9f5);
+  if (scene.fog) {
+    _crossySavedFogState = { near: scene.fog.near, far: scene.fog.far, color: scene.fog.color.clone() };
+    scene.fog.color.set(0xcfe9f5);
+    scene.fog.near = 40; scene.fog.far = 220;
+  }
+  _crossyHideMainWorld();
+  let bestEver = 0;
+  try { bestEver = parseInt(localStorage.getItem('psd-crossy-best-v1') || '0', 10) || 0; } catch (_) {}
+  _crossyState = {
+    rows: [], headRowIdx: 0, chicken: null,
+    hopT: 1, hopStartedAt: 0,
+    score: 0, bestZ: 0, bestEver,
+    dead: false,
+    lastTick: performance.now(),
+  };
+  const chickenG = _crossyMakeChicken();
+  chickenG.position.set(CR.WORLD_OFFSET.x, 0, CR.WORLD_OFFSET.z);
+  scene.add(chickenG);
+  _crossyState.chicken = {
+    group: chickenG, tileX: 0, tileZ: 0,
+    posX: 0, posZ: 0, fromX: 0, fromZ: 0, toX: 0, toZ: 0,
+    heading: 0, targetHeading: 0,
+  };
+  _crossyEnsureRowsAhead();
+  // HUD + d-pad visibility is driven entirely by `body.crossy-mode` CSS rules.
+  const go = document.getElementById('crossy-gameover');
+  if (go) go.style.display = 'none';
+  _crossyUpdateHUD();
+}
+function exitCrossyMode() {
+  if (!_crossyMode) return;
+  _crossyMode = false;
+  document.body.classList.remove('crossy-mode');
+  document.getElementById('btn-crossy')?.classList.remove('active');
+  const go = document.getElementById('crossy-gameover');
+  if (go) go.style.display = 'none';
+  if (_crossyState) {
+    if (_crossyState.chicken && _crossyState.chicken.group) {
+      try { scene.remove(_crossyState.chicken.group); } catch (_) {}
+    }
+    for (const row of _crossyState.rows) _crossyDestroyRow(row);
+  }
+  _crossyState = null;
+  _crossyRestoreMainWorld();
+  // Restore scene background/fog
+  scene.background = _crossySavedSceneBg;
+  _crossySavedSceneBg = null;
+  if (_crossySavedFogState && scene.fog) {
+    scene.fog.near = _crossySavedFogState.near;
+    scene.fog.far  = _crossySavedFogState.far;
+    scene.fog.color.copy(_crossySavedFogState.color);
+    _crossySavedFogState = null;
+  }
+  if (_crossyCamSavedFov !== null) { camera.fov = _crossyCamSavedFov; camera.updateProjectionMatrix(); _crossyCamSavedFov = null; }
+  if (_crossyCamSavedPos)  { camera.position.copy(_crossyCamSavedPos);  _crossyCamSavedPos  = null; }
+  if (_crossyCamSavedQuat) { camera.quaternion.copy(_crossyCamSavedQuat); _crossyCamSavedQuat = null; }
+  if (typeof camPos !== 'undefined') camPos.copy(camera.position);
+  gamePaused = false;
+}
+
+function _crossyTick(now) {
+  if (!_crossyState) return;
+  const dt = Math.min(0.05, (now - _crossyState.lastTick) / 1000);
+  _crossyState.lastTick = now;
+  const ch = _crossyState.chicken;
+
+  // Chicken hop animation (lerp + parabolic arc)
+  if (_crossyState.hopT < 1) {
+    const elapsed = (now - _crossyState.hopStartedAt);
+    _crossyState.hopT = Math.min(1, elapsed / CR.HOP_MS);
+    const t = _crossyState.hopT;
+    ch.posX = ch.fromX + (ch.toX - ch.fromX) * t;
+    ch.posZ = ch.fromZ + (ch.toZ - ch.fromZ) * t;
+  }
+  const hopArc = Math.sin(_crossyState.hopT * Math.PI) * 0.45;
+  ch.group.position.set(CR.WORLD_OFFSET.x + ch.posX, hopArc, CR.WORLD_OFFSET.z + ch.posZ);
+  let h = ch.heading, tH = ch.targetHeading, diff = tH - h;
+  while (diff >  Math.PI) diff -= 2 * Math.PI;
+  while (diff < -Math.PI) diff += 2 * Math.PI;
+  ch.heading = h + diff * Math.min(1, dt * 16);
+  ch.group.rotation.y = ch.heading;
+
+  // Cars
+  for (const row of _crossyState.rows) {
+    if (row.type !== 'road') continue;
+    if (!row.lastSpawnAt) row.lastSpawnAt = now - row.nextSpawnDelay;
+    if (now - row.lastSpawnAt > row.nextSpawnDelay) {
+      row.lastSpawnAt = now;
+      const baseDelayMs = (row.spawnGap * CR.TILE) / row.speed * 1000;
+      row.nextSpawnDelay = baseDelayMs * (0.7 + Math.random() * 0.8);
+      const c = _crossyMakeCar();
+      const halfW = (CR.ROW_HALF_WIDTH + 5) * CR.TILE;
+      const startX = row.dir > 0 ? -halfW : halfW;
+      row.cars.push({ car: c, x: startX, dir: row.dir, speed: row.speed });
+    }
+    const cullLim = (CR.ROW_HALF_WIDTH + 8) * CR.TILE;
+    const zRow = _crossyZForRow(row.idx);
+    const survivors = [];
+    for (const cc of row.cars) {
+      cc.x += cc.dir * cc.speed * dt;
+      cc.car._wheelSpin = (cc.car._wheelSpin || 0) + cc.speed * dt / 0.37;
+      const heading = (cc.dir > 0) ? 0 : Math.PI;
+      _crossyPoseCar(cc.car, CR.WORLD_OFFSET.x + cc.x, 0.05, zRow, heading);
+      if (Math.abs(cc.x) > cullLim) _crossyDestroyCar(cc.car);
+      else survivors.push(cc);
+    }
+    row.cars = survivors;
+  }
+
+  // Collision: chicken vs cars on chicken's current row
+  if (!_crossyState.dead && _crossyState.hopT >= 0.4) {
+    const chRow = _crossyState.rows.find(r => r.idx === ch.tileZ);
+    if (chRow && chRow.type === 'road') {
+      const cxWorld = ch.posX;
+      for (const cc of chRow.cars) {
+        const dx = Math.abs(cc.x - cxWorld);
+        if (dx < (cc.car._crossyLen * 0.5 + CR.CHICKEN_R)) {
+          _crossyDie();
+          break;
+        }
+      }
+    }
+  }
+
+  // Camera: isometric chase. Chicken faces forward (-Z when ch.targetHeading=0).
+  const cx = CR.WORLD_OFFSET.x + ch.posX;
+  const cz = CR.WORLD_OFFSET.z + ch.posZ;
+  camera.position.set(cx + 6, 17, cz + 14);
+  camera.lookAt(cx, 0.5, cz - 3);
+}
+
+// Expose for tests / dev console
+if (typeof window !== 'undefined') {
+  window._crossy = {
+    enter: () => enterCrossyMode(),
+    exit:  () => exitCrossyMode(),
+    hop:   (dx, dz) => _crossyHop(dx, dz),
+    state: () => _crossyState,
+    isOn:  () => _crossyMode,
+  };
 }
 function _restoreCamFovIfNeeded() {
   if (_savedCamFov !== null) {
@@ -13344,6 +13997,14 @@ function loop() {
   // Camera orbits the player car; on every drag the gameOrbit yaw/pitch
   // update; ticking the morph here too so randomize re-rolls animate.
   if (gamePaused) {
+    // Crossy Road owns this frame — tick its mini-game and render. Main world
+    // is hidden via _crossyHideMainWorld; we render the same scene anyway
+    // because crossy meshes live in it at WORLD_OFFSET.
+    if (_crossyMode) {
+      try { _crossyTick(now); } catch (e) { console.error('crossy tick', e); }
+      renderer.render(scene, camera);
+      return;
+    }
     if (typeof tickConstrMorph === 'function') tickConstrMorph();
     // Re-sync wheel-arch uniforms from the live wheelInfos every frame —
     // belt + braces against any path that mutates wheelbase/track without
