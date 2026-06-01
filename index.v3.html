@@ -748,6 +748,56 @@
   #crossy-dpad .cr-dpad-down  { grid-column: 2; grid-row: 3; }
   #btn-crossy.active { background: rgba(255,208,96,0.30); }
 
+  /* ── Crossy Tune panel — admin-only colour + sun knobs ────────────── */
+  /* Visible iff: body.crossy-mode AND body.admin-on. Hidden otherwise. */
+  #crossy-tune {
+    position: absolute; bottom: 8px; left: 8px;
+    width: 248px; padding: 9px 12px;
+    background: rgba(8,10,14,0.92); color: #ddd;
+    border: 1px solid rgba(255,255,255,0.10); border-radius: 8px;
+    font-family: 'Courier New', monospace; font-size: 11px;
+    z-index: 57; pointer-events: auto;
+    max-height: calc(100vh - 24px); overflow-y: auto;
+  }
+  body:not(.crossy-mode) #crossy-tune,
+  body:not(.admin-on)    #crossy-tune { display: none !important; }
+  #crossy-tune .ct-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    color: #ffd060; letter-spacing: 2px; font-weight: bold;
+    margin-bottom: 6px;
+  }
+  #crossy-tune .ct-hint { font-size: 9px; opacity: 0.6; font-weight: normal; letter-spacing: 0.5px; }
+  #crossy-tune .ct-section {
+    margin: 8px 0 4px; color: #aaa; font-size: 10px; letter-spacing: 1px;
+    border-bottom: 1px solid rgba(255,255,255,0.10); padding-bottom: 2px;
+  }
+  #crossy-tune .ct-row {
+    display: grid; grid-template-columns: 76px 1fr 48px; align-items: center;
+    gap: 6px; margin: 3px 0;
+  }
+  #crossy-tune .ct-row label { font-size: 10px; color: #ccc; }
+  #crossy-tune .ct-row input[type="range"] { width: 100%; height: 14px; }
+  #crossy-tune .ct-row input[type="color"] {
+    width: 100%; height: 18px; border: 1px solid rgba(255,255,255,0.18);
+    background: transparent; padding: 0; cursor: pointer;
+  }
+  #crossy-tune .ct-row .ct-v { font-size: 10px; color: #888; text-align: right; }
+  #crossy-tune .ct-buttons { display: flex; gap: 6px; margin-top: 8px; }
+  #crossy-tune .ct-buttons button {
+    flex: 1; background: rgba(255,208,96,0.10); color: #ffd060;
+    border: 1px solid rgba(255,208,96,0.40); border-radius: 4px;
+    padding: 5px; font-family: inherit; font-size: 10px;
+    letter-spacing: 1px; cursor: pointer;
+  }
+  #crossy-tune .ct-buttons button:hover { background: rgba(255,208,96,0.20); }
+  #crossy-tune textarea#ct-json {
+    display: none; width: 100%; height: 110px; margin-top: 6px;
+    background: #0a0a0a; color: #aaa; border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 4px; padding: 6px; font-family: inherit; font-size: 9px;
+    resize: vertical;
+  }
+  #crossy-tune textarea#ct-json.show { display: block; }
+
   /* ── Shatter Tune panel — live sliders, toggle with T ─────────────── */
   #shatter-tune {
     position: absolute; bottom: 8px; right: 8px;
@@ -1514,6 +1564,30 @@
         <button class="cr-go-btn cr-go-quit" id="cr-go-quit">QUIT</button>
       </div>
     </div>
+    <!-- Crossy Tune — colours + sun. Admin-only, only visible when in crossy-mode AND L pressed. -->
+    <div id="crossy-tune" class="admin-only">
+      <div class="ct-head"><span>CROSSY TUNE</span><span class="ct-hint">[L] hide · admin</span></div>
+      <div class="ct-section">colours</div>
+      <div class="ct-row" data-key="grass"><label>grass</label><input type="color"><span class="ct-v"></span></div>
+      <div class="ct-row" data-key="grassDark"><label>grass alt</label><input type="color"><span class="ct-v"></span></div>
+      <div class="ct-row" data-key="road"><label>asphalt</label><input type="color"><span class="ct-v"></span></div>
+      <div class="ct-row" data-key="roadLine"><label>road line</label><input type="color"><span class="ct-v"></span></div>
+      <div class="ct-row" data-key="island"><label>island</label><input type="color"><span class="ct-v"></span></div>
+      <div class="ct-row" data-key="sky"><label>sky</label><input type="color"><span class="ct-v"></span></div>
+      <div class="ct-section">sun</div>
+      <div class="ct-row" data-key="sunColor"><label>sun colour</label><input type="color"><span class="ct-v"></span></div>
+      <div class="ct-row" data-key="sunIntensity"><label>sun ☼</label><input type="range" min="0" max="4" step="0.05"><span class="ct-v"></span></div>
+      <div class="ct-row" data-key="sunAzimuth"><label>azimuth°</label><input type="range" min="0" max="360" step="1"><span class="ct-v"></span></div>
+      <div class="ct-row" data-key="sunElevation"><label>elevation°</label><input type="range" min="5" max="89" step="1"><span class="ct-v"></span></div>
+      <div class="ct-row" data-key="sunDistance"><label>distance</label><input type="range" min="60" max="300" step="5"><span class="ct-v"></span></div>
+      <div class="ct-row" data-key="ambientIntensity"><label>ambient</label><input type="range" min="0" max="2" step="0.05"><span class="ct-v"></span></div>
+      <div class="ct-buttons">
+        <button id="ct-reset">RESET</button>
+        <button id="ct-save">SHOW JSON</button>
+      </div>
+      <textarea id="ct-json" readonly></textarea>
+    </div>
+
     <!-- Crossy mobile d-pad — touch hops. CSS rules drive visibility. -->
     <div id="crossy-dpad">
       <button class="cr-dpad cr-dpad-up"    data-dx="0"  data-dz="1">▲</button>
@@ -2041,7 +2115,10 @@ const _isoQuadMesh = new THREE.Mesh(
 _isoQuadScene.add(_isoQuadMesh);
 
 // ── LIGHTING ──────────────────────────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+// Anton 2026-06-01: keep a handle on the ambient light so the Crossy Tune
+// panel (and any future tuner) can mutate its intensity live.
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+scene.add(ambientLight);
 const sun = new THREE.DirectionalLight(0xfff5d4, 2.1);
 sun.position.set(124, 82, -96);
 sun.castShadow = true;
@@ -9499,7 +9576,9 @@ function _resetDriveCameraBlend() {
 
 window.addEventListener('keydown', e => {
   // Crossy Road owns input while its mode is on — arrows/WASD = chicken hops.
-  if (_crossyMode) {
+  // Exception: L falls through to the global handler so admin toggle still works
+  // (it reveals/hides the Crossy Tune panel, just like in derby).
+  if (_crossyMode && e.code !== 'KeyL') {
     if (e.code === 'Escape') { exitCrossyMode(); e.preventDefault(); return; }
     let dx = 0, dz = 0;
     if (e.code === 'ArrowUp'    || e.code === 'KeyW') dz = +1;  // forward
@@ -10745,6 +10824,36 @@ var _crossyCamSavedPos = null;
 var _crossyCamSavedQuat = null;
 var _crossySavedSceneBg = null;
 var _crossySavedFogState = null;
+// Anton 2026-06-01: derby's sun/ambient state — snapshotted on enter, restored
+// on exit so the crossy tuner can mutate lights without polluting derby.
+var _crossySavedSunPos       = null;
+var _crossySavedSunColor     = null;
+var _crossySavedSunIntensity = null;
+var _crossySavedAmbColor     = null;
+var _crossySavedAmbIntensity = null;
+
+// Crossy tune state — live values + factory defaults.
+// Tweak this object from the admin panel; SHOW JSON dumps the current values.
+// To bake in new defaults, replace `_CROSSY_TUNE_DEFAULTS` and the matching
+// CR.* constants with the JSON values.
+const _CROSSY_TUNE_DEFAULTS = {
+  // Colours
+  grass:            0x6cb959,
+  grassDark:        0x5fa84e,
+  road:             0x3a3a40,
+  roadLine:         0xefe79f,
+  island:           0xb6c79a,
+  sky:              0xcfe9f5,
+  // Sun
+  sunColor:         0xfff5d4,
+  sunIntensity:     2.1,
+  sunAzimuth:       322,   // degrees [0..360] — matches derby's (124, 82, -96)
+  sunElevation:     28,    // degrees [5..89]
+  sunDistance:      177,
+  ambientIntensity: 0.7,
+};
+var _crossyTune = Object.assign({}, _CROSSY_TUNE_DEFAULTS);
+var _crossyTuneInitDone = false;
 
 function _crossyHideMainWorld() {
   _crossyHiddenMeshes = [];
@@ -11214,6 +11323,144 @@ function _crossyRestart() {
   _crossyUpdateHUD();
 }
 
+// ── Crossy Tune (admin colours + sun) ──────────────────────────────────
+// Apply one tune value live: update the relevant material / light / texture.
+function _crossyTuneApply(key, value) {
+  if (!(key in _crossyTune)) return;
+  _crossyTune[key] = value;
+  const rows = _crossyState ? _crossyState.rows : [];
+  if (key === 'grass' || key === 'grassDark') {
+    // Walk grass rows, repaint. Alternating idx parity decides which of the
+    // two greens a given row uses (see _crossyBuildGroundForRow).
+    for (const r of rows) {
+      if (r.type !== 'grass' || !r.groundMesh) continue;
+      const useDark = (r.idx % 2 === 0);
+      r.groundMesh.material.color.setHex(useDark ? _crossyTune.grassDark : _crossyTune.grass);
+    }
+  } else if (key === 'island') {
+    for (const r of rows) {
+      if (r.type !== 'island' || !r.groundMesh) continue;
+      r.groundMesh.material.color.setHex(_crossyTune.island);
+    }
+  } else if (key === 'road' || key === 'roadLine') {
+    // Road colour is baked into a shared CanvasTexture. Redraw the canvas
+    // and flag the texture for upload — all road meshes refresh for free.
+    if (_crossyRoadTexture && _crossyRoadTexture.image) {
+      const c = _crossyRoadTexture.image;
+      const g = c.getContext('2d');
+      g.fillStyle = '#' + _crossyTune.road.toString(16).padStart(6, '0');
+      g.fillRect(0, 0, c.width, c.height);
+      g.fillStyle = '#' + _crossyTune.roadLine.toString(16).padStart(6, '0');
+      const dashW = 60, gapW = 60;
+      for (const y of [28, 64]) {
+        for (let x = 0; x < c.width; x += dashW + gapW) g.fillRect(x, y, dashW, 4);
+      }
+      _crossyRoadTexture.needsUpdate = true;
+    }
+  } else if (key === 'sky') {
+    if (scene.background && scene.background.isColor) scene.background.setHex(_crossyTune.sky);
+    else scene.background = new THREE.Color(_crossyTune.sky);
+    if (scene.fog) scene.fog.color.setHex(_crossyTune.sky);
+  } else if (key === 'sunColor') {
+    sun.color.setHex(_crossyTune.sunColor);
+  } else if (key === 'sunIntensity') {
+    sun.intensity = _crossyTune.sunIntensity;
+  } else if (key === 'sunAzimuth' || key === 'sunElevation' || key === 'sunDistance') {
+    const az = _crossyTune.sunAzimuth * Math.PI / 180;
+    const el = _crossyTune.sunElevation * Math.PI / 180;
+    const d  = _crossyTune.sunDistance;
+    sun.position.set(d * Math.cos(el) * Math.cos(az), d * Math.sin(el), d * Math.cos(el) * Math.sin(az));
+  } else if (key === 'ambientIntensity') {
+    if (typeof ambientLight !== 'undefined') ambientLight.intensity = _crossyTune.ambientIntensity;
+  }
+  _crossyTuneRefreshValueLabels();
+}
+
+function _crossyTuneRefreshValueLabels() {
+  const panel = document.getElementById('crossy-tune');
+  if (!panel) return;
+  for (const row of panel.querySelectorAll('.ct-row')) {
+    const key = row.getAttribute('data-key');
+    if (!key || !(key in _crossyTune)) continue;
+    const vEl = row.querySelector('.ct-v');
+    if (!vEl) continue;
+    const v = _crossyTune[key];
+    if (typeof v === 'number' && (key.startsWith('sun') && key !== 'sunColor') || key === 'ambientIntensity') {
+      vEl.textContent = (Math.round(v * 100) / 100).toString();
+    } else if (key === 'sunAzimuth' || key === 'sunElevation' || key === 'sunDistance') {
+      vEl.textContent = (Math.round(v)).toString();
+    } else {
+      vEl.textContent = '#' + v.toString(16).padStart(6, '0');
+    }
+  }
+}
+
+function _crossyTuneSetInputsFromState() {
+  const panel = document.getElementById('crossy-tune');
+  if (!panel) return;
+  for (const row of panel.querySelectorAll('.ct-row')) {
+    const key = row.getAttribute('data-key');
+    if (!key || !(key in _crossyTune)) continue;
+    const input = row.querySelector('input');
+    if (!input) continue;
+    if (input.type === 'color') {
+      input.value = '#' + _crossyTune[key].toString(16).padStart(6, '0');
+    } else {
+      input.value = _crossyTune[key];
+    }
+  }
+  _crossyTuneRefreshValueLabels();
+}
+
+// Apply every value in _crossyTune to the scene at once (e.g. on enter).
+function _crossyTuneApplyAll() {
+  for (const k of Object.keys(_crossyTune)) _crossyTuneApply(k, _crossyTune[k]);
+}
+
+function _crossyTuneInit() {
+  if (_crossyTuneInitDone) return;
+  const panel = document.getElementById('crossy-tune');
+  if (!panel) return;
+  for (const row of panel.querySelectorAll('.ct-row')) {
+    const key = row.getAttribute('data-key');
+    const input = row.querySelector('input');
+    if (!key || !input) continue;
+    input.addEventListener('input', () => {
+      const v = (input.type === 'color')
+        ? parseInt(input.value.replace('#', ''), 16)
+        : parseFloat(input.value);
+      _crossyTuneApply(key, v);
+    });
+  }
+  const btnReset = document.getElementById('ct-reset');
+  if (btnReset) btnReset.addEventListener('click', () => {
+    Object.assign(_crossyTune, _CROSSY_TUNE_DEFAULTS);
+    _crossyTuneSetInputsFromState();
+    _crossyTuneApplyAll();
+  });
+  const btnSave = document.getElementById('ct-save');
+  const jsonBox = document.getElementById('ct-json');
+  if (btnSave && jsonBox) btnSave.addEventListener('click', () => {
+    // Pretty-print the current values as a hex JSON snippet Anton can paste
+    // back at me to bake in as new defaults.
+    const out = {};
+    for (const k of Object.keys(_crossyTune)) {
+      const v = _crossyTune[k];
+      if (k.includes('Intensity') || k.includes('Azimuth') || k.includes('Elevation') || k.includes('Distance')) {
+        out[k] = (Math.round(v * 100) / 100);
+      } else {
+        out[k] = '0x' + v.toString(16).padStart(6, '0');
+      }
+    }
+    jsonBox.value = JSON.stringify(out, null, 2);
+    jsonBox.classList.add('show');
+    jsonBox.select();
+    try { navigator.clipboard.writeText(jsonBox.value); } catch (_) {}
+  });
+  _crossyTuneInitDone = true;
+  _crossyTuneSetInputsFromState();
+}
+
 function enterCrossyMode() {
   if (_crossyMode) return;
   // Clean exit from other modes first
@@ -11234,12 +11481,21 @@ function enterCrossyMode() {
   camera.updateProjectionMatrix();
   // Sky-blue scene backdrop so the void doesn't show through the horizon.
   _crossySavedSceneBg = scene.background;
-  scene.background = new THREE.Color(0xcfe9f5);
+  scene.background = new THREE.Color(_crossyTune.sky);
   if (scene.fog) {
     _crossySavedFogState = { near: scene.fog.near, far: scene.fog.far, color: scene.fog.color.clone() };
-    scene.fog.color.set(0xcfe9f5);
+    scene.fog.color.setHex(_crossyTune.sky);
     scene.fog.near = 40; scene.fog.far = 220;
   }
+  // Snapshot sun + ambient so we can fully restore derby's lighting on exit.
+  _crossySavedSunPos       = sun.position.clone();
+  _crossySavedSunColor     = sun.color.getHex();
+  _crossySavedSunIntensity = sun.intensity;
+  if (typeof ambientLight !== 'undefined') {
+    _crossySavedAmbColor     = ambientLight.color.getHex();
+    _crossySavedAmbIntensity = ambientLight.intensity;
+  }
+  _crossyTuneInit();
   _crossyHideMainWorld();
   let bestEver = 0;
   try { bestEver = parseInt(localStorage.getItem('psd-crossy-best-v1') || '0', 10) || 0; } catch (_) {}
@@ -11260,6 +11516,8 @@ function enterCrossyMode() {
     heading: 0, targetHeading: 0,
   };
   _crossyEnsureRowsAhead();
+  // Apply tune values now that rows + texture exist (recolours grass, sun, etc.)
+  _crossyTuneApplyAll();
   // HUD + d-pad visibility is driven entirely by `body.crossy-mode` CSS rules.
   const go = document.getElementById('crossy-gameover');
   if (go) go.style.display = 'none';
@@ -11292,6 +11550,15 @@ function exitCrossyMode() {
     scene.fog.far  = _crossySavedFogState.far;
     scene.fog.color.copy(_crossySavedFogState.color);
     _crossySavedFogState = null;
+  }
+  // Restore sun + ambient to derby's pre-crossy state. The Crossy tuner only
+  // affects crossy; derby's lighting never sees Anton's colour picks.
+  if (_crossySavedSunPos)        { sun.position.copy(_crossySavedSunPos);       _crossySavedSunPos = null; }
+  if (_crossySavedSunColor !== null) { sun.color.setHex(_crossySavedSunColor);  _crossySavedSunColor = null; }
+  if (_crossySavedSunIntensity !== null) { sun.intensity = _crossySavedSunIntensity; _crossySavedSunIntensity = null; }
+  if (typeof ambientLight !== 'undefined') {
+    if (_crossySavedAmbColor !== null)     { ambientLight.color.setHex(_crossySavedAmbColor); _crossySavedAmbColor = null; }
+    if (_crossySavedAmbIntensity !== null) { ambientLight.intensity = _crossySavedAmbIntensity; _crossySavedAmbIntensity = null; }
   }
   if (_crossyCamSavedFov !== null) { camera.fov = _crossyCamSavedFov; camera.updateProjectionMatrix(); _crossyCamSavedFov = null; }
   if (_crossyCamSavedPos)  { camera.position.copy(_crossyCamSavedPos);  _crossyCamSavedPos  = null; }
@@ -11388,6 +11655,9 @@ if (typeof window !== 'undefined') {
     hop:   (dx, dz) => _crossyHop(dx, dz),
     state: () => _crossyState,
     isOn:  () => _crossyMode,
+    tune:  () => _crossyTune,
+    tuneDefaults: () => _CROSSY_TUNE_DEFAULTS,
+    tuneApply: (k, v) => _crossyTuneApply(k, v),
   };
 }
 function _restoreCamFovIfNeeded() {
