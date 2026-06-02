@@ -10890,31 +10890,110 @@ function _crossyRestoreMainWorld() {
   _crossyHiddenMeshes = [];
 }
 
+// Anton 2026-06-02: chicken → Jeremy Clarkson voxel head. Pixel-sculpt style
+// reference image from Anton, but lower discretisation (11 × 14 × 9 grid,
+// ~250 voxels). Face points +Z by default so the existing targetHeading
+// values (forward hop = π rotation) still read as "looking where she's
+// going". Bottom of skull sits at y=0 so the head bobs up by hopArc the
+// same way the chicken did.
 function _crossyMakeChicken() {
   const grp = new THREE.Group();
-  const matBody = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 });
-  const matBeak = new THREE.MeshStandardMaterial({ color: 0xff9a1a, roughness: 0.70 });
-  const matComb = new THREE.MeshStandardMaterial({ color: 0xd83a3a, roughness: 0.70 });
-  const matEye  = new THREE.MeshStandardMaterial({ color: 0x101010, roughness: 0.50 });
-  const matWing = new THREE.MeshStandardMaterial({ color: 0xf3f3f3, roughness: 0.85 });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.85, 1.05), matBody);
-  body.position.set(0, 0.43, 0); body.castShadow = true; grp.add(body);
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.65, 0.70), matBody);
-  head.position.set(0, 1.18, 0.18); head.castShadow = true; grp.add(head);
-  const beak = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.18, 0.28), matBeak);
-  beak.position.set(0, 1.10, 0.62); grp.add(beak);
-  const comb = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.22, 0.30), matComb);
-  comb.position.set(0, 1.60, 0.15); grp.add(comb);
-  const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.10, 0.05), matEye);
-  eyeL.position.set(-0.22, 1.22, 0.51); grp.add(eyeL);
-  const eyeR = eyeL.clone(); eyeR.position.x = 0.22; grp.add(eyeR);
-  const wingL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.55, 0.75), matWing);
-  wingL.position.set(-0.55, 0.45, 0.0); grp.add(wingL);
-  const wingR = wingL.clone(); wingR.position.x = 0.55; grp.add(wingR);
-  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.20, 0.16), matBeak);
-  legL.position.set(-0.22, -0.05, 0.05); grp.add(legL);
-  const legR = legL.clone(); legR.position.x = 0.22; grp.add(legR);
-  // Every part casts a shadow so the chicken reads against dark grass.
+  const VOX  = 0.12;                     // voxel size (m)
+  const W = 11, H = 14, D = 9;           // grid dims
+  const cx = (W - 1) / 2, cz = (D - 1) / 2;
+  // Materials — Clarkson palette pulled from the reference: peachy skin,
+  // greyed-brown curls, hazel-blue eyes, ruddy lower lip.
+  const matSkin   = new THREE.MeshStandardMaterial({ color: 0xe6a07c, roughness: 0.85 });
+  const matSkinD  = new THREE.MeshStandardMaterial({ color: 0xc8835f, roughness: 0.85 });   // shadow / nose / chin
+  const matSkinL  = new THREE.MeshStandardMaterial({ color: 0xefb592, roughness: 0.85 });   // highlights
+  const matHair   = new THREE.MeshStandardMaterial({ color: 0x6f5a44, roughness: 0.95 });
+  const matHair2  = new THREE.MeshStandardMaterial({ color: 0x5a4838, roughness: 0.95 });   // darker hair clumps
+  const matBrow   = new THREE.MeshStandardMaterial({ color: 0x4a3826, roughness: 0.95 });
+  const matEyeW   = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.50 });
+  const matEyeB   = new THREE.MeshStandardMaterial({ color: 0x355877, roughness: 0.40 });
+  const matMouth  = new THREE.MeshStandardMaterial({ color: 0x9a4a3a, roughness: 0.85 });
+  const cells = {};
+  const key = (x, y, z) => x + ',' + y + ',' + z;
+  const set = (x, y, z, m) => { cells[key(x, y, z)] = m; };
+  const has = (x, y, z) => key(x, y, z) in cells;
+  // Pass 1 — fill an ellipsoidal skull with skin voxels. The head is
+  // taller than wide and slightly narrower front-to-back.
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      for (let z = 0; z < D; z++) {
+        const nx = (x - cx) / (W / 2);
+        const ny = (y - (H - 1) / 2) / (H / 2);
+        const nz = (z - cz) / (D / 2);
+        // Squash ny a bit so the skull is taller; chin pinches toward bottom
+        const chinPinch = (y < 3) ? (1.0 - (3 - y) * 0.18) : 1.0;
+        const r = (nx * nx) / (chinPinch * chinPinch) + ny * ny * 0.80 + nz * nz;
+        if (r <= 0.98) set(x, y, z, matSkin);
+      }
+    }
+  }
+  // Pass 2 — hair. Top 4 rows entirely, plus back-of-head, plus sideburns/
+  // temples. Mix matHair / matHair2 for some chunk variation.
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      for (let z = 0; z < D; z++) {
+        if (!has(x, y, z)) continue;
+        const isTop      = y >= H - 4;
+        const isBack     = z <= 1 && y >= 5;
+        const isTemple   = (x <= 1 || x >= W - 2) && y >= 9 && y <= 12;
+        const isSideburn = (x === 1 || x === W - 2) && y === 6;
+        if (isTop || isBack || isTemple || isSideburn) {
+          // Speckled hair: every third position gets the darker tone
+          const dark = ((x * 7 + y * 3 + z * 11) % 3 === 0);
+          set(x, y, z, dark ? matHair2 : matHair);
+        }
+      }
+    }
+  }
+  // Pass 3 — bump hair OUTWARD on top so it reads as curls, not a helmet.
+  // Add an extra row of hair voxels above the skull and at the back.
+  for (let x = 2; x <= W - 3; x++) {
+    for (let z = 1; z <= D - 2; z++) {
+      // Random-ish curl height — checkerboard pattern with skipped tiles.
+      if ((x + z) % 2 === 0) set(x, H, z, matHair);
+      else if ((x * z) % 5 === 0) set(x, H, z, matHair2);
+    }
+  }
+  // Pass 4 — features on the front face (z = D - 1).
+  const front = D - 1;
+  // Eyebrows — bushy, 2 voxels wide each, slight downward slope toward outer.
+  set(2, 10, front, matBrow); set(3, 10, front, matBrow);
+  set(7, 10, front, matBrow); set(8, 10, front, matBrow);
+  set(2, 9, front, matBrow);  set(8, 9, front, matBrow);
+  // Eye sockets — slightly darker skin shadow under the brow
+  set(3, 9, front, matSkinD); set(7, 9, front, matSkinD);
+  // Eyes — whites recessed one voxel back from front, pupils on the front face.
+  set(3, 8, front - 1, matEyeW);  set(7, 8, front - 1, matEyeW);
+  set(3, 8, front, matEyeB);      set(7, 8, front, matEyeB);
+  // Nose — protrudes one voxel in front of the face, darker shadow at the
+  // bridge sides.
+  set(5, 7, front + 1, matSkinL);
+  set(5, 6, front + 1, matSkin);
+  set(5, 5, front + 1, matSkinD);
+  set(4, 6, front, matSkinD); set(6, 6, front, matSkinD);
+  // Cheek highlights
+  set(2, 7, front, matSkinL); set(8, 7, front, matSkinL);
+  // Mouth — frown line, slight asymmetry like the reference
+  set(4, 3, front, matMouth); set(5, 3, front, matMouth); set(6, 3, front, matMouth);
+  set(5, 2, front, matMouth);   // lower lip dimple
+  // Chin shadow row
+  set(3, 1, front, matSkinD); set(4, 1, front, matSkinD);
+  set(6, 1, front, matSkinD); set(7, 1, front, matSkinD);
+  // Build meshes. Cube shared geometry, materials per-voxel.
+  const geo = new THREE.BoxGeometry(VOX, VOX, VOX);
+  for (const k in cells) {
+    const [xs, ys, zs] = k.split(',');
+    const x = +xs, y = +ys, z = +zs;
+    const m = new THREE.Mesh(geo, cells[k]);
+    m.position.set((x - cx) * VOX, y * VOX + VOX / 2, (z - cz) * VOX);
+    m.castShadow = true;
+    grp.add(m);
+  }
+  // Ensure every mesh casts (redundant guard but cheap).
   grp.traverse(o => { if (o.isMesh) o.castShadow = true; });
   return grp;
 }
