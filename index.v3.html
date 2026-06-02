@@ -10891,33 +10891,73 @@ function _crossyRestoreMainWorld() {
   _crossyHiddenMeshes = [];
 }
 
-// Anton 2026-06-02: reverted from the Clarkson head experiment back to the
-// original chicken. Voxel head lived briefly; cute but Anton prefers the
-// chicken. Kept the voxel-head builder commented out for future revival.
+// Anton 2026-06-02: chicken redesign — rounded "soft volumes" style, like
+// the PSD cars but pill-shaped. Front: vertical white pill body, red comb
+// on top, red beak forward, two black eyes, two small side wings. Side
+// shows the same with one leg → red disc base (microphone-stand style).
+// Single leg, disc instead of feet, everything rounded.
+// (Three r128 has no CapsuleGeometry — we use scaled SphereGeometry for the
+// pill volumes and CylinderGeometry for the leg + disc.)
 function _crossyMakeChicken() {
   const grp = new THREE.Group();
-  const matBody = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 });
-  const matBeak = new THREE.MeshStandardMaterial({ color: 0xff9a1a, roughness: 0.70 });
-  const matComb = new THREE.MeshStandardMaterial({ color: 0xd83a3a, roughness: 0.70 });
-  const matEye  = new THREE.MeshStandardMaterial({ color: 0x101010, roughness: 0.50 });
-  const matWing = new THREE.MeshStandardMaterial({ color: 0xf3f3f3, roughness: 0.85 });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.85, 1.05), matBody);
-  body.position.set(0, 0.43, 0); body.castShadow = true; grp.add(body);
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.65, 0.70), matBody);
-  head.position.set(0, 1.18, 0.18); head.castShadow = true; grp.add(head);
-  const beak = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.18, 0.28), matBeak);
-  beak.position.set(0, 1.10, 0.62); grp.add(beak);
-  const comb = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.22, 0.30), matComb);
-  comb.position.set(0, 1.60, 0.15); grp.add(comb);
-  const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.10, 0.05), matEye);
-  eyeL.position.set(-0.22, 1.22, 0.51); grp.add(eyeL);
-  const eyeR = eyeL.clone(); eyeR.position.x = 0.22; grp.add(eyeR);
-  const wingL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.55, 0.75), matWing);
-  wingL.position.set(-0.55, 0.45, 0.0); grp.add(wingL);
-  const wingR = wingL.clone(); wingR.position.x = 0.55; grp.add(wingR);
-  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.20, 0.16), matBeak);
-  legL.position.set(-0.22, -0.05, 0.05); grp.add(legL);
-  const legR = legL.clone(); legR.position.x = 0.22; grp.add(legR);
+  const matBody = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.50, metalness: 0.10 });
+  const matRed  = new THREE.MeshStandardMaterial({ color: 0xd83a3a, roughness: 0.50, metalness: 0.05 });
+  const matEye  = new THREE.MeshStandardMaterial({ color: 0x0d0d0d, roughness: 0.35 });
+
+  // ── Base: flat red disc (microphone stand) ──
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.30, 0.08, 28), matRed);
+  disc.position.y = 0.04;
+  grp.add(disc);
+
+  // ── Single leg: red cylinder up from disc ──
+  const legH = 0.42;
+  const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, legH, 14), matRed);
+  leg.position.y = 0.08 + legH / 2;
+  grp.add(leg);
+
+  // ── Body: vertical white pill (ellipsoid from a scaled sphere) ──
+  const bodyW = 0.45, bodyH = 0.75, bodyD = 0.42;
+  const body = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 18), matBody);
+  body.scale.set(bodyW, bodyH, bodyD);
+  const bodyCY = 0.50 + bodyH;     // bottom of body sits on top of leg
+  body.position.y = bodyCY;
+  grp.add(body);
+
+  // ── Two side wings: small rounded volumes on left/right at mid-body ──
+  const wing = (sign) => {
+    const w = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 12), matBody);
+    w.scale.set(0.12, 0.22, 0.20);
+    w.position.set(sign * (bodyW + 0.02), bodyCY - 0.05, 0);
+    return w;
+  };
+  grp.add(wing(-1)); grp.add(wing(+1));
+
+  // ── Comb: vertical red oval on top, slightly forward ──
+  const comb = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 16), matRed);
+  comb.scale.set(0.09, 0.18, 0.09);
+  comb.position.set(0, bodyCY + bodyH * 0.92, 0.04);
+  grp.add(comb);
+
+  // ── Beak: small red oval pointing forward (+Z is face direction) ──
+  const beak = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 12), matRed);
+  beak.scale.set(0.08, 0.07, 0.13);
+  beak.position.set(0, bodyCY + bodyH * 0.20, bodyD + 0.04);
+  grp.add(beak);
+
+  // ── Eyes: two dark spheres flanking the beak on front face ──
+  const eye = (sign) => {
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.062, 10, 10), matEye);
+    e.position.set(sign * 0.18, bodyCY + bodyH * 0.45, bodyD * 0.90);
+    return e;
+  };
+  grp.add(eye(-1)); grp.add(eye(+1));
+
+  // ── Tail: small white rounded volume at the back to give side-view silhouette ──
+  const tail = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 12), matBody);
+  tail.scale.set(0.12, 0.16, 0.18);
+  tail.position.set(0, bodyCY - 0.05, -(bodyD + 0.02));
+  grp.add(tail);
+
   grp.traverse(o => { if (o.isMesh) o.castShadow = true; });
   return grp;
 }
