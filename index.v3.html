@@ -10891,71 +10891,99 @@ function _crossyRestoreMainWorld() {
   _crossyHiddenMeshes = [];
 }
 
-// Anton 2026-06-02: chicken redesign — rounded "soft volumes" style, like
-// the PSD cars but pill-shaped. Front: vertical white pill body, red comb
-// on top, red beak forward, two black eyes, two small side wings. Side
-// shows the same with one leg → red disc base (microphone-stand style).
-// Single leg, disc instead of feet, everything rounded.
-// (Three r128 has no CapsuleGeometry — we use scaled SphereGeometry for the
-// pill volumes and CylinderGeometry for the leg + disc.)
+// Anton 2026-06-02 (rev2): chicken — rounded rectangles, not spheres.
+// Anton drew a tall vertical rectangular body with rounded corners, two
+// small rectangular wings on the sides, comb as a vertical pill on top,
+// red beak forward, two dark eyes, single leg with a red microphone-
+// stand disc. Built with ExtrudeGeometry + bevel so corners are truly
+// rounded boxes (Three r128 has no RoundedBoxGeometry).
+function _crossyRoundedBoxGeom(w, h, d, r, bevelSegs) {
+  r = Math.min(r, w / 2 - 0.001, h / 2 - 0.001);
+  const bevel = Math.min(r, d / 2 - 0.001);
+  // Build the rounded-rectangle outline.
+  const W = w / 2, H = h / 2;
+  const shape = new THREE.Shape();
+  shape.moveTo(-W + r, -H);
+  shape.lineTo( W - r, -H);
+  shape.quadraticCurveTo( W, -H,  W, -H + r);
+  shape.lineTo( W,  H - r);
+  shape.quadraticCurveTo( W,  H,  W - r,  H);
+  shape.lineTo(-W + r,  H);
+  shape.quadraticCurveTo(-W,  H, -W,  H - r);
+  shape.lineTo(-W, -H + r);
+  shape.quadraticCurveTo(-W, -H, -W + r, -H);
+  // Extrude with bevel on both ends → 3D rounded box.
+  const coreDepth = Math.max(0.001, d - bevel * 2);
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth:          coreDepth,
+    bevelEnabled:   true,
+    bevelThickness: bevel,
+    bevelSize:      bevel,
+    bevelSegments:  bevelSegs || 3,
+    curveSegments:  6,
+  });
+  geo.translate(0, 0, -coreDepth / 2);
+  return geo;
+}
+
 function _crossyMakeChicken() {
   const grp = new THREE.Group();
   const matBody = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.50, metalness: 0.10 });
   const matRed  = new THREE.MeshStandardMaterial({ color: 0xd83a3a, roughness: 0.50, metalness: 0.05 });
   const matEye  = new THREE.MeshStandardMaterial({ color: 0x0d0d0d, roughness: 0.35 });
 
-  // ── Base: flat red disc (microphone stand) ──
-  const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.30, 0.08, 28), matRed);
+  // ── Disc base (microphone stand) ──
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.08, 28), matRed);
   disc.position.y = 0.04;
   grp.add(disc);
 
-  // ── Single leg: red cylinder up from disc ──
-  const legH = 0.42;
-  const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, legH, 14), matRed);
+  // ── Single leg: thin red cylinder going up from disc centre ──
+  const legH = 0.40;
+  const leg  = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, legH, 14), matRed);
   leg.position.y = 0.08 + legH / 2;
   grp.add(leg);
 
-  // ── Body: vertical white pill (ellipsoid from a scaled sphere) ──
-  const bodyW = 0.45, bodyH = 0.75, bodyD = 0.42;
-  const body = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 18), matBody);
-  body.scale.set(bodyW, bodyH, bodyD);
-  const bodyCY = 0.50 + bodyH;     // bottom of body sits on top of leg
-  body.position.y = bodyCY;
+  // ── Body: tall rounded rectangle (2:1 height:width like Anton's sketch) ──
+  // Width 0.55, height 1.10, depth 0.50, corner radius 0.13.
+  const bodyW = 0.55, bodyH = 1.10, bodyD = 0.50, bodyR = 0.13;
+  const bodyBot = 0.48;                      // sits just above the leg top
+  const bodyCY  = bodyBot + bodyH / 2;
+  const body    = new THREE.Mesh(_crossyRoundedBoxGeom(bodyW, bodyH, bodyD, bodyR, 4), matBody);
+  body.position.set(0, bodyCY, 0);
   grp.add(body);
 
-  // ── Two side wings: small rounded volumes on left/right at mid-body ──
+  // ── Two side wings: small white rounded rectangles ──
+  const wingW = 0.15, wingH = 0.32, wingD = 0.20, wingR = 0.06;
   const wing = (sign) => {
-    const w = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 12), matBody);
-    w.scale.set(0.12, 0.22, 0.20);
-    w.position.set(sign * (bodyW + 0.02), bodyCY - 0.05, 0);
+    const w = new THREE.Mesh(_crossyRoundedBoxGeom(wingW, wingH, wingD, wingR, 2), matBody);
+    w.position.set(sign * (bodyW / 2 + wingW / 2 - 0.03), bodyCY - 0.08, 0);
     return w;
   };
   grp.add(wing(-1)); grp.add(wing(+1));
 
-  // ── Comb: vertical red oval on top, slightly forward ──
-  const comb = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 16), matRed);
-  comb.scale.set(0.09, 0.18, 0.09);
-  comb.position.set(0, bodyCY + bodyH * 0.92, 0.04);
+  // ── Comb: tall narrow red pill on top, slightly forward ──
+  const combW = 0.12, combH = 0.28, combD = 0.12, combR = 0.05;
+  const comb = new THREE.Mesh(_crossyRoundedBoxGeom(combW, combH, combD, combR, 3), matRed);
+  comb.position.set(0, bodyCY + bodyH / 2 + combH / 2 - 0.02, 0.04);
   grp.add(comb);
 
-  // ── Beak: small red oval pointing forward (+Z is face direction) ──
-  const beak = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 12), matRed);
-  beak.scale.set(0.08, 0.07, 0.13);
-  beak.position.set(0, bodyCY + bodyH * 0.20, bodyD + 0.04);
+  // ── Beak: small red rounded box pointing forward (+Z is face direction) ──
+  const beakW = 0.10, beakH = 0.10, beakD = 0.16, beakR = 0.04;
+  const beak = new THREE.Mesh(_crossyRoundedBoxGeom(beakW, beakH, beakD, beakR, 2), matRed);
+  beak.position.set(0, bodyCY + bodyH * 0.05, bodyD / 2 + beakD / 2 - 0.03);
   grp.add(beak);
 
-  // ── Eyes: two dark spheres flanking the beak on front face ──
+  // ── Eyes: two dark dots flanking the beak. Pushed forward to the face plane. ──
   const eye = (sign) => {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.062, 10, 10), matEye);
-    e.position.set(sign * 0.18, bodyCY + bodyH * 0.45, bodyD * 0.90);
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.068, 14, 12), matEye);
+    e.position.set(sign * 0.16, bodyCY + bodyH * 0.18, bodyD / 2 + 0.005);
     return e;
   };
   grp.add(eye(-1)); grp.add(eye(+1));
 
-  // ── Tail: small white rounded volume at the back to give side-view silhouette ──
-  const tail = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 12), matBody);
-  tail.scale.set(0.12, 0.16, 0.18);
-  tail.position.set(0, bodyCY - 0.05, -(bodyD + 0.02));
+  // ── Small tail bump at the back so the side silhouette reads as a bird ──
+  const tail = new THREE.Mesh(_crossyRoundedBoxGeom(0.18, 0.18, 0.14, 0.06, 2), matBody);
+  tail.position.set(0, bodyCY - 0.18, -(bodyD / 2 + 0.05));
   grp.add(tail);
 
   grp.traverse(o => { if (o.isMesh) o.castShadow = true; });
