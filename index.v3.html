@@ -10831,26 +10831,35 @@ var _crossySavedSunColor     = null;
 var _crossySavedSunIntensity = null;
 var _crossySavedAmbColor     = null;
 var _crossySavedAmbIntensity = null;
+// Anton 2026-06-02: derby's shadow camera covers ±150 around origin. Crossy
+// lives at WORLD_OFFSET (4000, 4000) so we need to retarget the shadow
+// frustum near the chicken or no shadows render at all. Snapshot the
+// derby state and reapply on exit.
+var _crossySavedShadow = null;
+var _crossySavedSunTargetPos = null;
 
 // Crossy tune state — live values + factory defaults.
 // Tweak this object from the admin panel; SHOW JSON dumps the current values.
 // To bake in new defaults, replace `_CROSSY_TUNE_DEFAULTS` and the matching
 // CR.* constants with the JSON values.
+// Anton's dialed-in palette + lighting (2026-06-02): dark moody dusk, low
+// warm sun at the east-southeast, near-black road + grass for contrast,
+// lowered ambient so shadows actually read.
 const _CROSSY_TUNE_DEFAULTS = {
   // Colours
-  grass:            0x6cb959,
-  grassDark:        0x5fa84e,
-  road:             0x3a3a40,
-  roadLine:         0xefe79f,
-  island:           0xb6c79a,
+  grass:            0x103e04,
+  grassDark:        0x072301,
+  road:             0x09090b,
+  roadLine:         0x5d5c56,
+  island:           0x202118,
   sky:              0xcfe9f5,
   // Sun
-  sunColor:         0xfff5d4,
-  sunIntensity:     2.1,
-  sunAzimuth:       322,   // degrees [0..360] — matches derby's (124, 82, -96)
-  sunElevation:     28,    // degrees [5..89]
-  sunDistance:      177,
-  ambientIntensity: 0.7,
+  sunColor:         0xf8e72a,
+  sunIntensity:     2.30,
+  sunAzimuth:       115,
+  sunElevation:     10,
+  sunDistance:      125,
+  ambientIntensity: 0.45,
 };
 var _crossyTune = Object.assign({}, _CROSSY_TUNE_DEFAULTS);
 var _crossyTuneInitDone = false;
@@ -10905,6 +10914,8 @@ function _crossyMakeChicken() {
   const legL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.20, 0.16), matBeak);
   legL.position.set(-0.22, -0.05, 0.05); grp.add(legL);
   const legR = legL.clone(); legR.position.x = 0.22; grp.add(legR);
+  // Every part casts a shadow so the chicken reads against dark grass.
+  grp.traverse(o => { if (o.isMesh) o.castShadow = true; });
   return grp;
 }
 
@@ -10933,6 +10944,10 @@ function _crossyMakeCar() {
   c._crossyLen = len;
   // Hide any badge that might have been attached during tier-roll.
   if (c.badge) try { for (const m of _badgeMeshes(c.badge)) m.visible = false; } catch (_) {}
+  // Anton 2026-06-02: shadows. Body parts inside car.group + wheels need
+  // castShadow = true. PSD's matCar etc. don't set it by default.
+  if (c.group) c.group.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  if (c.wheels) for (const w of c.wheels) w.traverse(o => { if (o.isMesh) o.castShadow = true; });
   return c;
 }
 // PSD chassis rests at world Y=0.77 (line 5448–5464). bodyLift is relative to
@@ -11366,10 +11381,7 @@ function _crossyTuneApply(key, value) {
   } else if (key === 'sunIntensity') {
     sun.intensity = _crossyTune.sunIntensity;
   } else if (key === 'sunAzimuth' || key === 'sunElevation' || key === 'sunDistance') {
-    const az = _crossyTune.sunAzimuth * Math.PI / 180;
-    const el = _crossyTune.sunElevation * Math.PI / 180;
-    const d  = _crossyTune.sunDistance;
-    sun.position.set(d * Math.cos(el) * Math.cos(az), d * Math.sin(el), d * Math.cos(el) * Math.sin(az));
+    _crossyUpdateSunPos();
   } else if (key === 'ambientIntensity') {
     if (typeof ambientLight !== 'undefined') ambientLight.intensity = _crossyTune.ambientIntensity;
   }
@@ -11461,6 +11473,27 @@ function _crossyTuneInit() {
   _crossyTuneSetInputsFromState();
 }
 
+// Position the sun relative to the chicken so its shadow camera (centred on
+// sun.target = chicken) always frames the playable area. Called every tick
+// (chicken moves) and whenever the tuner touches azimuth / elevation /
+// distance. Derby leaves sun.target at world origin — we restore on exit.
+function _crossyUpdateSunPos() {
+  if (!_crossyMode) return;
+  const ch = _crossyState && _crossyState.chicken;
+  const cx = CR.WORLD_OFFSET.x + (ch ? ch.posX : 0);
+  const cz = CR.WORLD_OFFSET.z + (ch ? ch.posZ : 0);
+  const az = _crossyTune.sunAzimuth   * Math.PI / 180;
+  const el = _crossyTune.sunElevation * Math.PI / 180;
+  const d  = _crossyTune.sunDistance;
+  sun.position.set(
+    cx + d * Math.cos(el) * Math.cos(az),
+    d * Math.sin(el),
+    cz + d * Math.cos(el) * Math.sin(az),
+  );
+  sun.target.position.set(cx, 0, cz);
+  sun.target.updateMatrixWorld();
+}
+
 function enterCrossyMode() {
   if (_crossyMode) return;
   // Clean exit from other modes first
@@ -11495,6 +11528,30 @@ function enterCrossyMode() {
     _crossySavedAmbColor     = ambientLight.color.getHex();
     _crossySavedAmbIntensity = ambientLight.intensity;
   }
+  // Anton 2026-06-02: shadow frustum must move to where crossy lives. Derby
+  // covers ±150 around (0,0,0); crossy lives at (4000, 4000). Retarget the
+  // shadow camera around the chicken (±50 m), boost shadow map resolution
+  // so shadows read on the dark dusk palette, then point sun.target at
+  // chicken so the shadow frustum tracks her.
+  const sc = sun.shadow.camera;
+  _crossySavedShadow = {
+    left: sc.left, right: sc.right, top: sc.top, bottom: sc.bottom,
+    near: sc.near, far: sc.far,
+    mapW: sun.shadow.mapSize.x, mapH: sun.shadow.mapSize.y,
+    bias: sun.shadow.bias, normalBias: sun.shadow.normalBias,
+    radius: sun.shadow.radius,
+  };
+  sc.left = -50; sc.right = 50; sc.top = 50; sc.bottom = -50;
+  sc.near = 1; sc.far = 320;
+  sc.updateProjectionMatrix();
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.bias       = -0.0008;
+  sun.shadow.normalBias = 0.03;
+  sun.shadow.radius     = 1.4;
+  if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }   // force re-alloc at new size
+  // sun.target needs to be in the scene graph for its matrixWorld to update.
+  if (!sun.target.parent) scene.add(sun.target);
+  _crossySavedSunTargetPos = sun.target.position.clone();
   _crossyTuneInit();
   _crossyHideMainWorld();
   let bestEver = 0;
@@ -11559,6 +11616,25 @@ function exitCrossyMode() {
   if (typeof ambientLight !== 'undefined') {
     if (_crossySavedAmbColor !== null)     { ambientLight.color.setHex(_crossySavedAmbColor); _crossySavedAmbColor = null; }
     if (_crossySavedAmbIntensity !== null) { ambientLight.intensity = _crossySavedAmbIntensity; _crossySavedAmbIntensity = null; }
+  }
+  // Restore shadow camera + map (derby's bigger ±150 frustum, original res)
+  if (_crossySavedShadow) {
+    const sc = sun.shadow.camera;
+    sc.left = _crossySavedShadow.left; sc.right = _crossySavedShadow.right;
+    sc.top  = _crossySavedShadow.top;  sc.bottom = _crossySavedShadow.bottom;
+    sc.near = _crossySavedShadow.near; sc.far    = _crossySavedShadow.far;
+    sc.updateProjectionMatrix();
+    sun.shadow.mapSize.set(_crossySavedShadow.mapW, _crossySavedShadow.mapH);
+    sun.shadow.bias       = _crossySavedShadow.bias;
+    sun.shadow.normalBias = _crossySavedShadow.normalBias;
+    sun.shadow.radius     = _crossySavedShadow.radius;
+    if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+    _crossySavedShadow = null;
+  }
+  if (_crossySavedSunTargetPos) {
+    sun.target.position.copy(_crossySavedSunTargetPos);
+    sun.target.updateMatrixWorld();
+    _crossySavedSunTargetPos = null;
   }
   if (_crossyCamSavedFov !== null) { camera.fov = _crossyCamSavedFov; camera.updateProjectionMatrix(); _crossyCamSavedFov = null; }
   if (_crossyCamSavedPos)  { camera.position.copy(_crossyCamSavedPos);  _crossyCamSavedPos  = null; }
@@ -11645,6 +11721,8 @@ function _crossyTick(now) {
   const cz = CR.WORLD_OFFSET.z + ch.posZ;
   camera.position.set(cx + 6, 17, cz + 14);
   camera.lookAt(cx, 0.5, cz - 3);
+  // Shadow frustum tracks chicken so shadows stay crisp as she advances.
+  _crossyUpdateSunPos();
 }
 
 // Expose for tests / dev console
@@ -14454,6 +14532,10 @@ function loop() {
     // because crossy meshes live in it at WORLD_OFFSET.
     if (_crossyMode) {
       try { _crossyTick(now); } catch (e) { console.error('crossy tick', e); }
+      // Anton 2026-06-02: re-bake shadows every other frame. We short-circuit
+      // before the main loop's shadowMap.needsUpdate line, so without this
+      // the shadow texture would be frozen on the derby world.
+      renderer.shadowMap.needsUpdate = (_frameNum % 2) === 0;
       renderer.render(scene, camera);
       return;
     }
