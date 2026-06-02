@@ -10891,13 +10891,39 @@ function _crossyRestoreMainWorld() {
   _crossyHiddenMeshes = [];
 }
 
-// Anton 2026-06-02: chicken → Jeremy Clarkson voxel head. Pixel-sculpt style
-// reference image from Anton, but lower discretisation (11 × 14 × 9 grid,
-// ~250 voxels). Face points +Z by default so the existing targetHeading
-// values (forward hop = π rotation) still read as "looking where she's
-// going". Bottom of skull sits at y=0 so the head bobs up by hopArc the
-// same way the chicken did.
+// Anton 2026-06-02: reverted from the Clarkson head experiment back to the
+// original chicken. Voxel head lived briefly; cute but Anton prefers the
+// chicken. Kept the voxel-head builder commented out for future revival.
 function _crossyMakeChicken() {
+  const grp = new THREE.Group();
+  const matBody = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 });
+  const matBeak = new THREE.MeshStandardMaterial({ color: 0xff9a1a, roughness: 0.70 });
+  const matComb = new THREE.MeshStandardMaterial({ color: 0xd83a3a, roughness: 0.70 });
+  const matEye  = new THREE.MeshStandardMaterial({ color: 0x101010, roughness: 0.50 });
+  const matWing = new THREE.MeshStandardMaterial({ color: 0xf3f3f3, roughness: 0.85 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.85, 1.05), matBody);
+  body.position.set(0, 0.43, 0); body.castShadow = true; grp.add(body);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.65, 0.70), matBody);
+  head.position.set(0, 1.18, 0.18); head.castShadow = true; grp.add(head);
+  const beak = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.18, 0.28), matBeak);
+  beak.position.set(0, 1.10, 0.62); grp.add(beak);
+  const comb = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.22, 0.30), matComb);
+  comb.position.set(0, 1.60, 0.15); grp.add(comb);
+  const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.10, 0.05), matEye);
+  eyeL.position.set(-0.22, 1.22, 0.51); grp.add(eyeL);
+  const eyeR = eyeL.clone(); eyeR.position.x = 0.22; grp.add(eyeR);
+  const wingL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.55, 0.75), matWing);
+  wingL.position.set(-0.55, 0.45, 0.0); grp.add(wingL);
+  const wingR = wingL.clone(); wingR.position.x = 0.55; grp.add(wingR);
+  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.20, 0.16), matBeak);
+  legL.position.set(-0.22, -0.05, 0.05); grp.add(legL);
+  const legR = legL.clone(); legR.position.x = 0.22; grp.add(legR);
+  grp.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return grp;
+}
+
+// — Kept for future revival: voxel-sculpt Jeremy Clarkson head —
+function _crossyMakeClarkson_unused() {
   const grp = new THREE.Group();
   const VOX  = 0.12;                     // voxel size (m)
   const W = 11, H = 14, D = 9;           // grid dims
@@ -11251,10 +11277,16 @@ function _crossyBuildGroundForRow(row, zCenter) {
   // the playable corridor (where chicken can hop sideways).
   const visualWidth = 220;          // metres — big enough that chicken never sees edge
   const depth = CR.TILE;
-  let color = CR.GRASS;
-  if (row.type === 'road')   color = CR.ROAD;
-  if (row.type === 'island') color = CR.ISLAND;
-  if (row.type === 'grass' && (row.idx % 2 === 0)) color = CR.GRASS_DARK;
+  // Anton 2026-06-02: previously this read from CR.GRASS / CR.ROAD / etc,
+  // which are *factory* constants — never updated by the tuner. New rows
+  // generated as the chicken progressed forward came up in the original
+  // bright palette while existing rows had already been repainted. Pull
+  // from _crossyTune so the WHOLE world stays consistent with the live
+  // settings.
+  let color = _crossyTune.grass;
+  if (row.type === 'road')   color = _crossyTune.road;
+  if (row.type === 'island') color = _crossyTune.island;
+  if (row.type === 'grass' && (row.idx % 2 === 0)) color = _crossyTune.grassDark;
   const geo = new THREE.PlaneGeometry(visualWidth, depth);
   const matOpts = { color, roughness: 0.95 };
   if (row.type === 'road') {
@@ -11274,16 +11306,27 @@ function _crossyBuildGroundForRow(row, zCenter) {
     // Texture handles all markings — no extra stripe meshes needed.
     row.stripeMeshes = [];
   } else {
-    // Grass / island — scatter a few voxel "trees" outside the playable corridor
+    // Grass / island — scatter a few voxel "trees" outside the playable corridor.
+    // Anton 2026-06-02: tree foliage colour derived from the tune so a dark
+    // palette stays dark. We tint the row's base colour up by ~25–40 % so
+    // the tree stands out from the ground but doesn't blow into bright green.
     row.decoMeshes = [];
     const n = 1 + ((Math.random() * 3) | 0);
+    // Brighten a hex colour by a multiplicative factor, clamped per-channel.
+    const lift = (hex, k) => {
+      let r = (hex >> 16) & 0xff, g = (hex >> 8) & 0xff, b = hex & 0xff;
+      r = Math.min(255, Math.round(r * k));
+      g = Math.min(255, Math.round(g * k));
+      b = Math.min(255, Math.round(b * k));
+      return (r << 16) | (g << 8) | b;
+    };
     for (let i = 0; i < n; i++) {
       const sideSign = Math.random() < 0.5 ? -1 : 1;
       const sideTile = sideSign * (CR.ROW_HALF_WIDTH + 1 + ((Math.random() * 4) | 0));
-      const treeMat = new THREE.MeshStandardMaterial({
-        color: row.type === 'island' ? 0x6e8a4a : (Math.random() < 0.5 ? 0x3d8a3f : 0x4e9b48),
-        roughness: 0.9,
-      });
+      const baseColor = row.type === 'island' ? _crossyTune.island : _crossyTune.grass;
+      // Slight variation per-tree: 1.25× to 1.65× brightness
+      const crownColor = lift(baseColor, 1.25 + Math.random() * 0.4);
+      const treeMat = new THREE.MeshStandardMaterial({ color: crownColor, roughness: 0.9 });
       const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5b3a1a, roughness: 0.95 });
       const tg = new THREE.Group();
       const trunk = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.6, 0.45), trunkMat);
