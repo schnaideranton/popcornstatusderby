@@ -10855,11 +10855,11 @@ const _CROSSY_TUNE_DEFAULTS = {
   sky:              0xcfe9f5,
   // Sun
   sunColor:         0xf8e72a,
-  sunIntensity:     2.30,
-  sunAzimuth:       115,
-  sunElevation:     10,
+  sunIntensity:     1.55,
+  sunAzimuth:       129,
+  sunElevation:     18,
   sunDistance:      125,
-  ambientIntensity: 0.45,
+  ambientIntensity: 0.40,
 };
 var _crossyTune = Object.assign({}, _CROSSY_TUNE_DEFAULTS);
 var _crossyTuneInitDone = false;
@@ -11323,6 +11323,7 @@ function _crossyRestart() {
   _crossyState.score = 0;
   _crossyState.bestZ = 0;
   _crossyState.dead = false;
+  _crossyState.camSmooth = null;     // restart camera blend from scratch
   const chickenG = _crossyMakeChicken();
   chickenG.position.set(CR.WORLD_OFFSET.x, 0, CR.WORLD_OFFSET.z);
   scene.add(chickenG);
@@ -11562,6 +11563,7 @@ function enterCrossyMode() {
     score: 0, bestZ: 0, bestEver,
     dead: false,
     debris: [],
+    camSmooth: null,           // initialised on first tick from chicken pos
     lastTick: performance.now(),
   };
   const chickenG = _crossyMakeChicken();
@@ -11716,9 +11718,22 @@ function _crossyTick(now) {
   // Tick debris (cars that hit the chicken explode here)
   _crossyTickDebris(dt, now);
 
-  // Camera: isometric chase. Chicken faces forward (-Z when ch.targetHeading=0).
-  const cx = CR.WORLD_OFFSET.x + ch.posX;
-  const cz = CR.WORLD_OFFSET.z + ch.posZ;
+  // Camera: isometric chase with rubber-band lag. Anton 2026-06-02:
+  // following the chicken 1:1 makes the whole picture snap-shake at every
+  // hop (130 ms parabolic = sharp acceleration). Instead we maintain a
+  // smoothed centre that lerps toward the chicken position. Time constant
+  // ≈ 1/SMOOTH seconds — at 5 the camera reaches ~95 % in 600 ms, which
+  // softens every hop without feeling laggy. Framerate-independent via
+  // 1 − exp(−dt × k).
+  const targetCx = CR.WORLD_OFFSET.x + ch.posX;
+  const targetCz = CR.WORLD_OFFSET.z + ch.posZ;
+  if (!_crossyState.camSmooth) _crossyState.camSmooth = { cx: targetCx, cz: targetCz };
+  const CR_CAM_SMOOTH = 5.0;
+  const k = 1 - Math.exp(-dt * CR_CAM_SMOOTH);
+  _crossyState.camSmooth.cx += (targetCx - _crossyState.camSmooth.cx) * k;
+  _crossyState.camSmooth.cz += (targetCz - _crossyState.camSmooth.cz) * k;
+  const cx = _crossyState.camSmooth.cx;
+  const cz = _crossyState.camSmooth.cz;
   camera.position.set(cx + 6, 17, cz + 14);
   camera.lookAt(cx, 0.5, cz - 3);
   // Shadow frustum tracks chicken so shadows stay crisp as she advances.
