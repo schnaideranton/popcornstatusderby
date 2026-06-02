@@ -8116,42 +8116,60 @@ const CG_KILL_SPEED    = 3.0;
 const CG_TIME_BONUS    = 5;
 const CG_PED_SCORE     = 100;
 const CG_TIME_LIMIT    = 60;
+// Anton 2026-06-02: Cargeneddon peds are now the same chicken used in the
+// crossy mini-game — bouncing across the derby arena instead of pink
+// cylinders. Visually they hop with a sinusoidal arc and rotate to face
+// their wander direction. Kill physics + arena bounds are unchanged.
+const CG_CHICKEN_SCALE   = 0.65;
+const CG_CHICKEN_TOTAL_H = 1.68 * CG_CHICKEN_SCALE;   // 1.092 m
 function cgSpawnPed() {
   let px, pz;
   do {
     px = (Math.random() - 0.5) * 2 * CG_ARENA_BOUND;
     pz = (Math.random() - 0.5) * 2 * CG_ARENA_BOUND;
   } while (Math.hypot(px, pz) < 18);
+  // Outer group whose origin coincides with the chicken's vertical centre.
+  // The chicken is built with feet at y=0, so we shift it down by halfH so
+  // the group origin sits at the visual centre — matches what we get from
+  // the CANNON box body's position.
   const grp = new THREE.Group();
-  const torsoMat = new THREE.MeshLambertMaterial({ color: 0xff5599 });
-  const headMat  = new THREE.MeshLambertMaterial({ color: 0xffcccc });
-  const torso = new THREE.Mesh(
-    new THREE.CylinderGeometry(CG_PED_RADIUS, CG_PED_RADIUS, CG_PED_HEIGHT, 12),
-    torsoMat);
-  torso.castShadow = true;
-  grp.add(torso);
-  const head = new THREE.Mesh(
-    new THREE.SphereGeometry(CG_PED_RADIUS * 0.9, 12, 10),
-    headMat);
-  head.castShadow = true;
-  head.position.y = CG_PED_HEIGHT / 2 + CG_PED_RADIUS * 0.7;
-  grp.add(head);
+  const chicken = _crossyMakeChicken();
+  chicken.scale.setScalar(CG_CHICKEN_SCALE);
+  chicken.position.y = -CG_CHICKEN_TOTAL_H / 2;
+  grp.add(chicken);
   scene.add(grp);
+  // Pluck out the white "feathers" material so we can stain it red on
+  // death (cgKill replaces the pink-to-red recolour the old ped did).
+  let bodyMat = null;
+  chicken.traverse(o => {
+    if (!bodyMat && o.isMesh && o.material && o.material.color) {
+      const c = o.material.color;
+      if (c.r > 0.9 && c.g > 0.9 && c.b > 0.9) bodyMat = o.material;
+    }
+  });
+  // Physics box — kept at original half-dims so kill-distance + arena
+  // bounds tune the same as before. Visual wings/beak overhang the box
+  // but kill is distance-based so that doesn't matter.
+  const halfH = CG_CHICKEN_TOTAL_H / 2;
   const body = new CANNON.Body({ mass: CG_PED_MASS });
-  body.addShape(new CANNON.Box(new CANNON.Vec3(CG_PED_RADIUS, CG_PED_HEIGHT * 0.5, CG_PED_RADIUS)));
-  body.position.set(px, CG_PED_HEIGHT * 0.5 + 0.1, pz);
+  body.addShape(new CANNON.Box(new CANNON.Vec3(CG_PED_RADIUS, halfH, CG_PED_RADIUS)));
+  body.position.set(px, halfH + 0.10, pz);
   body.linearDamping = 0.45; body.angularDamping = 0.55;
   world.addBody(body);
-  return { group: grp, body, torsoMat, alive: true, killTime: 0,
-           wanderDir: Math.random() * Math.PI * 2, wanderUntil: 0,
-           hopState: 0, hopUntil: 0 };
+  return {
+    group: grp, chicken, bodyMat, body,
+    alive: true, killTime: 0,
+    wanderDir: Math.random() * Math.PI * 2, wanderUntil: 0,
+    hopState: 0, hopUntil: 0,
+    hopPhase: Math.random() * Math.PI * 2,    // random per-ped so they don't bounce in sync
+  };
 }
 function cgSpawnAll() { for (let i = 0; i < CG_PED_COUNT; i++) CG.peds.push(cgSpawnPed()); }
 function cgDespawnAll() {
   for (const ped of CG.peds) {
     if (ped.body)  world.removeBody(ped.body);
     if (ped.group) {
-      ped.group.children.forEach(c => { if (c.geometry) c.geometry.dispose(); });
+      ped.group.traverse(o => { if (o.geometry) o.geometry.dispose(); });
       scene.remove(ped.group);
     }
   }
@@ -8173,9 +8191,14 @@ function cgKill(ped, hitter) {
       280 + speed * 8,
       (dz / len) * launch + v.z * 6),
     new CANNON.Vec3(0, 0, 0));
-  ped.body.angularVelocity.set(0, 0, 0);
+  // Give the chicken a random tumble so it ragdolls visibly.
+  ped.body.angularVelocity.set(
+    (Math.random() - 0.5) * 10,
+    (Math.random() - 0.5) * 10,
+    (Math.random() - 0.5) * 10);
   ped.hopState = 1; ped.hopUntil = performance.now() + 1800;
-  if (ped.torsoMat) ped.torsoMat.color.setHex(0xff0000);
+  // Stain the white feathers red (replaces the old pink-torso recolour).
+  if (ped.bodyMat) ped.bodyMat.color.setHex(0xff2030);
   Synth.hit();
 }
 function cgUpdatePeds() {
@@ -8183,14 +8206,18 @@ function cgUpdatePeds() {
   const now = performance.now();
   for (const ped of CG.peds) {
     if (!ped.body) continue;
-    ped.group.position.copy(ped.body.position);
-    ped.group.quaternion.copy(ped.body.quaternion);
-    // Hopping animation for dead pedestrians — pik-pik-pik hops
-    if (ped.hopState > 0 && now < ped.hopUntil) {
-      const hopPhase = ((now - ped.killTime) / 150) % 1;
-      if (hopPhase < 0.25) ped.body.applyImpulse(new CANNON.Vec3(0, 10, 0), new CANNON.Vec3(0, 0, 0));
-    }
     if (ped.alive) {
+      // Visual hop arc — matches the crossy chicken's parabolic bob. Pure
+      // visual: physics body still slides along the ground.
+      const t = ((now * 0.001 * 1.55) + ped.hopPhase) % (2 * Math.PI);
+      const arc = Math.max(0, Math.sin(t)) * 0.26;
+      ped.group.position.set(
+        ped.body.position.x,
+        ped.body.position.y + arc,
+        ped.body.position.z
+      );
+      // Face wander direction. Chicken default faces +Z; rotation = π/2 − dir.
+      ped.group.rotation.set(0, Math.PI / 2 - ped.wanderDir, 0);
       if (now > ped.wanderUntil) {
         ped.wanderDir   = Math.random() * Math.PI * 2;
         ped.wanderUntil = now + 800 + Math.random() * 1500;
@@ -8207,11 +8234,20 @@ function cgUpdatePeds() {
       const d  = Math.hypot(dx, dz);
       const sp2 = Math.hypot(player.chassis.velocity.x, player.chassis.velocity.z);
       if (d < CG_KILL_DIST && sp2 > CG_KILL_SPEED) cgKill(ped, player);
-    } else if (now - ped.killTime > 2500) {
-      if (ped.body)  { world.removeBody(ped.body); ped.body = null; }
-      if (ped.group) {
-        ped.group.children.forEach(c => { if (c.geometry) c.geometry.dispose(); });
-        scene.remove(ped.group); ped.group = null;
+    } else {
+      // Dead: ragdoll — physics drives the chicken pose entirely.
+      ped.group.position.copy(ped.body.position);
+      ped.group.quaternion.copy(ped.body.quaternion);
+      if (ped.hopState > 0 && now < ped.hopUntil) {
+        const hopPhase = ((now - ped.killTime) / 150) % 1;
+        if (hopPhase < 0.25) ped.body.applyImpulse(new CANNON.Vec3(0, 10, 0), new CANNON.Vec3(0, 0, 0));
+      }
+      if (now - ped.killTime > 2500) {
+        if (ped.body)  { world.removeBody(ped.body); ped.body = null; }
+        if (ped.group) {
+          ped.group.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+          scene.remove(ped.group); ped.group = null;
+        }
       }
     }
   }
@@ -10926,66 +10962,53 @@ function _crossyRoundedBoxGeom(w, h, d, r, bevelSegs) {
   return geo;
 }
 
+// Anton 2026-06-02 (rev3): chicken built strictly from his chicken.svg
+// two-view sketch. Every box has its dimensions and position transcribed
+// from the SVG at scale 0.008 m / SVG unit. Front view = X+Y, side view =
+// Z+Y. The chicken faces +Z (so beak protrudes that way).
+//
+// SVG bounding box is 90 wide (front silhouette) × 210 tall (total
+// chicken). Scaling 90 → 0.48m wide / 210 → 1.68m tall.
+//
+//   foot   60×14×60 SVG  → 0.48 × 0.11 × 0.48   red, y∈[0, 0.11]
+//   leg    13×46×13       → 0.10 × 0.37 × 0.10   red, y∈[0.11, 0.48]
+//   body   60×120×60      → 0.48 × 0.96 × 0.48   white, y∈[0.48, 1.44]
+//   comb   15×30×30       → 0.12 × 0.24 × 0.24   red, y∈[1.44, 1.68]
+//   beak   15×15×30       → 0.12 × 0.13 × 0.24   red, front face
+//   eye L,R 15³           → 0.12³                 dark, sides of head
+//   wing L,R 15×45×30     → 0.12 × 0.36 × 0.24   white, lower flanks
+//   tail   30×15×30       → 0.24 × 0.12 × 0.24   white, behind body
 function _crossyMakeChicken() {
   const grp = new THREE.Group();
-  const matBody = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.50, metalness: 0.10 });
-  const matRed  = new THREE.MeshStandardMaterial({ color: 0xd83a3a, roughness: 0.50, metalness: 0.05 });
-  const matEye  = new THREE.MeshStandardMaterial({ color: 0x0d0d0d, roughness: 0.35 });
-
-  // ── Disc base (microphone stand) ──
-  const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.08, 28), matRed);
-  disc.position.y = 0.04;
-  grp.add(disc);
-
-  // ── Single leg: thin red cylinder going up from disc centre ──
-  const legH = 0.40;
-  const leg  = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, legH, 14), matRed);
-  leg.position.y = 0.08 + legH / 2;
-  grp.add(leg);
-
-  // ── Body: tall rounded rectangle (2:1 height:width like Anton's sketch) ──
-  // Width 0.55, height 1.10, depth 0.50, corner radius 0.13.
-  const bodyW = 0.55, bodyH = 1.10, bodyD = 0.50, bodyR = 0.13;
-  const bodyBot = 0.48;                      // sits just above the leg top
-  const bodyCY  = bodyBot + bodyH / 2;
-  const body    = new THREE.Mesh(_crossyRoundedBoxGeom(bodyW, bodyH, bodyD, bodyR, 4), matBody);
-  body.position.set(0, bodyCY, 0);
-  grp.add(body);
-
-  // ── Two side wings: small white rounded rectangles ──
-  const wingW = 0.15, wingH = 0.32, wingD = 0.20, wingR = 0.06;
-  const wing = (sign) => {
-    const w = new THREE.Mesh(_crossyRoundedBoxGeom(wingW, wingH, wingD, wingR, 2), matBody);
-    w.position.set(sign * (bodyW / 2 + wingW / 2 - 0.03), bodyCY - 0.08, 0);
-    return w;
+  const matBody = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, metalness: 0.05 });
+  const matRed  = new THREE.MeshStandardMaterial({ color: 0xed2024, roughness: 0.55, metalness: 0.04 });
+  const matEye  = new THREE.MeshStandardMaterial({ color: 0x2b101c, roughness: 0.45 });
+  const mk = (w, h, d, mat, x, y, z) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    m.position.set(x, y, z);
+    grp.add(m);
   };
-  grp.add(wing(-1)); grp.add(wing(+1));
-
-  // ── Comb: tall narrow red pill on top, slightly forward ──
-  const combW = 0.12, combH = 0.28, combD = 0.12, combR = 0.05;
-  const comb = new THREE.Mesh(_crossyRoundedBoxGeom(combW, combH, combD, combR, 3), matRed);
-  comb.position.set(0, bodyCY + bodyH / 2 + combH / 2 - 0.02, 0.04);
-  grp.add(comb);
-
-  // ── Beak: small red rounded box pointing forward (+Z is face direction) ──
-  const beakW = 0.10, beakH = 0.10, beakD = 0.16, beakR = 0.04;
-  const beak = new THREE.Mesh(_crossyRoundedBoxGeom(beakW, beakH, beakD, beakR, 2), matRed);
-  beak.position.set(0, bodyCY + bodyH * 0.05, bodyD / 2 + beakD / 2 - 0.03);
-  grp.add(beak);
-
-  // ── Eyes: two dark dots flanking the beak. Pushed forward to the face plane. ──
-  const eye = (sign) => {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.068, 14, 12), matEye);
-    e.position.set(sign * 0.16, bodyCY + bodyH * 0.18, bodyD / 2 + 0.005);
-    return e;
-  };
-  grp.add(eye(-1)); grp.add(eye(+1));
-
-  // ── Small tail bump at the back so the side silhouette reads as a bird ──
-  const tail = new THREE.Mesh(_crossyRoundedBoxGeom(0.18, 0.18, 0.14, 0.06, 2), matBody);
-  tail.position.set(0, bodyCY - 0.18, -(bodyD / 2 + 0.05));
-  grp.add(tail);
-
+  // Foot — flat red slab. y∈[0, 0.11], centre 0.055.
+  mk(0.48, 0.11, 0.48, matRed,  0,    0.055, 0);
+  // Single leg — red cuboid. y∈[0.11, 0.48], centre 0.295.
+  mk(0.10, 0.37, 0.10, matRed,  0,    0.295, 0);
+  // Body — tall white cuboid. y∈[0.48, 1.44], centre 0.96.
+  mk(0.48, 0.96, 0.48, matBody, 0,    0.96,  0);
+  // Comb — red block on top. y∈[1.44, 1.68], centre 1.56.
+  mk(0.12, 0.24, 0.24, matRed,  0,    1.56,  0);
+  // Beak — red block sticking out the front (+Z). Sits flush with body
+  // front face (z = 0.24 + half beak depth 0.12 = 0.36). y matches eye row.
+  mk(0.12, 0.13, 0.24, matRed,  0,    1.20,  0.36);
+  // Eyes — black cubes flanking the head. Body half-width 0.24, eye
+  // half-width 0.06 → eye centre x = ±0.30. y same as beak.
+  mk(0.12, 0.12, 0.12, matEye, -0.30, 1.20,  0);
+  mk(0.12, 0.12, 0.12, matEye,  0.30, 1.20,  0);
+  // Wings — white slabs on each flank, centred low body. y∈[0.60, 0.96],
+  // centre 0.78. Same x-offsets as eyes but bigger boxes.
+  mk(0.12, 0.36, 0.24, matBody, -0.30, 0.78, 0);
+  mk(0.12, 0.36, 0.24, matBody,  0.30, 0.78, 0);
+  // Tail — white block sticking out the back (−Z). y∈[0.66, 0.78].
+  mk(0.24, 0.12, 0.24, matBody, 0,    0.72, -0.36);
   grp.traverse(o => { if (o.isMesh) o.castShadow = true; });
   return grp;
 }

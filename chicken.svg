@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 245.8 210">
+  <!-- Generator: Adobe Illustrator 30.5.1, SVG Export Plug-In . SVG Version: 2.1.4 Build 3)  -->
+  <rect x="155.8" y="30" width="60" height="120" fill="#fff"/>
+  <rect x="133.3" y="45" width="15" height="30" transform="translate(200.8 -80.8) rotate(90)" fill="#ed2024"/>
+  <rect x="223.3" y="105" width="15" height="30" transform="translate(350.8 -110.8) rotate(90)" fill="#fff"/>
+  <rect x="163.3" y="97.5" width="45" height="30" transform="translate(298.3 -73.3) rotate(90)" fill="#fff" stroke="#231f20" stroke-miterlimit="10"/>
+  <polygon points="192.3 195.9 192.3 150 179.3 150 179.3 195.9 155.8 195.9 155.8 210 215.8 210 215.8 195.9 192.3 195.9" fill="#ed2024"/>
+  <polygon points="51.5 195.9 51.5 150 38.5 150 38.5 195.9 15 195.9 15 210 75 210 75 195.9 51.5 195.9" fill="#ed2024"/>
+  <rect x="178.3" y="52.5" width="15" height="15" fill="#2b101c"/>
+  <rect x="75" y="52.5" width="15" height="15" fill="#2b101c"/>
+  <rect y="52.5" width="15" height="15" fill="#2b101c"/>
+  <rect x="15" y="30" width="60" height="120" fill="#fff"/>
+  <rect x="37.5" width="15" height="30" fill="#ed2024"/>
+  <rect x="170.8" width="30" height="30" fill="#ed2024"/>
+  <rect x="35.8" y="52.5" width="14.8" height="16.5" transform="translate(104 17.5) rotate(90)" fill="#ed2024"/>
+  <rect x="60" y="105" width="45" height="15" transform="translate(195 30) rotate(90)" fill="#fff"/>
+  <rect x="-15" y="105" width="45" height="15" transform="translate(120 105) rotate(90)" fill="#fff"/>
+</svg>
