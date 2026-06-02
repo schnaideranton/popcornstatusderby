@@ -10846,13 +10846,14 @@ var _crossySavedSunTargetPos = null;
 // warm sun at the east-southeast, near-black road + grass for contrast,
 // lowered ambient so shadows actually read.
 const _CROSSY_TUNE_DEFAULTS = {
-  // Colours
-  grass:            0x103e04,
-  grassDark:        0x072301,
+  // Colours (Anton's third tuner pass — deeper greens, vivid yellow road
+  // marking, midnight-blue sky for a real dusk feel)
+  grass:            0x093300,
+  grassDark:        0x071d02,
   road:             0x09090b,
-  roadLine:         0x5d5c56,
-  island:           0x202118,
-  sky:              0xcfe9f5,
+  roadLine:         0xffdb0f,
+  island:           0x181816,
+  sky:              0x1d313a,
   // Sun
   sunColor:         0xf8e72a,
   sunIntensity:     1.55,
@@ -11079,6 +11080,12 @@ const _CROSSY_DEBRIS_TTL_MS = 3500;
 function _crossyShatterCar(cc, row, chicken) {
   if (!cc || !cc.car || cc._shattered) return;
   cc._shattered = true;
+  // Anton 2026-06-02: collision penalty. Chicken is invincible but the
+  // score takes a hit — can go arbitrarily negative.
+  if (_crossyState) {
+    _crossyState.score -= 1;
+    _crossyUpdateHUD();
+  }
   const car = cc.car;
   const carX = CR.WORLD_OFFSET.x + cc.x;
   const carZ = _crossyZForRow(row.idx);
@@ -11362,13 +11369,30 @@ function _crossyHop(dx, dz) {
   else if (dx < 0) ch.targetHeading = -Math.PI / 2;     // left (−X)
   _crossyState.hopT = 0;
   _crossyState.hopStartedAt = performance.now();
+  // Anton 2026-06-02: score = roads crossed − collisions. Credit any
+  // not-yet-credited road rows that the chicken is now past (idx < tileZ).
+  // Hopping back-and-forth doesn't double-count because crossedRoads is a Set.
+  let credited = 0;
+  for (const row of _crossyState.rows) {
+    if (row.type !== 'road') continue;
+    if (row.idx >= newTileZ) continue;
+    if (_crossyState.crossedRoads.has(row.idx)) continue;
+    _crossyState.crossedRoads.add(row.idx);
+    credited++;
+  }
+  if (credited > 0) {
+    _crossyState.score += credited;
+    if (_crossyState.score > _crossyState.bestEver) {
+      _crossyState.bestEver = _crossyState.score;
+      try { localStorage.setItem('psd-crossy-best-v1', String(_crossyState.bestEver)); } catch (_) {}
+    }
+  }
   if (newTileZ > _crossyState.bestZ) {
     _crossyState.bestZ = newTileZ;
-    _crossyState.score = newTileZ;
     _crossyState.headRowIdx = newTileZ;
     _crossyEnsureRowsAhead();
-    _crossyUpdateHUD();
   }
+  _crossyUpdateHUD();
 }
 function _crossyDie() {
   if (!_crossyState || _crossyState.dead) return;
@@ -11401,6 +11425,7 @@ function _crossyRestart() {
   _crossyState.headRowIdx = 0;
   _crossyState.score = 0;
   _crossyState.bestZ = 0;
+  _crossyState.crossedRoads = new Set();
   _crossyState.dead = false;
   _crossyState.camSmooth = null;     // restart camera blend from scratch
   const chickenG = _crossyMakeChicken();
@@ -11640,6 +11665,10 @@ function enterCrossyMode() {
     rows: [], headRowIdx: 0, chicken: null,
     hopT: 1, hopStartedAt: 0,
     score: 0, bestZ: 0, bestEver,
+    // Anton 2026-06-02: score = roads crossed − collisions. No floor; can
+    // go arbitrarily negative. crossedRoads tracks which road idx have
+    // already credited (so hopping back-and-forth doesn't double-count).
+    crossedRoads: new Set(),
     dead: false,
     debris: [],
     camSmooth: null,           // initialised on first tick from chicken pos
